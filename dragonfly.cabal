@@ -7,8 +7,8 @@ synopsis: "A physics engine for scientific and other purposes written in Vulkan 
 
 -- A longer description of the package.
 description: {Dragonfly's purpose is to provide a framework for scientific computations, using the
-simplicity and low-levelness of Vulkan and C, but also the elegance of Haskell. Although it mainly
-covers scientific needs, it will also be useful for other uses, like games.}
+simplicity and low-levelness of Vulkan and C, but also the elegance of Haskell. Although it will mainly
+cover scientific needs, it will also be useful for other uses, like games.}
 
 -- A URL where users can report bugs.
 -- bug-reports:
