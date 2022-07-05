@@ -1,0 +1,44 @@
+cabal-version:      2.4
+name:               dragonfly
+version:            0.0.0.1
+
+-- A short (one-line) description of the package.
+synopsis: "A physics engine for scientific and other purposes written in Vulkan and bound in Haskell."
+
+-- A longer description of the package.
+description: {Dragonfly's purpose is to provide a framework for scientific computations, using the
+simplicity and low-levelness of Vulkan and C, but also the elegance of Haskell. Although it mainly
+covers scientific needs, it will also be useful for other uses, like games.}
+
+-- A URL where users can report bugs.
+-- bug-reports:
+
+-- The license under which the package is released.
+license:            BSD-3-Clause
+author:             xmamalou
+maintainer:         xmamalou@freemail.gr
+
+-- A copyright notice.
+-- copyright:
+-- category:
+extra-source-files: CHANGELOG.md
+
+executable engine
+    hs-source-dirs: .
+    C-sources: c/src/render.c 
+    main-is: Main.hs
+    -- Modules included in this executable, other than Main.
+    other-modules: 
+        Dragonfly.Bind.Render
+        Dragonfly.Render
+    -- LANGUAGE extensions used by modules in this package.
+    other-extensions: CPP ForeignFunctionInterface
+    build-depends:    base >=4.7 && < 5 
+    default-language: Haskell2010
+    include-dirs: /usr/local/include/SDL2
+    includes: 
+        SDL.h
+        SDL_vulkan.h
+    extra-lib-dirs: .
+    extra-libraries: SDL2
+    
