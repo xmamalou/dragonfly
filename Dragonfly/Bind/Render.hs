@@ -18,3 +18,9 @@ import Foreign.C.String
 
 foreign import ccall "../../c/include/render.h dlfWindowIniting"
     c_dlfWindowIniting :: CString -> CInt -> CInt -> CInt -> IO Int
+foreign import ccall "../../c/include/render.h dlfWindowKilling"
+    c_dlfWindowKilling :: IO ()
+foreign import ccall "../../c/include/render.h dlfVulkanIniting"
+    c_dlfVulkanIniting :: IO Int
+foreign import ccall "../../c/include/render.h dlfVulkanKilling"
+    c_dlfVulkanKilling :: IO ()
