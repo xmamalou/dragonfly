@@ -25,7 +25,9 @@ extra-source-files: CHANGELOG.md
 
 executable engine
     hs-source-dirs: .
-    C-sources: c/src/render.c 
+    C-sources: 
+        c/src/render.c
+        c/src/vector.c
     main-is: Main.hs
     -- Modules included in this executable, other than Main.
     other-modules: 
@@ -35,12 +37,12 @@ executable engine
     other-extensions: CPP ForeignFunctionInterface
     build-depends:    base >=4.7 && < 5 
     default-language: Haskell2010
-    include-dirs: /usr/include/SDL2 /usr/include/vulkan
+    include-dirs: /usr/include/SDL2 /usr/include/vulkan /usr/include
     includes: 
         SDL.h
         SDL_vulkan.h
         vulkan.h
     extra-lib-dirs: .
     extra-libraries: SDL2 vulkan
-    ghc-options: "-g"
+    ghc-options: -g
     
