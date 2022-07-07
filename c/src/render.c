@@ -25,78 +25,156 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
 EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.*/
 
 #include "../include/render.h"
+#include <string.h>
 #include <stdio.h>
 
-int dlfWindowIniting(const char* windowName, int width, int height, int fullscreen)
+int dflWindowIniting(const char* windowName, int width, int height, int fullscreen)
 {
-    dlfWindowName = windowName;
+    dflWindowName = windowName;
     
     if(SDL_Init(SDL_INIT_VIDEO) < 0)
-        return DLF_SDLV_INIT_ERROR;
+        return DFL_SDLV_INIT_ERROR;
 
-    if(SDL_GetDesktopDisplayMode(0, dlfDisplay))
-        return DLF_SDL_MONITOR_INFO_ERROR;
+    if(SDL_GetDesktopDisplayMode(0, dflDisplay))
+        return DFL_SDL_MONITOR_INFO_ERROR;
 
     if(!fullscreen)
-        dlfWindow = SDL_CreateWindow(windowName, SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, width, height, SDL_WINDOW_VULKAN | SDL_WINDOW_SHOWN);
+        dflWindow = SDL_CreateWindow(windowName, SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, width, height, SDL_WINDOW_VULKAN | SDL_WINDOW_SHOWN);
     else 
-        dlfWindow = SDL_CreateWindow(windowName, SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, 2560, 1440, SDL_WINDOW_VULKAN | SDL_WINDOW_SHOWN | SDL_WINDOW_FULLSCREEN);
+        dflWindow = SDL_CreateWindow(windowName, SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, 2560, 1440, SDL_WINDOW_VULKAN | SDL_WINDOW_SHOWN | SDL_WINDOW_FULLSCREEN);
 
-    if(dlfWindow == NULL)
-        return DLF_SDL_WINDOW_INIT_ERROR;
+    if(dflWindow == NULL)
+        return DFL_SDL_WINDOW_INIT_ERROR;
 
-    //dlfSurface = SDL_GetWindowSurface(dlfWindow);
-    return DLF_SUCCESS;
+    //dflSurface = SDL_GetWindowSurface(dflWindow);
+    return DFL_SUCCESS;
 }
 
-void dlfWindowKilling()
+void dflWindowKilling()
 {
-    //SDL_FreeSurface(dlfSurface);
-    SDL_DestroyWindow(dlfWindow);
+    //SDL_FreeSurface(dflSurface);
+    SDL_DestroyWindow(dflWindow);
     SDL_Quit();
+
+    free(dflDisplay);
 }
 
-int dlfVulkanIniting()
+// VULKAN FUNCTIONS
+
+int dflVulkanIniting()
 {
     int error = 0;
-    if(error = dlfVulkInstanceMaking())
+
+    #ifndef DFL_NO_DEBUG 
+        if(error = dflVulkLayersMaking())
+            return error;
+    #endif
+    if(error = dflVulkInstanceMaking())
         return error;
     
-    return DLF_SUCCESS;
+    return DFL_SUCCESS;
 }
 
-void dlfVulkanKilling()
+void dflVulkanKilling()
 {
-    vkDestroyInstance(*dlfVulkInstance, NULL);
+    vkDestroyInstance(*dflVulkInstance, NULL);
 }
 
-int dlfVulkInstanceMaking()
+// VULKAN SUBFUNCTIONS 
+
+static int dflVulkInstanceMaking()
 {
     VkApplicationInfo appInfo = {
         .sType = VK_STRUCTURE_TYPE_APPLICATION_INFO,
-        .pApplicationName = dlfWindowName,
+        .pApplicationName = dflWindowName,
         .applicationVersion = VK_MAKE_VERSION(0, 0, 1),
         .pEngineName = "Dragonfly",
         .engineVersion = VK_MAKE_VERSION(0, 0, 1),
         .apiVersion = VK_API_VERSION_1_3
-    };
-
-    if(SDL_Vulkan_GetInstanceExtensions(dlfWindow, &dlfExtensionsCount, NULL) == SDL_FALSE)
-        return DLF_SDL_VULKEXTENS_ENUM_ERROR;
-
-    if(SDL_Vulkan_GetInstanceExtensions(dlfWindow, &dlfExtensionsCount, dlfExtensions) == SDL_FALSE)
-        return DLF_SDL_VULKEXTENS_ERROR;
+    }; 
     
+    int error = 0;
+    if(error = dflVulkExtensionSupplying())
+        return error;
+
     VkInstanceCreateInfo instanceInfo = {
         .sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
         .pApplicationInfo = &appInfo,
-        .enabledExtensionCount = dlfExtensionsCount,
-        .ppEnabledExtensionNames = dlfExtensions,
-        .enabledLayerCount = 0
+        .enabledExtensionCount = dflVulkExtensions.size,
+        .ppEnabledExtensionNames = dflVulkExtensions.data,
     };
 
-    if(vkCreateInstance(&instanceInfo, NULL, dlfVulkInstance) != VK_SUCCESS)
-        return DLF_SDL_VULKINSTANCE_ERROR;
+    #ifndef DFL_NO_DEBUG
+        instanceInfo.enabledLayerCount = dflVulkLayers.size;
+        instanceInfo.ppEnabledExtensionNames = dflVulkLayers.data;
+    #else
+        instanceInfo.enabledExtensionCount = 0;
+    #endif
 
-    return DLF_SUCCESS;
+    if(vkCreateInstance(&instanceInfo, NULL, dflVulkInstance) != VK_SUCCESS)
+        return DFL_VULKINSTANCE_ERROR;
+
+    return DFL_SUCCESS;
+}
+
+#ifndef DFL_NO_DEBUG
+static int dflVulkLayersMaking()
+{
+    // we insert one layer here
+    dflVectorPushing(&dflVulkLayers, "VK_LAYER_KHRONOS_validation");
+
+    int error = 0;
+
+    if(error = dflVulkValLayersVerifying())
+        return error;
+
+    return DFL_SUCCESS;
+}
+#endif
+
+// VULKAN SUBSUBFUNCTIONS
+
+#ifndef DFL_NO_DEBUG
+static int dflVulkValLayersVerifying()
+{
+    uint32_t layerCount;
+    vkEnumerateInstanceLayerProperties(&layerCount, NULL);
+    VkLayerProperties* layers = malloc(sizeof(VkLayerProperties) * layerCount);
+    vkEnumerateInstanceLayerProperties(&layerCount, layers);
+
+    short layerFound = 0;
+    for(int j = 0; j < dflVulkLayers.size; j++) // size of array / size of pointer = number of items in array
+    {
+        layerFound = 0;
+        for(int i = 0; i < layerCount; i++)
+        {
+            if(strcmp(layers[i].layerName, dflVulkLayers.data[j]) == 0)
+            {
+                layerFound = 1;
+                break;
+            }
+        }
+
+        if(layerFound == 0)
+            return DFL_VULKLAYERS_ERROR;
+    }
+
+    return DFL_SUCCESS;
+}
+#endif
+
+static int dflVulkExtensionSupplying()
+{
+    unsigned int extensionCount = 0;
+    if(SDL_Vulkan_GetInstanceExtensions(dflWindow, &extensionCount, NULL) == SDL_FALSE)
+        return DFL_SDL_VULKEXTENS_ENUM_ERROR;
+    dflVectorExtending(&dflVulkExtensions, extensionCount);
+    if(SDL_Vulkan_GetInstanceExtensions(dflWindow, &extensionCount, dflVulkExtensions.data) == SDL_FALSE)
+        return DFL_SDL_VULKEXTENS_ERROR;
+
+    #ifndef DFL_NO_DEBUG
+        dflVectorPushing(&dflVulkExtensions, VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
+    #endif
+
+    return DFL_SUCCESS;
 }

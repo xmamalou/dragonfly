@@ -36,6 +36,8 @@ EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.*/
 #ifndef RENDER_H
 #define RENDER_H
 
+//#define DFL_NO_DEBUG // uncomment to disable debug messages from validation layers
+
 /*
 *   Main render functions
 */
@@ -43,6 +45,8 @@ EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.*/
 #include <SDL/SDL.h>
 #include <SDL/SDL_vulkan.h>
 #include <vulkan/vulkan.h>
+
+#include "vector.h"
 
 /*
 * Many functions return an error code in the form of a number.
@@ -56,16 +60,17 @@ EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.*/
 
 /*
 * All functions in this library will start with 
-* dlf (from dragonfly) and will have a noun and a gerund 
+* dfl (from dragonfly) and will have a noun and a gerund 
 * that briefly descibe the funtion.
 * 
 * Functions and variables will follow the Haskell paradigm
 * of having a small initial letter.
 * CamelCase is used for both.
-* Global variables will be prefixed with dlf
+* Global variables will be prefixed with dfl
 * Scope specific variables won't be prefixed with that.
 * You will know whether a name refers to a variable or a function
 * if it ends with a gerund (then it's a function) or a noun (then it's a variable).
+* Boolean variables will be a participle and always of the type 'char'.
 *
 * Structures and Unions will follow the Haskell paradigm of data types
 * having one initial capital letter.
@@ -79,35 +84,49 @@ EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.*/
 */
 
 /* ERROR CODES - Error number depends on when the error code was defined
-* during development (except for DLF_SUCCESS, obviously).
+* during development (except for DFL_SUCCESS, obviously).
 *
 * Engine-side related errors will always be a natural number.
 * Application-side errors, at least those created by me, will always
 * be a negative integer.
 */
-#define DLF_SUCCESS 0
+#define DFL_SUCCESS 0
 
-#define DLF_SDLV_INIT_ERROR 1 // Couldn't initialize SDL (video)
-#define DLF_SDL_WINDOW_INIT_ERROR 2 // Couldn't initialize SDL window
-#define DLF_SDL_MONITOR_INFO_ERROR 3 // Couldn't get monitor info
-#define DLF_SDL_VULKEXTENS_ENUM_ERROR 4 // Couldn't get SDL Vulkan instance extension number
-#define DLF_SDL_VULKEXTENS_ERROR 5 // Couldn't get SDL extensions for Vulkan
-#define DLF_SDL_VULKINSTANCE_ERROR 6 // Couldn't create Vulkan instance
+#define DFL_DUMMY_ERROR 42069
+
+#define DFL_SDLV_INIT_ERROR 1 // Couldn't initialize SDL (video)
+#define DFL_SDL_WINDOW_INIT_ERROR 2 // Couldn't initialize SDL window
+#define DFL_SDL_MONITOR_INFO_ERROR 3 // Couldn't get monitor info
+#define DFL_SDL_VULKEXTENS_ENUM_ERROR 4 // Couldn't get SDL Vulkan instance extension number
+#define DFL_SDL_VULKEXTENS_ERROR 5 // Couldn't get SDL extensions for Vulkan
+#define DFL_VULKINSTANCE_ERROR 6 // Couldn't create Vulkan instance
+#define DFL_VULKLAYERS_ERROR 7 // Couldn't find Vulkan validation layers
 
 // GLOBAL VARIABLES - SDL
-static SDL_DisplayMode*    dlfDisplay = NULL; // Display information 
-static SDL_Window*         dlfWindow = NULL; // Window
-static const char*         dlfWindowName = NULL; // Doubles as application name
+static SDL_DisplayMode*    dflDisplay; // Display information 
+static SDL_Window*         dflWindow; // Window
+static const char*         dflWindowName; // Doubles as application name
  
 // GLOBAL VARIABLES - VULKAN
-static VkInstance*     dlfVulkInstance = NULL; // Vulkan instance
-static unsigned int    dlfExtensionsCount = 0;
-static const char**    dlfExtensions = NULL; // extensions for Vulkan.
+VkInstance*     dflVulkInstance; // Vulkan instance
+DflVector       dflVulkExtensions = {
+    .size = 0,
+    .data = NULL
+}; // Vulkan extensions
+
+#ifndef DFL_NO_DEBUG
+    // VALIDATION LAYERS - VULKAN
+    DflVector dflVulkLayers =
+    {
+        .data = NULL,
+        .size = 0
+    }; // Vulkan validation layers
+#endif
 
 // WINDOW MANAGEMENT - SDL
 /**
 * @brief Initialize the SDL window. Executing this function 
-* gives value to pointers dlfWindow, dlfDisplay and dlfSurface.
+* gives value to pointers dFLWindow, dFLDisplay and dFLSurface.
 *
 * \param windowName Name of the window, will appear on title bar.
 * \param width Width of the window.
@@ -119,9 +138,9 @@ static const char**    dlfExtensions = NULL; // extensions for Vulkan.
 *
 * \since This function exists since Dragonfly 0.0.1
 *
-* \sa dlfWindowKilling
+* \sa dflWindowKilling
 */
-int dlfWindowIniting(
+int dflWindowIniting(
     const char* windowName, 
     int         width,
     int         height,
@@ -134,9 +153,9 @@ int dlfWindowIniting(
  * 
  * \since This function exists since Dragonfly 0.0.1
  * 
- * \sa dlfWindowIniting
+ * \sa dflWindowIniting
 */
-void dlfWindowKilling();
+void dflWindowKilling();
 
 
 // VULKAN MANAGEMENT
@@ -145,14 +164,19 @@ void dlfWindowKilling();
  * various other functions specific to each necessary part that
  * makes Vulkan tick.
  * 
+ * Currently, it initializes:
+ * > a Vulkan instance (broken),
+ * 
+ * > the Vulkan Validation layers (set DFL_NO_DEBUG flag to skip)
+ * 
  * It doesn't have any specific parameters now, those will be added
  * as development progresses.
  * 
  * \since This function exists since Dragonfly 0.0.1
  * 
- * \sa dlfVulkanKilling
+ * \sa dflVulkanKilling
  */
-int dlfVulkanIniting();
+int dflVulkanIniting();
 /**
  * @brief 
  * Free Vulkan resources.
@@ -162,17 +186,49 @@ int dlfVulkanIniting();
  * 
  * \since This function exists since Dragonfly 0.0.1
  * 
- * \sa dlfVulkanIniting
+ * \sa dflVulkanIniting
 */
-void dlfVulkanKilling();
+void dflVulkanKilling();
 
-// SUBFUNCTIONS
+/*
+* Any subfuction (and consequently subsubfunction) will be static and thus 
+* limited for use by only the render.* files.
+*/
+
+// SUBFUNCTIONS - INITIALIZATION
 /**
- * @brief Create a Vulkan instance. Uses dlfWindowName as application name
+ * @brief Create a Vulkan instance. Uses dFLWindowName as application name
  * 
  * @return 0 if success, otherwise a natural number.
+ * 
+ * @since This function exists since Dragonfly 0.0.1.1
  */
-int dlfVulkInstanceMaking(); 
+static int dflVulkInstanceMaking(); 
+/**
+ * @brief Generate Vulkan Validation Layers.
+ * 
+ * @return 0 if success, otherwise a natural number.
+ * 
+ * @since This function exists since Dragonfly 0.0.1.1
+ */
+static int dflVulkLayersMaking();
 
+// SUBSUBFUNCTIONS - INITIALIZATION
+/**
+ * @brief Get the number of Vulkan Validation Layers.
+ * 
+ * @return 0 if success, otherwise a natural number.
+ * 
+ * @since This function exists since Dragonfly 0.0.1.1
+ */
+static int dflVulkValLayersVerifying();
+/**
+ * @brief Set the required Vulkan extensions 
+ * 
+ * @return 0 if success, otherwise a natural number.
+ * 
+ * @since This function exists since Dragonfly 0.0.1.1
+ */
+static int dflVulkExtensionSupplying();
 
 #endif
