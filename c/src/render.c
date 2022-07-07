@@ -78,6 +78,11 @@ int dflVulkanIniting()
 void dflVulkanKilling()
 {
     vkDestroyInstance(*dflVulkInstance, NULL);
+
+    dflVectorClearing(&dflVulkExtensions);
+    #ifndef DFL_NO_DEBUG
+        dflVectorClearing(&dflVulkLayers);
+    #endif
 }
 
 // VULKAN SUBFUNCTIONS 
