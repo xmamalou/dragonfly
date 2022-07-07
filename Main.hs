@@ -4,16 +4,16 @@
 import Dragonfly.Engine.Render 
 import Control.Concurrent
 
-window = DlfSmallWindowtype "Test" 1080 720
+window = DflSmallWindowtype "Test" 1080 720
 
 main = do
-    x <- dlfWindowIniting window
-    y <- dlfVulkanIniting
+    x <- dflWindowIniting window
+    y <- dflVulkanIniting
     
     print x
     print y
 
     threadDelay 1000000
     
-    dlfVulkanKilling
-    dlfWindowKilling
+    dflVulkanKilling
+    dflWindowKilling
