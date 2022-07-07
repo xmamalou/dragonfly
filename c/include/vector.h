@@ -74,6 +74,7 @@ EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.*/
 /*!
 * @brief Vectors are an implementation of dynamic arrays that are
 * aware of their size. Here, they are string arrays specifically.
+*
 * @param data the data of the vector. Can store character 
 * arrays (strings).
 * @param size the size of the vector
@@ -85,6 +86,7 @@ typedef struct DflVectors {
 
 // FUNCTIONS
 /*! @brief Adds an element to the end of a vector.
+*
 * @param vector the vector to add the element to.
 * @param element the element to add to the vector.
 *
@@ -92,17 +94,21 @@ typedef struct DflVectors {
 */
 void dflVectorPushing(DflVector* vector, char* element);
 /*! @brief Removes an element from the end of a vector.
+*
 * @param vector the vector to remove the element from.
 *
 * @since This function exists since Dragonfly 0.0.1.1.
 */
 void dflVectorPopping(DflVector* vector);
-/*! @brief Extends (or shrinks, if size < 0) a vector by as many spaces as specified by size.
+/*! @brief Extends (or shrinks, if size < 0) a vector by as many 
+* spaces as specified by size.
+*
 * @param vector the vector to extend (or shrink).
 * @param size the amount of spaces to add to the vector.
 */
 void dflVectorExtending(DflVector* vector, int size);
 /*! @brief Clears a vector.
+*
 * @param vector the vector to clear.
 */
 void dflVectorClearing(DflVector* vector);
