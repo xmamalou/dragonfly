@@ -7,7 +7,16 @@ Baby steps.
 
 ## 0.0.1.1 -- 2022-7-7
 
-* Added first Vulkan initialization functions
+* New datatypes:
+    * Added DflWindow (Haskell only)
+    * Added DflVector (C only)
+
+* New functions:
+    * Added dflVulkInstanceMaking (C only)
+    * Added dflVulkLayersMaking (C only)
+    * Added dflVulkValLayersVerifying (C only)
+    * Added dflVulkExtensionSupplying (C only)
+
 * Added documentation system using Doxygen
-* Added DlfWindow data type for Haskell
 * Reordered Haskell interface
+* Added DFL_NO_DEBUG flag for Vulkan Validation Layers (must be entered manually)
