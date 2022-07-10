@@ -4,7 +4,7 @@
 import Dragonfly.Engine.Render 
 import Control.Concurrent
 
-window = DflSmallWindowtype "Test" 1080 720
+window = DflSmallWindow "Test" 1080 720
 
 main = do
     x <- dflWindowIniting window
