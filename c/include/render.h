@@ -46,7 +46,7 @@ EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.*/
 #include <SDL/SDL_vulkan.h>
 #include <vulkan/vulkan.h>
 
-#include "vector.h"
+#include "sets.h"
 
 /*
 * Many functions return an error code in the form of a number.
@@ -75,8 +75,6 @@ EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.*/
 * Structures and Unions will follow the Haskell paradigm of data types
 * having one initial capital letter.
 * CamelCase will also be used for them.
-* Structures' names will end in -type
-* Unions' names will end in a noun.
 *
 * Macros will use snake_case and all capitals.
 * Macros will mostly be used for error codes.
@@ -101,27 +99,27 @@ EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.*/
 #define DFL_SDL_VULKEXTENS_ERROR 5 // Couldn't get SDL extensions for Vulkan
 #define DFL_VULKINSTANCE_ERROR 6 // Couldn't create Vulkan instance
 #define DFL_VULKLAYERS_ERROR 7 // Couldn't find Vulkan validation layers
+#define DFL_VULKDEBUG_MESSENGER_ERROR 8 // Couldn't create Vulkan debug messenger
+#define DFL_VULKPHYSICAL_UNAVAILABLE_ERROR 9 // Couldn't find a Vulkan-capable physical device
+#define DFL_VULKPHYSICAL_INCAPABLE_ERROR 10 // While Vulkan-capable, device cannot support required features
+#define DFL_VULKQFAM_UNAVAILABLE_ERROR 11 // Couldn't find queue families for the specified device
+#define DFL_VULKQFAM_INCAPABLE_ERROR 12 // While queue families are available, they don't support required features
+#define DFL_VULKDEVICE_ERROR 13 // Couldn't create Vulkan device (logical)
 
 // GLOBAL VARIABLES - SDL
-static SDL_DisplayMode*    dflDisplay; // Display information 
-static SDL_Window*         dflWindow; // Window
-static const char*         dflWindowName; // Doubles as application name
- 
+const char*                     dflWindowName; // Doubles as application name
 // GLOBAL VARIABLES - VULKAN
-VkInstance*     dflVulkInstance; // Vulkan instance
-DflVector       dflVulkExtensions = {
-    .size = 0,
-    .data = NULL
-}; // Vulkan extensions
-
+VkInstance                      dflVulkInstance; // Vulkan instance
+DflSet                          dflVulkExtensions; // Vulkan extensions
 #ifndef DFL_NO_DEBUG
     // VALIDATION LAYERS - VULKAN
-    DflVector dflVulkLayers =
-    {
-        .data = NULL,
-        .size = 0
-    }; // Vulkan validation layers
+    DflSet                      dflVulkLayers; // Vulkan Layers
+    VkDebugUtilsMessengerEXT    dflDebugMessenger;
 #endif
+VkPhysicalDevice                dflRealGPU; // Real GPU (physical)
+VkDevice                        dflGPU; // Vulkan logical device (refered as GPU hereafter)
+VkQueue                         dflGraphicsQueue; // Graphics queue
+VkQueue                         dflComputeQueue; // Compute queue
 
 // WINDOW MANAGEMENT - SDL
 /**
@@ -189,46 +187,5 @@ int dflVulkanIniting();
  * \sa dflVulkanIniting
 */
 void dflVulkanKilling();
-
-/*
-* Any subfuction (and consequently subsubfunction) will be static and thus 
-* limited for use by only the render.* files.
-*/
-
-// SUBFUNCTIONS - INITIALIZATION
-/**
- * @brief Create a Vulkan instance. Uses dFLWindowName as application name
- * 
- * @return 0 if success, otherwise a natural number.
- * 
- * @since This function exists since Dragonfly 0.0.1.1
- */
-static int dflVulkInstanceMaking(); 
-/**
- * @brief Generate Vulkan Validation Layers.
- * 
- * @return 0 if success, otherwise a natural number.
- * 
- * @since This function exists since Dragonfly 0.0.1.1
- */
-static int dflVulkLayersMaking();
-
-// SUBSUBFUNCTIONS - INITIALIZATION
-/**
- * @brief Get the number of Vulkan Validation Layers.
- * 
- * @return 0 if success, otherwise a natural number.
- * 
- * @since This function exists since Dragonfly 0.0.1.1
- */
-static int dflVulkValLayersVerifying();
-/**
- * @brief Set the required Vulkan extensions 
- * 
- * @return 0 if success, otherwise a natural number.
- * 
- * @since This function exists since Dragonfly 0.0.1.1
- */
-static int dflVulkExtensionSupplying();
 
 #endif
