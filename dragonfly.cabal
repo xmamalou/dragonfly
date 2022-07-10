@@ -27,7 +27,8 @@ executable engine
     hs-source-dirs: .
     C-sources: 
         c/src/render.c
-        c/src/vector.c
+        c/src/sets.c
+        c/src/vectors.c
     main-is: Main.hs
     -- Modules included in this executable, other than Main.
     other-modules: 
@@ -37,7 +38,7 @@ executable engine
     other-extensions: CPP ForeignFunctionInterface
     build-depends:    base >=4.7 && < 5 
     default-language: Haskell2010
-    include-dirs: /usr/include/SDL2 /usr/include/vulkan /usr/include
+    include-dirs: /usr/include/SDL2 /usr/local/include/vulkan /usr/include
     includes: 
         SDL.h
         SDL_vulkan.h
