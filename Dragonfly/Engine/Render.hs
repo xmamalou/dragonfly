@@ -37,12 +37,12 @@ import Dragonfly.Bind.Render
 import Foreign.C.Types
 import Foreign.C.String
 
-data DflWindow = DflSmallWindowtype {
+data DflWindow = DflSmallWindow {
     wsName  :: String, 
     wsWidth :: CInt, 
     wsHeight:: CInt
     }
-                | DflFullWindowtype {
+                | DflFullWindow {
     wfName  :: String
     } 
     deriving (Eq)
@@ -60,10 +60,10 @@ data DflWindow = DflSmallWindowtype {
 dflWindowIniting :: DflWindow -> IO Int
 dflWindowIniting window = do
     case window of
-        (DflSmallWindowtype name width height) -> withCString name $ \windowname -> do
-                                                    c_dflWindowIniting windowname width height 0
-        (DflFullWindowtype name) -> withCString name $ \windowname -> do
-                                        c_dflWindowIniting windowname 2560 1440 1
+        (DflSmallWindow name width height) -> withCString name $ \windowname -> do
+                                                c_dflWindowIniting windowname width height 0
+        (DflFullWindow name) -> withCString name $ \windowname -> do
+                                    c_dflWindowIniting windowname 2560 1440 1
 
 -- dflWindowKilling:
 -- frees window resources
