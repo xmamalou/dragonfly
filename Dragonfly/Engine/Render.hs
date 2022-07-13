@@ -37,26 +37,38 @@ import Dragonfly.Bind.Render
 import Foreign.C.Types
 import Foreign.C.String
 
+-- DATATYPES
 data DflWindow = DflSmallWindow {
-    wsName  :: String, 
-    wsWidth :: CInt, 
-    wsHeight:: CInt
+    name  :: String, 
+    width :: CInt, 
+    height:: CInt
     }
                 | DflFullWindow {
-    wfName  :: String
-    } 
+    name  :: String
+    }
+                | DflNoWindow 
     deriving (Eq)
-    
+
+data DflDisplay = DflDisplay {
+    dimensions :: [Int],
+    rate       :: Int
+}
+
+-- -----------------
+-- WINDOW FUNCTIONS
+-- -----------------
+
 -- dflWindowIniting :
 -- creates a window as defined by the DldflfWindow data type
--- if window has only a String as an argument, it's inferred
--- that a fullscreen window is desired. If window also has
--- numbers (integers) as arguments, they will be interpreted
--- as the size of the window (NOT the resolution of the window).
--- The window itself will be in windowed mode
+-- 
+-- PARAMS
+-- window -> The window to be created. If DflSmallWindow, then
+-- we have windowed mode. If DflFullWindow, then we have fullscreen
+-- mode
 --
--- RETURNS error code in the form of an integer. 0 for success,
--- positive otherwise. Refer to documentation for exact error code 
+-- RETURNS 0 for success, natural otherwise.
+--
+-- SINCE Dragonfly 0.0.1
 dflWindowIniting :: DflWindow -> IO Int
 dflWindowIniting window = do
     case window of
@@ -66,20 +78,103 @@ dflWindowIniting window = do
                                     c_dflWindowIniting windowname 2560 1440 1
 
 -- dflWindowKilling:
--- frees window resources
+-- kills the window
+--
+-- SINCE Dragonfly 0.0.1
 dflWindowKilling :: IO ()
 dflWindowKilling = do
     c_dflWindowKilling
 
+-- -----------------
+-- DISPLAY FUNCTIONS
+-- -----------------
+
+-- dflDisplayInfoGetting
+-- get some information about a display
+--
+-- PARAMS
+-- display -> from which display to get the info from
+-- info -> what to get. 0: width, 1: height, 2: refresh rate
+--
+-- RETURNS requested info, on success.
+--
+-- SINCE Dragonfly 0.0.4
+dflDisplayInfoGetting :: CInt -> CInt -> Int
+dflDisplayInfoGetting display info = do
+    c_dflDisplayInfoGetting display info
+
+-- dflDisplay
+-- wraps dflDisplayInfoGetting(display, info) for values info = {0, 1, 2} into a single
+-- function that returns a DflDisplay object
+--
+-- PARAMS
+-- display -> which display to analyse
+--
+-- RETURNS a DflDisplay variable
+--
+-- SINCE Dragonfly 0.0.4
+dflDisplay :: CInt -> DflDisplay
+dflDisplay display = do
+    DflDisplay [(dflDisplayInfoGetting display 0), (dflDisplayInfoGetting display 1)] (dflDisplayInfoGetting display 2)
+
+-- -----------------
+-- VULKAN FUNCTIONS
+-- -----------------
+
 -- dflVulkanIniting:
 -- initializes vulkan
 --
--- RETURNS error code in the form of an integer. 0 for success,
--- positive otherwise. Refer to documentation for exact error code.
-dflVulkanIniting :: IO Int 
-dflVulkanIniting = do
-    c_dflVulkanIniting
+-- PARAMS
+-- onscreen -> Should allow window-related processes to go on for onscreen rendering?
+--
+-- RETURNS 0 for success, natural otherwise.
+--
+-- SINCE Dragonfly 0.0.1
+dflVulkanIniting :: CInt -> IO Int 
+dflVulkanIniting onscreen = do
+    c_dflVulkanIniting onscreen
 
+-- dflVulkanKilling
+-- frees Vulkan resources
+--
+-- SINCE Dragonfly 0.0.1
 dflVulkanKilling :: IO ()
 dflVulkanKilling = do
     c_dflWindowKilling
+
+-- -----------------
+-- RENDER FUNCTIONS
+-- -----------------
+
+-- dflRenderIniting
+-- Initializes the Renderer
+-- 
+-- PARAMS
+-- window -> The window to create (if window = DflNoWindow, off screen rendering will be used)
+-- display -> The display parameters
+--
+-- RETURNS 0 on success, natural number otherwise
+--
+-- SINCE Dragonfly 0.0.4
+dflRenderIniting :: DflWindow -> DflDisplay -> IO Int
+dflRenderIniting window display = do
+    case window of 
+        DflNoWindow -> dflVulkanIniting 0
+        otherwise -> do
+            dflWindowIniting window
+            dflVulkanIniting 1
+
+-- dflRenderKilling
+-- Kills the Renderer
+--
+-- PARAMS
+-- window -> Sees if offscreen rendering was used
+--
+-- SINCE Dragonfly 0.0.4
+dflRenderKilling :: DflWindow -> IO ()
+dflRenderKilling window = do
+    case window of
+        DflNoWindow -> dflVulkanKilling
+        otherwise -> do
+            dflVulkanKilling
+            dflWindowKilling

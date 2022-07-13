@@ -1,11 +1,11 @@
 # Revision history for the Dragonfly engine
 
-## 0.0.1.0 -- 2022-7-5
+## 0.0.1 (pre-a001) -- 2022-7-5
 
 Set-up version of Dragonfly. The build system (Cabal) has been set up and the first function has been added.
 Baby steps.
 
-## 0.0.1.1 -- 2022-7-7
+## 0.0.2 (pre-a002) -- 2022-7-7
 
 * New datatypes:
     * Added DflWindow (Haskell only)
@@ -21,7 +21,7 @@ Baby steps.
 * Reordered Haskell interface
 * Added DFL_NO_DEBUG flag for Vulkan Validation Layers (must be entered manually)
 
-## 0.0.1.2 -- 2022-7-10
+## 0.0.3 (pre-a003) -- 2022-7-10
 
 * Datatypes:
     * Renamed old DflVector to DflSet (C)
@@ -44,3 +44,29 @@ Baby steps.
     * Added Queue Initialization
 
 * Moved static functions' and variables' declarations from header to source
+
+## 0.0.4 (pre-a004) -- 2022-7-13
+
+* Fixed issue with repository
+* The C source is now situated in the Dragonfly directory.
+* Datatypes:
+    * Added DflNoWindow subtype to DflWindow (Haskell)
+    * Added DflDisplay type (Haskell)
+
+* Variables:
+    * Added Display related variables (C):
+        * dflDisplayCount
+        * dflWidth
+        * dflHeight
+        * dflRefreshRate
+    * Added dflPresentQueue (C)
+
+* Functions:
+    * Added dflDisplayInfoGetting (C, Haskell)
+    * Added dflDisplay (Haskell)
+    * Added dflRender* functions:
+        * dflRenderIniting
+        * dflRenderKilling
+
+* Processes
+    * Added Surface initialization

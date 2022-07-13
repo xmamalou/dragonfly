@@ -26,27 +26,22 @@
 
 module Dragonfly.Bind.Render where
 
--- ERROR CODES
---{-# LANGUAGE CPP #-}
- 
--- #define dfl_SUCCESS 0
-
--- #define dfl_SDLV_INIT_ERROR 1 // Couldn't initialize SDL (video)
--- #define dfl_SDL_WINDOW_INIT_ERROR 2 // Couldn't initialize SDL Window 
-
---
-
 {-# LANGUAGE ForeignFunctionInterface #-}
 
 import Foreign
 import Foreign.C.Types
 import Foreign.C.String
 
-foreign import ccall "../../c/include/render.h dflWindowIniting"
+foreign import ccall "../c/include/render.h dflWindowIniting"
     c_dflWindowIniting :: CString -> CInt -> CInt -> CInt -> IO Int
-foreign import ccall "../../c/include/render.h dflWindowKilling"
+foreign import ccall "../c/include/render.h dflWindowKilling"
     c_dflWindowKilling :: IO ()
-foreign import ccall "../../c/include/render.h dflVulkanIniting"
-    c_dflVulkanIniting :: IO Int
-foreign import ccall "../../c/include/render.h dflVulkanKilling"
+
+foreign import ccall "../c/include/render.h dflDisplayInfoGetting"
+    c_dflDisplayInfoGetting :: CInt -> CInt -> Int
+
+foreign import ccall "../c/include/render.h dflVulkanIniting"
+    c_dflVulkanIniting :: CInt -> IO Int
+foreign import ccall "../c/include/render.h dflVulkanKilling"
     c_dflVulkanKilling :: IO ()
+
