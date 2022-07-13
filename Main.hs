@@ -8,10 +8,10 @@ window = DflSmallWindow "Test" 1080 720
 display = dflDisplay 0
 
 main = do
-    x <- dflRenderIniting
+    x <- dflRenderIniting window display 
     
     print x
 
     threadDelay 1000000
     
-    dflRenderKilling
+    dflRenderKilling window 
