@@ -43,4 +43,4 @@ Baby steps.
     * Added Logical Device Initialization
     * Added Queue Initialization
 
-* Moved static functions' and variables' declarations from header to source.
+* Moved static functions' and variables' declarations from header to source
