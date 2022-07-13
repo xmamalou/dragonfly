@@ -50,8 +50,8 @@ data DflWindow = DflSmallWindow {
     deriving (Eq)
 
 data DflDisplay = DflDisplay {
-    dimensions :: [Int],
-    rate       :: Int
+    dimensions :: [CInt],
+    rate       :: CInt
 }
 
 -- -----------------
@@ -69,13 +69,13 @@ data DflDisplay = DflDisplay {
 -- RETURNS 0 for success, natural otherwise.
 --
 -- SINCE Dragonfly 0.0.1
-dflWindowIniting :: DflWindow -> IO Int
-dflWindowIniting window = do
+dflWindowIniting :: DflWindow -> DflDisplay -> IO Int
+dflWindowIniting window (DflDisplay [wid, hgt] rate) = do
     case window of
         (DflSmallWindow name width height) -> withCString name $ \windowname -> do
                                                 c_dflWindowIniting windowname width height 0
         (DflFullWindow name) -> withCString name $ \windowname -> do
-                                    c_dflWindowIniting windowname 2560 1440 1
+                                    c_dflWindowIniting windowname wid hgt 1
 
 -- dflWindowKilling:
 -- kills the window
@@ -99,7 +99,7 @@ dflWindowKilling = do
 -- RETURNS requested info, on success.
 --
 -- SINCE Dragonfly 0.0.4
-dflDisplayInfoGetting :: CInt -> CInt -> Int
+dflDisplayInfoGetting :: CInt -> CInt -> CInt
 dflDisplayInfoGetting display info = do
     c_dflDisplayInfoGetting display info
 
@@ -161,7 +161,7 @@ dflRenderIniting window display = do
     case window of 
         DflNoWindow -> dflVulkanIniting 0
         otherwise -> do
-            dflWindowIniting window
+            dflWindowIniting window display
             dflVulkanIniting 1
 
 -- dflRenderKilling
