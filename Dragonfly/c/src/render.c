@@ -31,8 +31,9 @@ EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.*/
 #include <stdio.h>
 
 // Variables
-static SDL_DisplayMode*         display; // Display information
+int                             isSDLOn; // is SDL initialized? 
 static SDL_Window*              window; // Window information
+static short int                windowUse; // Whether to use a window or not
 
 static VkPhysicalDevice*        physicalDevs; // Physical device information
 static int                      physicalDevCount; // Number of physical devices
@@ -49,6 +50,7 @@ static int      dflVulkInstanceMaking(); // make Vulkan instance
     static int  dflVulkDebugMessengerMaking(); // make Vulkan debug messenger
 #endif
 static int      dflVulkDeviceMaking(); // make Vulkan device (logical device)
+static int      dflVulkSurfaceMaking(); // make Vulkan surface
 
 // SUBSUBFUNCTIONS - INITIALIZATIONS
 static int                                  dflVulkExtensionSupplying(); // supply Vulkan extensions
@@ -67,11 +69,11 @@ static int                                  dflVulkExtensionSupplying(); // supp
 #endif 
 static int                                  dflVulkPhysicalDevicePicking(); // pick physical device
 static int                                  dflVulkPhysicalDeviceRanking( // rank physical device
-    int                                     favoured // favoured physical device index
+    int*                                    favoured // favoured physical device index
 );
 static int                                  dflVulkQueueFamilyPicking( // pick queue family
     VkPhysicalDevice                        physicalDev // physical device
-); 
+);
 
 // !!! FUNCTION DEFINITIONS !!!
 int dflWindowIniting(const char* windowName, int width, int height, int fullscreen)
@@ -80,9 +82,8 @@ int dflWindowIniting(const char* windowName, int width, int height, int fullscre
     
     if(SDL_Init(SDL_INIT_VIDEO) < 0)
         return DFL_SDLV_INIT_ERROR;
-
-    if(SDL_GetDesktopDisplayMode(0, display))
-        return DFL_SDL_MONITOR_INFO_ERROR;
+    
+    isSDLOn = 1;
 
     if(!fullscreen)
         window = SDL_CreateWindow(windowName, SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, width, height, SDL_WINDOW_VULKAN | SDL_WINDOW_SHOWN);
@@ -101,13 +102,90 @@ void dflWindowKilling()
     //SDL_FreeSurface(dflSurface);
     SDL_DestroyWindow(window);
     SDL_Quit();
+}
 
-    free(display);
+int dflDisplayCounting()
+{
+    switch(isSDLOn){
+    case 0:
+        if(SDL_Init(SDL_INIT_VIDEO) < 0)
+            return -DFL_SDLV_INIT_ERROR;
+        dflDisplayCount = SDL_GetNumVideoDisplays();
+        SDL_Quit();
+        break;
+    default:
+        dflDisplayCount = SDL_GetNumVideoDisplays();
+        break;
+    }
+
+    return dflDisplayCount;
+}
+
+int dflDisplayInfoGetting(int displayNumber, int info){
+    if(displayNumber > dflDisplayCount)
+        return -DFL_WRONG_NUMBER_GIVEN_ERROR;
+
+    switch(isSDLOn){
+    case 0:
+        if(SDL_Init(SDL_INIT_VIDEO) < 0)
+            return -DFL_SDLV_INIT_ERROR;
+        switch(info){
+        case 0:
+            SDL_GetDisplayMode(displayNumber, 0, &dflWidth);
+            break;
+        case 1:
+            SDL_GetDisplayMode(displayNumber, 1, &dflHeight);
+            break;
+        case 2:
+            SDL_GetDisplayMode(displayNumber, 5, &dflRefreshRate);
+            break;
+        default:
+            SDL_Quit();
+            return -DFL_WRONG_NUMBER_GIVEN_ERROR;
+        }
+        SDL_Quit();
+        break;
+    default:
+        switch(info){
+        case 0:
+            SDL_GetDisplayMode(displayNumber, 0, &dflWidth);
+            break;
+        case 1:
+            SDL_GetDisplayMode(displayNumber, 1, &dflHeight);
+            break;
+        case 2:
+            SDL_GetDisplayMode(displayNumber, 5, &dflRefreshRate);
+            break;
+        default:
+            return -DFL_WRONG_NUMBER_GIVEN_ERROR;
+        }
+        break;
+    }
+
+    switch(info){
+        case 0:
+            if(dflWidth.w > 0)
+                return dflWidth.w;
+            else
+                return 1080;
+        case 1:
+            if(dflHeight.h > 0) 
+                return dflHeight.h;
+            else
+                return 720;
+        case 2:
+            if(dflRefreshRate.refresh_rate > 0)
+                return dflRefreshRate.refresh_rate;
+            else
+                return 60;
+    }
 }
 
 // VULKAN FUNCTIONS
-int dflVulkanIniting()
+int dflVulkanIniting(short int useWindow)
 {
+    windowUse = useWindow;
+
     int error = 0;
 
     if(error = dflVulkInstanceMaking())
@@ -118,9 +196,14 @@ int dflVulkanIniting()
         if(error = dflVulkDebugMessengerMaking())
             return error;
     #endif
+    switch(windowUse){
+    case 1:
+        if(error = dflVulkSurfaceMaking())
+            return error;
+        break;
+    };
     if(error = dflVulkDeviceMaking())
         return error;
-
     return DFL_SUCCESS;
 }
 
@@ -141,13 +224,17 @@ static int dflVulkInstanceMaking()
 {
     VkApplicationInfo appInfo = {
         .sType = VK_STRUCTURE_TYPE_APPLICATION_INFO,
-        .pApplicationName = dflWindowName,
         .applicationVersion = VK_MAKE_VERSION(0, 0, 1),
         .pEngineName = "Dragonfly",
-        .engineVersion = VK_MAKE_VERSION(0, 0, 1),
-        .apiVersion = VK_API_VERSION_1_0
+        .engineVersion = VK_MAKE_VERSION(0, 0, 4),
+        .apiVersion = VK_API_VERSION_1_3
     }; 
-    
+
+    if(windowUse)
+        appInfo.pApplicationName = "windowless";
+    else 
+        appInfo.pApplicationName = dflWindowName;
+
     int error = 0;
     if(error = dflVulkExtensionSupplying())
         return error;
@@ -231,15 +318,16 @@ static int dflVulkDeviceMaking()
 
     if(error = dflVulkPhysicalDevicePicking())
         return error;
-    if(error = dflVulkPhysicalDeviceRanking(index))
+    if(error = dflVulkPhysicalDeviceRanking(&index))
         return error;
 
     dflRealGPU = physicalDevs[index];
     
     error = dflVulkQueueFamilyPicking(dflRealGPU);
     
-    float graphicsPriority = 0.8f;
+    float graphicsPriority = 0.9f;
     float computePriority = 1.0f;
+    float presentPriority = 0.8f;
     VkDeviceQueueCreateInfo queueGraphicsInfo = {
         .sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
         .queueFamilyIndex = QFamIndices.graphics,
@@ -250,14 +338,31 @@ static int dflVulkDeviceMaking()
         .sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
         .queueFamilyIndex = QFamIndices.compute,
         .queueCount = 1,
-        .pQueuePriorities = &graphicsPriority
+        .pQueuePriorities = &computePriority
     };
+    
+    VkDeviceQueueCreateInfo queuePresentInfo = {};
+    if(QFamIndices.graphics != QFamIndices.present)
+    {
+        queuePresentInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
+        queuePresentInfo.queueFamilyIndex = QFamIndices.present;
+        queuePresentInfo.queueCount = 1;
+        queuePresentInfo.pQueuePriorities = &presentPriority;
+    }
 
-    VkDeviceQueueCreateInfo queueInfo[2] = {queueGraphicsInfo, queueComputeInfo};
+    VkDeviceQueueCreateInfo* queueInfo = malloc(2 * sizeof(VkDeviceQueueCreateInfo));
+    queueInfo[0] = queueGraphicsInfo;
+    queueInfo[1] = queueComputeInfo;
+
+    int isSame = (QFamIndices.graphics == QFamIndices.present);
+    if(!isSame){
+        VkDeviceQueueCreateInfo* temp_info = realloc(queueInfo, 3 * sizeof(VkDeviceQueueCreateInfo));
+        queueInfo = temp_info;
+        queueInfo[2] = queuePresentInfo;
+    };
 
     VkDeviceCreateInfo devInfo = {
         .sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
-        .queueCreateInfoCount = 2,
         .pQueueCreateInfos = queueInfo,
         .pEnabledFeatures = NULL,
         #ifndef DFL_NO_DEBUG
@@ -270,24 +375,47 @@ static int dflVulkDeviceMaking()
         .pNext = NULL,
     };
 
+    switch(isSame){
+    case 1:
+        devInfo.queueCreateInfoCount = 2;
+        break; 
+    case 0:
+        devInfo.queueCreateInfoCount = 3;
+        break;
+    }
+
     if(vkCreateDevice(dflRealGPU, &devInfo, NULL, &dflGPU))
         return DFL_VULKDEVICE_ERROR;
 
     vkGetDeviceQueue(dflGPU, QFamIndices.graphics, 0, &dflGraphicsQueue);
     vkGetDeviceQueue(dflGPU, QFamIndices.compute, 0, &dflComputeQueue);
+    vkGetDeviceQueue(dflGPU, QFamIndices.present, 0, &dflPresentQueue);
 
     return DFL_SUCCESS;
 }
+
+static int dflVulkSurfaceMaking()
+{
+    if(!SDL_Vulkan_CreateSurface(window, dflVulkInstance, &dflSurface)) 
+        return DFL_VULKSURFACE_ERROR;
+
+    return DFL_SUCCESS;
+}
+
 // VULKAN SUBSUBFUNCTIONS
 static int dflVulkExtensionSupplying()
 {
     unsigned int extensionCount = 0;
-    if(SDL_Vulkan_GetInstanceExtensions(window, &extensionCount, NULL) == SDL_FALSE)
-        return DFL_SDL_VULKEXTENS_ENUM_ERROR;
-    dflSetExtending(&dflVulkExtensions, extensionCount);
-    if(SDL_Vulkan_GetInstanceExtensions(window, &extensionCount, dflVulkExtensions.data) == SDL_FALSE)
-        return DFL_SDL_VULKEXTENS_ERROR;
 
+    switch(windowUse){
+    case 1: 
+        if(SDL_Vulkan_GetInstanceExtensions(window, &extensionCount, NULL) == SDL_FALSE)
+            return DFL_SDL_VULKEXTENS_ENUM_ERROR;
+        dflSetExtending(&dflVulkExtensions, extensionCount);
+        if(SDL_Vulkan_GetInstanceExtensions(window, &extensionCount, dflVulkExtensions.data) == SDL_FALSE)
+            return DFL_SDL_VULKEXTENS_ERROR;
+        break;
+    }
     #ifndef DFL_NO_DEBUG
         dflSetPushing(&dflVulkExtensions, VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
     #endif
@@ -360,11 +488,11 @@ static int dflVulkPhysicalDevicePicking()
     return DFL_SUCCESS;
 }
 
-static int dflVulkPhysicalDeviceRanking(int favoured)
+static int dflVulkPhysicalDeviceRanking(int* favoured)
 {
     int score = 0;
     int error = 0;
-    favoured = -1;
+    *favoured = -1;
 
     VkPhysicalDeviceProperties properties;
     VkPhysicalDeviceFeatures   features;
@@ -385,14 +513,17 @@ static int dflVulkPhysicalDeviceRanking(int favoured)
         curr_score += properties.limits.maxImageDimension2D;
         curr_score += properties.limits.maxImageDimension3D;
 
+        if(QFamIndices.graphics == QFamIndices.present)
+            curr_score += 5000;
+
         if(score < curr_score)
         {
             score = curr_score;
-            favoured = i;
-        }  
+            *favoured = i;
+        }
     }
 
-    if(favoured < 0)
+    if(*favoured < 0)
     {
         switch(error){
             case DFL_SUCCESS:
@@ -417,14 +548,30 @@ static int dflVulkQueueFamilyPicking(VkPhysicalDevice physicalDev)
     vkGetPhysicalDeviceQueueFamilyProperties(physicalDev, &queueFamilyCount, queueFamilies);
 
     QFamIndices.graphics = -1;
-    QFamIndices.present = -1;
     QFamIndices.compute = -1;
+
+    switch(windowUse){
+    case 1: 
+        QFamIndices.present = -1;
+        break;
+    case 0:
+        QFamIndices.present = DFL_DUMMY_VALUE;
+        break;
+    }
+
 
     for(int i = 0; i < queueFamilyCount; i++)
     {
         if(queueFamilies[i].queueCount > 0 && (queueFamilies[i].queueFlags & VK_QUEUE_GRAPHICS_BIT))
         {
             QFamIndices.graphics = i;
+
+            // Graphics queue may also be presentation queue
+            VkBool32 presentSupport = VK_FALSE;
+            vkGetPhysicalDeviceSurfaceSupportKHR(physicalDev, i, dflSurface, &presentSupport);
+            if(presentSupport && windowUse)
+                QFamIndices.present = i;
+
             continue;
         }
 
@@ -433,9 +580,18 @@ static int dflVulkQueueFamilyPicking(VkPhysicalDevice physicalDev)
             QFamIndices.compute = i;
             continue;
         }
+
+        VkBool32 presentSupport = VK_FALSE;
+        vkGetPhysicalDeviceSurfaceSupportKHR(physicalDev, i, dflSurface, &presentSupport);
+        if(queueFamilies[i].queueCount > 0 && windowUse && presentSupport)
+        {
+            QFamIndices.present = i;
+            printf("Present queue family found\n");
+            continue;
+        }
     }
 
-    if(QFamIndices.compute < 0 || QFamIndices.graphics < 0)
+    if(QFamIndices.compute < 0 || QFamIndices.graphics < 0 || QFamIndices.present < 0)
         return DFL_VULKQFAM_INCAPABLE_ERROR;
     
     return DFL_SUCCESS;

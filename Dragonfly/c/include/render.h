@@ -84,13 +84,16 @@ EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.*/
 /* ERROR CODES - Error number depends on when the error code was defined
 * during development (except for DFL_SUCCESS, obviously).
 *
-* Engine-side related errors will always be a natural number.
-* Application-side errors, at least those created by me, will always
+* Engine-side related errors will always be a natural number, with the 
+* exception of functions that return a natural that isn't an error code.
+*
+* Application-side errors, when it comes to those created by me, will always
 * be a negative integer.
 */
 #define DFL_SUCCESS 0
 
 #define DFL_DUMMY_ERROR 42069
+#define DFL_DUMMY_VALUE 42069
 
 #define DFL_SDLV_INIT_ERROR 1 // Couldn't initialize SDL (video)
 #define DFL_SDL_WINDOW_INIT_ERROR 2 // Couldn't initialize SDL window
@@ -105,9 +108,16 @@ EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.*/
 #define DFL_VULKQFAM_UNAVAILABLE_ERROR 11 // Couldn't find queue families for the specified device
 #define DFL_VULKQFAM_INCAPABLE_ERROR 12 // While queue families are available, they don't support required features
 #define DFL_VULKDEVICE_ERROR 13 // Couldn't create Vulkan device (logical)
+#define DFL_WRONG_NUMBER_GIVEN_ERROR 14 // A function has received a number it didn't expect
+#define DFL_VULKSURFACE_ERROR 15 // Couldn't create Vulkan surface
 
 // GLOBAL VARIABLES - SDL
 const char*                     dflWindowName; // Doubles as application name
+VkSurfaceKHR                    dflSurface; // Vulkan surface
+int                             dflDisplayCount; // Number of displays
+SDL_DisplayMode                 dflWidth; // Array of widths
+SDL_DisplayMode                 dflHeight; // Array of heights
+SDL_DisplayMode                 dflRefreshRate; // Array of refresh rates for each display
 // GLOBAL VARIABLES - VULKAN
 VkInstance                      dflVulkInstance; // Vulkan instance
 DflSet                          dflVulkExtensions; // Vulkan extensions
@@ -118,8 +128,10 @@ DflSet                          dflVulkExtensions; // Vulkan extensions
 #endif
 VkPhysicalDevice                dflRealGPU; // Real GPU (physical)
 VkDevice                        dflGPU; // Vulkan logical device (refered as GPU hereafter)
+
 VkQueue                         dflGraphicsQueue; // Graphics queue
 VkQueue                         dflComputeQueue; // Compute queue
+VkQueue                         dflPresentQueue; // Present queue
 
 // WINDOW MANAGEMENT - SDL
 /**
@@ -154,7 +166,26 @@ int dflWindowIniting(
  * \sa dflWindowIniting
 */
 void dflWindowKilling();
-
+/**
+ * @brief Get display number.
+ * 
+ * @return Number of displays. If negative, an error occurred.
+ * 
+ * @since This function exists since Dragonfly 0.0.4 
+ */
+int dflDisplayCounting();
+/**
+ * @brief Get width for a display.
+ * 
+ * @param displayNumber Display number.
+ * @param info What to get. 0 for width, 1 for height, 2 for refresh rate.
+ * 
+ * @returns Requested info of the display as defined by the SDL
+ * API. If negative, an error occurred.
+ * 
+ * @since This function exists since Dragonfly 0.0.4 
+ */
+int dflDisplayInfoGetting(int displayNumber, int info);
 
 // VULKAN MANAGEMENT
 /**
@@ -163,18 +194,25 @@ void dflWindowKilling();
  * makes Vulkan tick.
  * 
  * Currently, it initializes:
- * > a Vulkan instance (broken),
+ * > a Vulkan instance,
  * 
  * > the Vulkan Validation layers (set DFL_NO_DEBUG flag to skip)
  * 
- * It doesn't have any specific parameters now, those will be added
- * as development progresses.
+ * > a Debug Utils Messenger (set DFL_NO_DEBUG flag to skip)
+ * 
+ * > a logical device (GPU)
+ * 
+ * > queues for the device
+ * 
+ * @param useWindow whether to use a window or not. If 1, a window is used.
  * 
  * \since This function exists since Dragonfly 0.0.1
  * 
  * \sa dflVulkanKilling
  */
-int dflVulkanIniting();
+int dflVulkanIniting(
+    short int useWindow
+);
 /**
  * @brief 
  * Free Vulkan resources.
