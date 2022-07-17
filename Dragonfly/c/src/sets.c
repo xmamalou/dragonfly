@@ -30,23 +30,23 @@ EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.*/
 
 void dflSetPushing(DflSet* set, const char* element)
 {
-    const char** temp_data = realloc(set->data, set->size + sizeof(long)); // add one pointer-big memory to a temporary pointer 
-    set->size++;  
+    const char** temp_data = realloc(set->data, (set->size + 1)*sizeof(long)); // add one pointer-big memory to a temporary pointer 
+    temp_data[set->size] = element;
     set->data = temp_data;
-    set->data[set->size - 1] = element;
+    set->size++;
 }
 
 void dflSetPopping(DflSet* set)
 {
-    const char** temp_data = realloc(set->data, set->size - sizeof(long)); // remove one pointer-big memory to a temporary pointer
+    const char** temp_data = realloc(set->data, (set->size - 1)*sizeof(long)); // remove one pointer-big memory to a temporary pointer
     set->size--;
     set->data = temp_data;
 }
 
-void dflSetExtending(DflSet* set, int size)
+void dflSetExtending(DflSet* set, int times)
 {
-    const char** temp_data = realloc(set->data, set->size + (sizeof(long) * size));
-    set->size += size;
+    const char** temp_data = realloc(set->data, (set->size + times)*sizeof(long));
+    set->size += times;
     set->data = temp_data;
 }
 

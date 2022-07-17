@@ -102,11 +102,11 @@ void dflVectorPopping(DflVector* vector);
 * spaces as specified by size.
 *
 * @param vector the vector to extend (or shrink).
-* @param size the amount of spaces to add to the Vector.
+* @param times the amount of spaces to add to the Vector.
 *
 * @since This function exists since Dragonfly 0.0.1.2.
 */
-void dflVectorExtending(DflVector* vector, int size);
+void dflVectorExtending(DflVector* vector, int times);
 /*! @brief Clears a vector.
 *
 * @param vector the vector to clear.

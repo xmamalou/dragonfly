@@ -30,23 +30,23 @@ EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.*/
 
 void dflVectorPushing(DflVector* vector, int element)
 {
-    int* temp_data = realloc(vector->data, vector->size + sizeof(long)); // add one pointer-big memory to a temporary pointer 
-    vector->size++;  
+    int* temp_data = realloc(vector->data, (vector->size + 1)*sizeof(long)); // add one pointer-big memory to a temporary pointer 
+    temp_data[vector->size] = element;
     vector->data = temp_data;
-    vector->data[vector->size - 1] = element;
+    vector->size++;
 }
 
 void dflVectorPopping(DflVector* vector)
 {
-    int* temp_data = realloc(vector->data, vector->size - sizeof(long)); // remove one pointer-big memory to a temporary pointer
+    int* temp_data = realloc(vector->data, (vector->size - 1)*sizeof(long)); // remove one pointer-big memory to a temporary pointer
     vector->size--;
     vector->data = temp_data;
 }
 
-void dflVectorExtending(DflVector* vector, int size)
+void dflVectorExtending(DflVector* vector, int times)
 {
-    int* temp_data = realloc(vector->data, vector->size + (sizeof(long) * size));
-    vector->size += size;
+    int* temp_data = realloc(vector->data, (vector->size + times)*sizeof(long));
+    vector->size += times;
     vector->data = temp_data;
 }
 

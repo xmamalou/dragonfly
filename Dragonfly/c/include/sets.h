@@ -104,11 +104,11 @@ void dflSetPopping(DflSet* set);
 * spaces as specified by size.
 *
 * @param set the Set to extend (or shrink).
-* @param size the amount of spaces to add to the Set.
+* @param times the amount of spaces to add to the Set.
 *
 * @since This function exists since Dragonfly 0.0.1.1.
 */
-void dflSetExtending(DflSet* set, int size);
+void dflSetExtending(DflSet* set, int times);
 /*! @brief Clears a Set.
 *
 * @param set the set to clear.
