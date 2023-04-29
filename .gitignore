@@ -50,3 +50,7 @@ modules.order
 Module.symvers
 Mkfile.old
 dkms.conf
+
+# Other
+Dragonfly-C/Resources
+Dragonfly-C/x86_64
