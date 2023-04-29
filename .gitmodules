@@ -1,3 +1,6 @@
 [submodule "Dragonfly-C/stb"]
 	path = Dragonfly-C/stb
 	url = https://github.com/nothings/stb
+[submodule "Dragonfly-C/Dragonfly-C/stb"]
+	path = Dragonfly-C/Dragonfly-C/stb
+	url = https://github.com/nothings/stb
