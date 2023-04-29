@@ -13,6 +13,7 @@ then the noun that describes that object will be **the first** to appear in the 
 - `dflWindowCreate` - Creates a new window
 - `dflWindowReshape` - Reshapes an existing window
 - `dflWindowChangeIcon` - Changes the icon of an existing window
+
 Internal functions (functions that are not meant to be used by the user) will be suffixed with `HIDN` (Hidden).
 Callback types will be suffixed with `CLBK` (Callback).
 Getter or setter functions will be suffixed with either `Get` or `Set` following the variable to get or set.
