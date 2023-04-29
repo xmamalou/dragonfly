@@ -56,3 +56,6 @@ Dragonfly-C/Resources
 Dragonfly-C/x64
 x64/
 .vs/
+Dragonfly-C/Dragonfly-C.vcxproj.user
+Dragonfly-C/Dragonfly-C.vcxproj.filters
+Dragonfly-C/Dragonfly-C.vcxproj
