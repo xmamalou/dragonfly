@@ -1,4 +1,4 @@
-﻿#include <stdio.h>
+#include <stdio.h>
 
 #ifdef _WIN32
 #include <windows.h>
@@ -25,7 +25,7 @@ int MAIN()
 
 		struct DflVec2D place = { .x = 100, .y = 100 };
 
-		DflWindowInfo info = 
+		DflWindowInfo info =
 		{
 			.dim = dim,
 			.view = view,
@@ -34,27 +34,25 @@ int MAIN()
 			.icon = "Resources/charliefav.png",
 			.mode = DFL_WINDOWED,
 			.rate = 165,
-			.pos = place 
+			.pos = place
 		};
 
-		struct DflSessionInfo sessionInfo = 
+		struct DflSessionInfo sessionInfo =
 		{
 			.appName = "Dragonfly",
-			.appVersion = DFL_VERSION(0, 0, 1),
-			.window = &window,
-			.debug = DFL_TRUE
+			.appVersion = DFL_VERSION(0, 1, 0),
+			.debug = true
 		};
 
 		session = dflSessionInit(&sessionInfo, DFL_SESSION_CRITERIA_NONE, DFL_GPU_CRITERIA_NONE);
+		if (session == NULL)
+			return 1;
+
 		window = dflWindowCreate(&info);
+		if (window == NULL)
+			return 1;
+
 	}
-
-	if (session == NULL)
-		return 1;
-
-	if(window == NULL)
-		return 1;
-
 	Sleep(1000);
 
 	dflWindowDestroy(&window);
