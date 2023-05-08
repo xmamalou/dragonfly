@@ -3,10 +3,15 @@
 #include <stdlib.h>
 
 #include "../StbDummy.h"
+#include "Vulkan.h"
 
 typedef struct DflWindow_T { // A Dragonfly window
     GLFWwindow*     window;
     DflWindowInfo	info;
+
+    /* ------------------- *
+    *   VULKAN SPECIFIC    *
+    *  ------------------- */
 
     // CALLBACKS 
 

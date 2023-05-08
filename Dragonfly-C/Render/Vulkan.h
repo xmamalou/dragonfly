@@ -27,15 +27,17 @@ struct DflSessionInfo
 {
     const char* appName;
     uint32_t    appVersion;
-    DflWindow   window;
-    int         debug : 1;
+    int         debug;
+    bool        offscreenWorkOnly; // If set, Dragonfly will not render to a window.
 };
 // opaque handle for a DflSession_T object.
 DFL_MAKE_HANDLE(DflSession);
 
 // FUNCTIONS
 
-// Initializes Vulkan + [to be added]
+// Initializes Vulkan + [to be added]. 
+// SessionCrit: Session criteria. Form by using the DFL_SESSION_CRITERIA_* flags.
+// GPUCrit: GPU criteria. Form by using the DFL_GPU_CRITERIA_* flags.
 DflSession dflSessionInit(struct DflSessionInfo* info, int sessionCrit, int GPUCrit);
 
 void dflSessionEnd(DflSession* session);
