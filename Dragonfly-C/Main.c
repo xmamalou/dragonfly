@@ -1,3 +1,10 @@
+/*
+* NOTE: THIS EXISTS ONLY AS A DUMMY FILE! 
+* WHEN DRAGONFLY REACHES A DESIRED WORKING STATE, THIS FILE WILL BE DELETED!
+* WHEN THAT HAPPENS, DRAGONFLY WILL BE SET TO COMPILE AS A DYNAMIC LIBRARY!
+*/
+
+
 #include <stdio.h>
 
 #ifdef _WIN32
@@ -31,7 +38,6 @@ int MAIN()
 			.view = view,
 			.res = res,
 			.name = "Dragonfly says: Hello World!",
-			.icon = "Resources/charliefav.png",
 			.mode = DFL_WINDOWED,
 			.rate = 165,
 			.pos = place
