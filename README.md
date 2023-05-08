@@ -13,4 +13,5 @@ This currently compiles for Windows, using Visual Studio. Other compilation meth
 Dragonfly uses 3 libraries, one of which ([stb](https://github.com/nothings/stb)) is contained as a submodule in the repo. The other two are external and are the following:
 - [GLFW](https://github.com/glfw/glfw)
 - [Vulkan](https://vulkan.lunarg.com/)
+
 Both are dynamically linked
