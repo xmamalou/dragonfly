@@ -18,10 +18,10 @@ extern "C" {
 
 #define DFL_GPU_CRITERIA_NONE 0 // Dragonfly will choose the best GPU available - no extra criteria on how to use it. It will use it as it sees fit.
 #define DFL_GPU_CRITERIA_HASTY 1 // Dragonfly will choose the first GPU available - no extra criteria on how to use it. It will use it as it sees fit.
-#define DFL_GPU_CRITERIA_INTEGRATED 2 // Dragonfly implicitly assumes that the desired GPU is discrete - use this flag to override that assumption
+#define DFL_GPU_CRITERIA_INTEGRATED 2 // Dragonfly will normally implicitly that the desired GPU is discrete - use this flag to override that assumption
 #define DFL_GPU_CRITERIA_LOW_PERFORMANCE 4 // Dragonfly will try to use the least intensive GPU available
 #define DFL_GPU_CRITERIA_UNDERWORK 8 // Dragonfly will pick the best GPU available, but it will omit features for the sake of performance.
-#define DFL_GPU_CRITERIA_ABUSE_MEMORY 16 // Dragonfly implicitly leaves a little wiggle room for GPU memory - use this flag to override that assumption
+#define DFL_GPU_CRITERIA_ABUSE_MEMORY 16 // Dragonfly will normally implicitly leave a little wiggle room for GPU memory - use this flag to override that assumption
 
 struct DflSessionInfo
 {
@@ -35,7 +35,7 @@ DFL_MAKE_HANDLE(DflSession);
 
 // FUNCTIONS
 
-// Initializes Vulkan + [to be added]. 
+// Initializes Vulkan + Picks Physical Device + [to be added]. 
 // SessionCrit: Session criteria. Form by using the DFL_SESSION_CRITERIA_* flags.
 // GPUCrit: GPU criteria. Form by using the DFL_GPU_CRITERIA_* flags.
 DflSession dflSessionInit(struct DflSessionInfo* info, int sessionCrit, int GPUCrit);
