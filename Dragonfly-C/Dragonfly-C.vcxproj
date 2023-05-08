@@ -138,8 +138,8 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="Render\GLFW.c" />
     <ClCompile Include="Main.c" />
+    <ClCompile Include="Render\GLFW.c" />
     <ClCompile Include="Render\Vulkan.c" />
   </ItemGroup>
   <ItemGroup>
