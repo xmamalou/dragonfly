@@ -1,4 +1,34 @@
-#pragma once
+#ifndef DFL_RENDER_GLFW_H
+#define DFL_RENDER_GLFW_H
+
+/*
+    Copyright 2022 Christopher-Marios Mamaloukas
+
+    Redistribution and use in source and binary forms, with or without modification,
+    are permitted provided that the following conditions are met:
+
+    1. Redistributions of source code must retain the above copyright notice,
+    this list of conditions and the following disclaimer.
+
+    2. Redistributions in binary form must reproduce the above copyright notice,
+    this list of conditions and the following disclaimer in the documentation and/or
+    other materials provided with the distribution.
+
+    3. Neither the name of the copyright holder nor the names of its contributors
+    may be used to endorse or promote products derived from this software without
+    specific prior written permission.
+
+    THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS “AS IS”
+    AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
+    THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
+    PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS
+    BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+    DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+    LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+    THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
+    NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
+    EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+*/
 
 #ifdef __cplusplus
 extern "C" {
@@ -34,12 +64,13 @@ typedef struct DflWindowInfo {
 DFL_MAKE_HANDLE(DflWindow);
 
 // CALLBACKS -- They take -most of the time- the same parameters as the functions they are called after. But they all return nothing.
+// See their related functions for argument information. If there's an extra argument, it will be explained.
 
-typedef void (*DflWindowReshapeCLBK)(struct DflVec2D rect, int type, DflWindow* window); // Called when a window is reshaped.
-typedef void (*DflWindowRepositionCLBK)(struct DflVec2D pos, DflWindow* window); // Called when a window is repositioned.
-typedef void (*DflWindowChangeModeCLBK)(int mode, DflWindow* window); // Called when a window's mode changes.
-typedef void (*DflWindowRenameCLBK)(const char* name, DflWindow* window); // Called when a window changes name.
-typedef void (*DflWindowChangeIconCLBK)(const char* icon, DflWindow* window); // Called when a window changes its icon.
+typedef void (*DflWindowReshapeCLBK)(struct DflVec2D rect, int type, DflWindow* pWindow); // Called when a window is reshaped.
+typedef void (*DflWindowRepositionCLBK)(struct DflVec2D pos, DflWindow* pWindow); // Called when a window is repositioned.
+typedef void (*DflWindowChangeModeCLBK)(int mode, DflWindow* pWindow); // Called when a window's mode changes.
+typedef void (*DflWindowRenameCLBK)(const char* name, DflWindow* pWindow); // Called when a window changes name.
+typedef void (*DflWindowChangeIconCLBK)(const char* iconPath, DflWindow* pWindow); // Called when a window changes its icon.
 
 typedef void (*DflWindowCloseCLBK)(DflWindow* window); // Called RIGHT BEFORE a window is closed.
 
@@ -49,41 +80,51 @@ typedef void (*DflWindowCloseCLBK)(DflWindow* window); // Called RIGHT BEFORE a 
 *	Callbacks get called *after* an action has been performed. 
 */
 
-// Returns NULL if unsuccessful. 
-DflWindow dflWindowCreate(DflWindowInfo* info); 
+// Returns NULL if unsuccessful.
+// `info`: the window's information. Set to NULL for default values.
+// NOTE: you can omit members of the struct. Dragonfly will set default values if NULL.
+DflWindow dflWindowCreate(DflWindowInfo* pInfo, DflSession* pSession); 
 
-// type: DFL_DIMENSIONS for the dimensions, DFL_VIEWPORT for the viewport, and DFL_RESOLUTION for the resolution.
-// Changes the given Rect of the window.
+// Changes the dimensions, viewport, or resolution of the window.
+// `rect`: the new rectangle.
+// `type`: DFL_DIMENSIONS for the dimensions, DFL_VIEWPORT for the viewport, and DFL_RESOLUTION for the resolution.
 void dflWindowReshape(struct DflVec2D rect, int type, DflWindow* window);
 void dflWindowReposition(struct DflVec2D pos, DflWindow* window);
-// mode: DFL_WINDOWED, DFL_FULLSCREEN, or DFL_BORDERLESS.
+// Change window mode.
+// `mode`: DFL_WINDOWED, DFL_FULLSCREEN, or DFL_BORDERLESS.
 void dflWindowChangeMode(int mode, DflWindow* window);
 void dflWindowRename(const char* name, DflWindow* window);
 // Will keep old icon if the path is invalid.
+// `icon`: path to the icon. NOT ITS DATA.
 void dflWindowChangeIcon(const char* icon, DflWindow* window);
 
 // GETTERS
 
-// type: DFL_DIMENSIONS for the dimensions, DFL_VIEWPORT for the viewport, and DFL_RESOLUTION for the resolution.
+// Get the dimensions, viewport, or resolution of the window.
+// `type`: DFL_DIMENSIONS for the dimensions, DFL_VIEWPORT for the viewport, and DFL_RESOLUTION for the resolution.
 struct DflVec2D dflWindowRectGet(int type, DflWindow window);
 struct DflVec2D dflWindowPosGet(DflWindow window);
 int				dflMonitorNumGet();
-// Gives it in terms of the virtual screen space.
+// Get the primary monitor's position.
 struct DflVec2D dflPrimaryMonitorPosGet();
 
-// Does not free WINDOW pointer.
-void dflWindowDestroy(DflWindow* window);
+// It frees the `window` pointer.
+void dflWindowDestroy(DflWindow* pWindow);
 
 // CALLBACK SETTERS -- Add callbacks to be executed when window functions are called. None return anything.
+// Self explanatory. See the types defined in the top of the file for specifics on what the callbacks need to take as arguments.
+// See their related functions in this file for argument information.
 
-void dflWindowReshapeCLBKSet(DflWindowReshapeCLBK clbk, DflWindow* window);
-void dflWindowRepositionCLBKSet(DflWindowRepositionCLBK clbk, DflWindow* window);
-void dflWindowChangeModeCLBKSet(DflWindowChangeModeCLBK clbk, DflWindow* window);
-void dflWindowRenameCLBKSet(DflWindowRenameCLBK clbk, DflWindow* window);
-void dflWindowChangeIconCLBKSet(DflWindowChangeIconCLBK clbk, DflWindow* window);
+void dflWindowReshapeCLBKSet(DflWindowReshapeCLBK clbk, DflWindow* pWindow);
+void dflWindowRepositionCLBKSet(DflWindowRepositionCLBK clbk, DflWindow* pWindow);
+void dflWindowChangeModeCLBKSet(DflWindowChangeModeCLBK clbk, DflWindow* pWindow);
+void dflWindowRenameCLBKSet(DflWindowRenameCLBK clbk, DflWindow* pWindow);
+void dflWindowChangeIconCLBKSet(DflWindowChangeIconCLBK clbk, DflWindow* pWindow);
 
-void dflWindowCloseCLBKSet(DflWindowCloseCLBK clbk, DflWindow* window);
+void dflWindowDestroyCLBKSet(DflWindowCloseCLBK clbk, DflWindow* window);
 
 #ifdef __cplusplus
 }
 #endif
+
+#endif // !DFL_RENDER_GLFW_H
