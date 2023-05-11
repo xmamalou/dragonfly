@@ -54,6 +54,10 @@ struct DflWindow_T { // A Dragonfly window
     DflWindowCloseCLBK      destroyCLBK;
 };
 
+/* -------------------- *
+ *   INTERNAL           *
+ * -------------------- */
+
 static GLFWwindow* dflWindowCallHIDN(struct DflVec2D dim, struct DflVec2D view, struct DflVec2D res, const char* name, int mode);
 static GLFWwindow* dflWindowCallHIDN(struct DflVec2D dim, struct DflVec2D view, struct DflVec2D res, const char* name, int mode)
 {
@@ -93,10 +97,19 @@ inline static struct DflWindow_T* dflWindowAllocHIDN()
     return calloc(1, sizeof(struct DflWindow_T));
 }
 
-// HEADER FUNCTIONS
+/* -------------------- *
+ *   INITIALIZE         *
+ * -------------------- */
 
-DflWindow dflWindowCreate(DflWindowInfo* pInfo, DflSession* pSession)
+DflWindow dflWindowCreate(DflWindowInfo* pInfo, DflSession* session)
 {
+    if(session == NULL)
+        return NULL;
+    if(*session == NULL)
+        return NULL;
+    if (dflSessionCanPresentGet(*session) == false)
+        return NULL;
+
     if(pInfo == NULL)
     {
         pInfo = calloc(1, sizeof(DflWindowInfo));
@@ -130,6 +143,10 @@ DflWindow dflWindowCreate(DflWindowInfo* pInfo, DflSession* pSession)
 
     return (DflWindow)window;
 }
+
+/* -------------------- *
+ *   CHANGE             *
+ * -------------------- */
 
 void dflWindowReshape(struct DflVec2D rect, int type, DflWindow* pWindow)
 {
@@ -223,7 +240,9 @@ void dflWindowChangeIcon(const char* icon, DflWindow* pWindow)
         ((struct DflWindow_T*)*pWindow)->iconCLBK(icon, pWindow);
 }
 
-// GETTERS
+/* -------------------- *
+ *   GET & SET          *
+ * -------------------- */
 
 struct DflVec2D dflWindowRectGet(int type, DflWindow window)
 {
@@ -251,20 +270,9 @@ struct DflVec2D dflPrimaryMonitorPosGet()
     return pos;
 }
 
-// OTHER
-
-void dflWindowDestroy(DflWindow* pWindow)
-{
-    if (((struct DflWindow_T*)*pWindow)->destroyCLBK != NULL)
-        ((struct DflWindow_T*)*pWindow)->destroyCLBK(pWindow);
-
-    glfwDestroyWindow(((struct DflWindow_T*)*pWindow)->handle);
-    glfwTerminate();
-
-    free(*pWindow);
-}
-
-// CALLBACKS
+/* -------------------- *
+ *   CALLBACK SETTERS   *
+ * -------------------- */
 
 void dflWindowReshapeCLBKSet(DflWindowReshapeCLBK clbk, DflWindow* pWindow)
 {
@@ -296,4 +304,17 @@ void dflWindowDestroyCLBKSet(DflWindowCloseCLBK clbk, DflWindow* pWindow)
     ((struct DflWindow_T*)*pWindow)->destroyCLBK = clbk;
 }
 
+/* -------------------- *
+ *   DESTROY            *
+ * -------------------- */
 
+void dflWindowDestroy(DflWindow* pWindow)
+{
+    if (((struct DflWindow_T*)*pWindow)->destroyCLBK != NULL)
+        ((struct DflWindow_T*)*pWindow)->destroyCLBK(pWindow);
+
+    glfwDestroyWindow(((struct DflWindow_T*)*pWindow)->handle);
+    glfwTerminate();
+
+    free(*pWindow);
+}

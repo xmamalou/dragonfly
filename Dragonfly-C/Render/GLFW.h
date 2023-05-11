@@ -37,8 +37,11 @@ extern "C" {
 #include <GLFW/glfw3.h>
 
 #include "../Data.h"
+#include "Vulkan.h"
 
-// TYPES
+/* -------------------- *
+ *   TYPES              *
+ * -------------------- */
 
 #define DFL_WINDOWED 0
 #define DFL_FULLSCREEN 1
@@ -63,7 +66,10 @@ typedef struct DflWindowInfo {
 // opaque handle for a DflWindow_T object.
 DFL_MAKE_HANDLE(DflWindow);
 
-// CALLBACKS -- They take -most of the time- the same parameters as the functions they are called after. But they all return nothing.
+/* -------------------- *
+ *   CALLBACKS          *
+ * -------------------- */
+// They take -most of the time- the same parameters as the functions they are called after. But they all return nothing.
 // See their related functions for argument information. If there's an extra argument, it will be explained.
 
 typedef void (*DflWindowReshapeCLBK)(struct DflVec2D rect, int type, DflWindow* pWindow); // Called when a window is reshaped.
@@ -74,16 +80,18 @@ typedef void (*DflWindowChangeIconCLBK)(const char* iconPath, DflWindow* pWindow
 
 typedef void (*DflWindowCloseCLBK)(DflWindow* window); // Called RIGHT BEFORE a window is closed.
 
-// FUNCTIONS
-
-/*
-*	Callbacks get called *after* an action has been performed. 
-*/
+/* -------------------- *
+ *   INITIALIZE         *
+ * -------------------- */
 
 // Returns NULL if unsuccessful.
 // `info`: the window's information. Set to NULL for default values.
 // NOTE: you can omit members of the struct. Dragonfly will set default values if NULL.
-DflWindow dflWindowCreate(DflWindowInfo* pInfo, DflSession* pSession); 
+DflWindow dflWindowCreate(DflWindowInfo* pInfo, DflSession* session); 
+
+/* -------------------- *
+ *   CHANGE             *
+ * -------------------- */
 
 // Changes the dimensions, viewport, or resolution of the window.
 // `rect`: the new rectangle.
@@ -98,7 +106,9 @@ void dflWindowRename(const char* name, DflWindow* window);
 // `icon`: path to the icon. NOT ITS DATA.
 void dflWindowChangeIcon(const char* icon, DflWindow* window);
 
-// GETTERS
+/* -------------------- *
+ *   GET & SET          *
+ * -------------------- */
 
 // Get the dimensions, viewport, or resolution of the window.
 // `type`: DFL_DIMENSIONS for the dimensions, DFL_VIEWPORT for the viewport, and DFL_RESOLUTION for the resolution.
@@ -108,12 +118,9 @@ int				dflMonitorNumGet();
 // Get the primary monitor's position.
 struct DflVec2D dflPrimaryMonitorPosGet();
 
-// It frees the `window` pointer.
-void dflWindowDestroy(DflWindow* pWindow);
-
-// CALLBACK SETTERS -- Add callbacks to be executed when window functions are called. None return anything.
-// Self explanatory. See the types defined in the top of the file for specifics on what the callbacks need to take as arguments.
-// See their related functions in this file for argument information.
+/* -------------------- *
+ *   CALLBACK SETTERS   *
+ * -------------------- */
 
 void dflWindowReshapeCLBKSet(DflWindowReshapeCLBK clbk, DflWindow* pWindow);
 void dflWindowRepositionCLBKSet(DflWindowRepositionCLBK clbk, DflWindow* pWindow);
@@ -122,6 +129,13 @@ void dflWindowRenameCLBKSet(DflWindowRenameCLBK clbk, DflWindow* pWindow);
 void dflWindowChangeIconCLBKSet(DflWindowChangeIconCLBK clbk, DflWindow* pWindow);
 
 void dflWindowDestroyCLBKSet(DflWindowCloseCLBK clbk, DflWindow* window);
+
+/* -------------------- *
+ *   DESTROY            *
+ * -------------------- */
+
+// It frees the `window` pointer.
+void dflWindowDestroy(DflWindow* pWindow);
 
 #ifdef __cplusplus
 }
