@@ -3,9 +3,9 @@
 Dragonfly is not in a working state. 
 
 Currently, it can do the following:
-- Open a window and change its properties (with no presentation surface)
-- Create a Vulkan instance (with no presentation extensions enabled)
+- Create a Vulkan instance
 - Sort some device properties (only if the machine contains one device or `DFL_GPU_CRITERIA_HASTY` flag is enabled)
+- Create a window and change its properties (only if the instance it's bound to supports presentation)
 
 This currently compiles for Windows, using Visual Studio. Other compilation methods will be worked on after Dragonfly reaches a working state
 
