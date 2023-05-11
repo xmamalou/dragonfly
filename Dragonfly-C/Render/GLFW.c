@@ -191,18 +191,18 @@ void dflWindowChangeMode(int mode, DflWindow* pWindow)
     switch (mode) {
     case DFL_WINDOWED:
         glfwSetWindowAttrib(((struct DflWindow_T*)*pWindow)->handle, GLFW_DECORATED, GLFW_TRUE);
-        glfwSetWindowMonitor(((struct DflWindow_T*)*pWindow)->handle, NULL, 0, 0, ((struct DflWindow_T*)*pWindow)->info.dim.x, ((struct DflWindow_T*)*pWindow)->info.dim.y, GLFW_DONT_CARE);
+        glfwSetWindowMonitor(((struct DflWindow_T*)*pWindow)->handle, NULL, ((struct DflWindow_T*)*pWindow)->info.pos.x, ((struct DflWindow_T*)*pWindow)->info.pos.y, ((struct DflWindow_T*)*pWindow)->info.dim.x, ((struct DflWindow_T*)*pWindow)->info.dim.y, GLFW_DONT_CARE);
         break;
     case DFL_FULLSCREEN:
         glfwSetWindowMonitor(((struct DflWindow_T*)*pWindow)->handle, glfwGetPrimaryMonitor(), 0, 0, ((struct DflWindow_T*)*pWindow)->info.dim.x, ((struct DflWindow_T*)*pWindow)->info.dim.y, GLFW_DONT_CARE);
         break;
     case DFL_BORDERLESS:
         glfwSetWindowAttrib(((struct DflWindow_T*)*pWindow)->handle, GLFW_DECORATED, GLFW_FALSE);
-        glfwSetWindowMonitor(((struct DflWindow_T*)*pWindow)->handle, NULL, 0, 0, ((struct DflWindow_T*)*pWindow)->info.dim.x, ((struct DflWindow_T*)*pWindow)->info.dim.y, GLFW_DONT_CARE);
+        glfwSetWindowMonitor(((struct DflWindow_T*)*pWindow)->handle, NULL, ((struct DflWindow_T*)*pWindow)->info.pos.x, ((struct DflWindow_T*)*pWindow)->info.pos.y, ((struct DflWindow_T*)*pWindow)->info.dim.x, ((struct DflWindow_T*)*pWindow)->info.dim.y, GLFW_DONT_CARE);
         break;
     default:
         glfwSetWindowAttrib(((struct DflWindow_T*)*pWindow)->handle, GLFW_DECORATED, GLFW_TRUE);
-        glfwSetWindowMonitor(((struct DflWindow_T*)*pWindow)->handle, NULL, 0, 0, ((struct DflWindow_T*)*pWindow)->info.dim.x, ((struct DflWindow_T*)*pWindow)->info.dim.y, GLFW_DONT_CARE);
+        glfwSetWindowMonitor(((struct DflWindow_T*)*pWindow)->handle, NULL, ((struct DflWindow_T*)*pWindow)->info.pos.x, ((struct DflWindow_T*)*pWindow)->info.pos.y, ((struct DflWindow_T*)*pWindow)->info.dim.x, ((struct DflWindow_T*)*pWindow)->info.dim.y, GLFW_DONT_CARE);
         break;
     }
 
