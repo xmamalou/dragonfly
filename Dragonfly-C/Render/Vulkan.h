@@ -37,14 +37,16 @@ extern "C" {
 #include <vulkan/vulkan.h>
 
 #include "../Data.h" 
-#include "../Render/GLFW.h"
 
 #define DFL_VERSION(major, minor, patch) VK_MAKE_API_VERSION(0, major, minor, patch)
 
-// TYPES
+/* -------------------- *
+ *   TYPES              *
+ * -------------------- */
 
 #define DFL_SESSION_CRITERIA_NONE 0 // Dragonfly will operate as it sees fit. No extra criteria on how to manage the session.
-#define DFL_SESSION_CRITERIA_ONLY_OFFSCREEN 1 // Dragonfly will only use the session for off-screen rendering. It will create the instance and device *before* `dflWindowCreate` is called.
+#define DFL_SESSION_CRITERIA_ONLY_OFFSCREEN 1 // Dragonfly implicitly assumes that on-screen rendering is desired. Use this flag to override that assumption.
+#define DFL_SESSION_CRITERIA_DO_DEBUG 2 // Dragonfly will enable validation layers and other debug features
 
 #define DFL_GPU_CRITERIA_NONE 0 // Dragonfly will choose the best GPU available - no extra criteria on how to use it. It will use it as it sees fit.
 #define DFL_GPU_CRITERIA_HASTY 1 // Dragonfly will choose the first GPU available - no extra criteria on how to use it. It will use it as it sees fit.
@@ -56,22 +58,32 @@ struct DflSessionInfo
 {
     const char* appName;
     uint32_t    appVersion;
-    bool        debug;
 };
 // opaque handle for a DflSession_T object.
 DFL_MAKE_HANDLE(DflSession);
 
-// FUNCTIONS
+/* -------------------- *
+ *   INITIALIZE         *
+ * -------------------- */
 
-// initializes Vulkan -- implicitly assumes that no on-screen rendering is desired.
-// To enable on-screen rendering, just call `dflWindowCreate` afterwards (see `Render/GLFW.h`), using the session
-// you created from this function.
+// initializes Vulkan -- implicitly assumes that on-screen rendering is desired.
+// Use DFL_SESSION_CRITERIA_ONLY_OFFSCREEN to override this assumption.
 // `sessionCriteria` is a bitfield of `DFL_SESSION_CRITERIA_*` flags.
 // `GPUCriteria` is a bitfield of `DFL_GPU_CRITERIA_*` flags.
 DflSession dflSessionInit(struct DflSessionInfo* pInfo, int sessionCriteria, int GPUCriteria);
 
+/* -------------------- *
+ *   GET & SET          *
+ * -------------------- */
+
+bool dflSessionCanPresentGet(DflSession session);
+
+/* -------------------- *
+ *   DESTROY            *
+ * -------------------- */
+
 // Also frees the session pointer. Does not destroy any associated windows. Any on-screen specific resources are not freed from this function.
-// Use `dflWindowDestroy` (see `Render/GLFW.h`) to destroy any associated windows and on-screen specific resources.
+// Use `dflWindowDestroy` (see `Render/GLFW.h`) to destroy any associated windows and on-screen rendering specific resources.
 void dflSessionEnd(DflSession* pSession);
 
 #ifdef __cplusplus
