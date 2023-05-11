@@ -25,7 +25,7 @@ int MAIN()
 	DflWindow	window = NULL;
 	DflSession	session = NULL;
 
-	session = dflSessionInit(NULL, DFL_SESSION_CRITERIA_NONE, DFL_GPU_CRITERIA_NONE);
+	session = dflSessionInit(NULL, DFL_SESSION_CRITERIA_DO_DEBUG, DFL_GPU_CRITERIA_NONE);
 	if (session == NULL)
 		return 1;
 
