@@ -42,6 +42,7 @@ extern "C" {
 #define DFL_ALLOC_ERROR 4 // Memory allocation error
 #define DFL_NO_LAYERS_FOUND 5 // No layers were found (only applicable if debug is desired but the host cannot provide tools for it)
 #define DFL_NO_GLFW_EXTENSIONS_LOADED 6 // GLFW extensions were not loaded
+#define DFL_NO_QUEUES_FOUND 7 // No queues were found
 
 #include <stdbool.h>
 
