@@ -37,36 +37,44 @@
 
 #include "../Data.h" 
 
+#define DFL_QUEUE_TYPE_GRAPHICS 0
+#define DFL_QUEUE_TYPE_COMPUTE 1
+#define DFL_QUEUE_TYPE_TRANSFER 2
+#define DFL_QUEUE_TYPE_PRESENTATION 3
+
+struct DflQueueCollection_T {
+    VkQueue* graphics;
+    VkQueue* compute;
+    VkQueue* transfer;
+    VkQueue* presentation;
+
+    uint32_t graphicsCount;
+    uint32_t computeCount;
+    uint32_t transferCount;
+    uint32_t presentationCount;
+
+    uint32_t graphicsIndex;
+    uint32_t computeIndex;
+    uint32_t transferIndex;
+    uint32_t presentationIndex;
+};
+
 struct DflLocalMem_T {
     uint64_t size;
     uint32_t heapIndex;
 };
 
-struct DflSession_T {
-    struct DflSessionInfo       info;
-    VkInstance                  instance;
-    VkDevice                    GPU;
-    VkDebugUtilsMessengerEXT    messenger;
-
-    VkPhysicalDevice* devices;
-    int               deviceCount;
-    int               choice;
-
-    VkDevice          device;
-
-    int error; // Error code
-
-    // Presentation
-    
-    bool          canPresent;
-
-    VkSurfaceKHR* surfaces; // multiple surfaces for multiple windows
-    int           surfaceCount;
+// this is some data about the device that will be used.
+// TODO: More fields to be added.
+struct DflDevice_T {
+    VkPhysicalDevice physDevice;
 
     /* -------------------- *
      *   GPU PROPERTIES     *
      * -------------------- */
-    
+
+    char name[VK_MAX_PHYSICAL_DEVICE_NAME_SIZE];
+
     // memory
 
     uint32_t              localHeaps;
@@ -85,6 +93,27 @@ struct DflSession_T {
 
     bool doLowPerf;
     bool doAbuseMemory;
+};
+
+struct DflSession_T {
+    struct DflSessionInfo       info;
+    VkInstance                  instance;
+    VkDevice                    GPU;
+    VkDebugUtilsMessengerEXT    messenger;
+
+    struct DflDevice_T          physDeviceData;
+
+    VkDevice                    device;
+    struct DflQueueCollection_T queues;
+
+    int error; // Error code
+
+    // Presentation
+    
+    bool          canPresent;
+
+    VkSurfaceKHR* surfaces; // multiple surfaces for multiple windows
+    int           surfaceCount;
 };
 
 /* -------------------- *
@@ -135,6 +164,9 @@ static int dflSessionVulkanInstanceInitHIDN(struct DflSessionInfo* info, VkInsta
         extensions[0] = "VK_KHR_surface";
     }
 
+    const char* desiredLayers[] = {
+            "VK_LAYER_KHRONOS_validation" };
+
     if (flags & DFL_SESSION_CRITERIA_DO_DEBUG)
     {
         extensionCount++;
@@ -143,9 +175,6 @@ static int dflSessionVulkanInstanceInitHIDN(struct DflSessionInfo* info, VkInsta
             return DFL_VULKAN_NOT_INITIALIZED;
         extensions = dummy;
         extensions[extensionCount - 1] = VK_EXT_DEBUG_UTILS_EXTENSION_NAME;
-
-        const char* desiredLayers[] = {
-            "VK_LAYER_KHRONOS_validation" };
 
         uint32_t layerCount = 0;
         vkEnumerateInstanceLayerProperties(&layerCount, NULL);
@@ -167,14 +196,9 @@ static int dflSessionVulkanInstanceInitHIDN(struct DflSessionInfo* info, VkInsta
                     return DFL_NO_LAYERS_FOUND;
             }
         }
-
-        instInfo.enabledLayerCount = 1;
-        instInfo.ppEnabledLayerNames = (const char**)desiredLayers;
     }
-    else
-    {
-        instInfo.enabledLayerCount = 0;
-    }
+    instInfo.enabledLayerCount = !(flags & DFL_SESSION_CRITERIA_DO_DEBUG) ? 0 : 1;
+    instInfo.ppEnabledLayerNames = !(flags & DFL_SESSION_CRITERIA_DO_DEBUG) ?  NULL : (const char**)desiredLayers;
 
     instInfo.enabledExtensionCount = extensionCount;
     instInfo.ppEnabledExtensionNames = extensions;
@@ -207,8 +231,8 @@ static int dflSessionVulkanInstanceInitHIDN(struct DflSessionInfo* info, VkInsta
 // just a helper function that fills GPU specific information in DflSession_T. When ranking devices,
 // Dragonfly will always sort each checked device using this function, unless the previous device
 // was already ranked higher. This will help avoid calling this function too many times.
-static int dflSessionDeviceOrganiseDataHIDN(int GPUCrit, int deviceCount, struct DflSession_T** session);
-static int dflSessionDeviceOrganiseDataHIDN(int GPUCrit, int deviceCount, struct DflSession_T** session)
+static int dflSessionDeviceOrganiseDataHIDN(int GPUCrit, int deviceCount, struct DflDevice_T* device);
+static int dflSessionDeviceOrganiseDataHIDN(int GPUCrit, int deviceCount, struct DflDevice_T* device)
 {
     VkDeviceCreateInfo deviceInfo = {
             .sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
@@ -216,36 +240,78 @@ static int dflSessionDeviceOrganiseDataHIDN(int GPUCrit, int deviceCount, struct
             .flags = NULL
     };
     VkPhysicalDeviceProperties props;
-    vkGetPhysicalDeviceProperties((*session)->devices[deviceCount], &props);
+    vkGetPhysicalDeviceProperties(device->physDevice, &props);
     VkPhysicalDeviceMemoryProperties memProps;
-    vkGetPhysicalDeviceMemoryProperties((*session)->devices[deviceCount], &memProps);
+    vkGetPhysicalDeviceMemoryProperties(device->physDevice, &memProps);
     VkPhysicalDeviceFeatures feats;
-    vkGetPhysicalDeviceFeatures((*session)->devices[deviceCount], &feats);
+    vkGetPhysicalDeviceFeatures(device->physDevice, &feats);
+
+    strcpy_s(&device->name, VK_MAX_PHYSICAL_DEVICE_NAME_SIZE, &props.deviceName);
 
     for (int i = 0; i < memProps.memoryHeapCount; i++)
     {
         if (memProps.memoryHeaps[i].flags & VK_MEMORY_HEAP_DEVICE_LOCAL_BIT)
         {
-            (*session)->localHeaps++;
-            void* dummy = realloc((*session)->localMem, (*session)->localHeaps * sizeof(struct DflLocalMem_T));
+            device->localHeaps++;
+            void* dummy = realloc(device->localMem, device->localHeaps * sizeof(struct DflLocalMem_T));
             if (dummy == NULL)
                 return DFL_ALLOC_ERROR;
-            (*session)->localMem = dummy;
-            (*session)->localMem->size = memProps.memoryHeaps[i].size;
-            (*session)->localMem->heapIndex = memProps.memoryTypes[i].heapIndex;
+            device->localMem = dummy;
+            device->localMem->size = memProps.memoryHeaps[i].size;
+            device->localMem->heapIndex = memProps.memoryTypes[i].heapIndex;
         }
     }
 
-    (*session)->maxDim1D = props.limits.maxImageDimension1D;
-    (*session)->maxDim2D = props.limits.maxImageDimension2D;
-    (*session)->maxDim3D = props.limits.maxImageDimension3D;
+    device->maxDim1D = props.limits.maxImageDimension1D;
+    device->maxDim2D = props.limits.maxImageDimension2D;
+    device->maxDim3D = props.limits.maxImageDimension3D;
 
-    (*session)->canDoGeomShade = feats.geometryShader;
-    (*session)->canDoTessShade = feats.tessellationShader;
+    device->canDoGeomShade = feats.geometryShader;
+    device->canDoTessShade = feats.tessellationShader;
 
     return DFL_SUCCESS;
 }
 
+
+static int dflSessionDeviceQueuesGetHIDN(VkSurfaceKHR* surface, struct DflSession_T* session);
+static int dflSessionDeviceQueuesGetHIDN(VkSurfaceKHR* surface, struct DflSession_T* session)
+{
+    session->queues.graphics = NULL;
+    session->queues.compute = NULL;
+    session->queues.transfer = NULL;
+    session->queues.presentation = NULL;
+
+    VkQueueFamilyProperties* queueProps = NULL;
+    uint32_t queueCount = 0;
+    vkGetPhysicalDeviceQueueFamilyProperties(session->physDeviceData.physDevice, &queueCount, NULL);
+    if (queueCount == 0)
+        return DFL_NO_QUEUES_FOUND;
+    queueProps = calloc(queueCount, sizeof(VkQueueFamilyProperties));
+    vkGetPhysicalDeviceQueueFamilyProperties(session->physDeviceData.physDevice, &queueCount, queueProps);
+
+    for (int i = 0; i < queueCount; i++)
+    {
+        if (queueProps[i].queueFlags & VK_QUEUE_GRAPHICS_BIT)
+        {
+            session->queues.graphicsIndex = i;
+            session->queues.graphicsCount = queueProps[i].queueCount;
+            continue;
+        }
+        if (queueProps[i].queueFlags & VK_QUEUE_COMPUTE_BIT)
+        {
+            session->queues.computeIndex = i;
+            session->queues.computeCount = queueProps[i].queueCount;
+            continue;
+        }
+        if (queueProps[i].queueFlags & VK_QUEUE_TRANSFER_BIT)
+        {
+            session->queues.transferIndex = i;
+            session->queues.transferCount = queueProps[i].queueCount;
+            continue;
+        }
+    }
+    return DFL_SUCCESS;
+} 
 /* -------------------- *
  *   INITIALIZE         *
  * -------------------- */
@@ -263,42 +329,48 @@ DflSession dflSessionInit(struct DflSessionInfo* pInfo, int sessionCriteria, int
     else
         session->info = *pInfo;
 
-    if (GPUCriteria & DFL_GPU_CRITERIA_LOW_PERFORMANCE)
-        session->doLowPerf = true;
-
-    if (GPUCriteria & DFL_GPU_CRITERIA_ABUSE_MEMORY)
-        session->doAbuseMemory = true;
-
-    if (sessionCriteria & DFL_SESSION_CRITERIA_ONLY_OFFSCREEN)
-        session->canPresent = false;
-    else
-        session->canPresent = true;
+    session->physDeviceData.doLowPerf = (sessionCriteria & DFL_GPU_CRITERIA_LOW_PERFORMANCE) ? true : false;
+    session->physDeviceData.doAbuseMemory = (sessionCriteria & DFL_GPU_CRITERIA_ABUSE_MEMORY) ? true : false;
+    session->canPresent = (sessionCriteria & DFL_SESSION_CRITERIA_ONLY_OFFSCREEN) ? false : true;
 
     if (dflSessionVulkanInstanceInitHIDN(&(session->info), &(session->instance), &(session->messenger), sessionCriteria) != DFL_SUCCESS)
         return NULL;
 
-    vkEnumeratePhysicalDevices(session->instance, &session->deviceCount, NULL);
-    session->devices = calloc(session->deviceCount, sizeof(VkPhysicalDevice));
-    vkEnumeratePhysicalDevices(session->instance, &session->deviceCount, session->devices);
+    VkPhysicalDevice* devices = NULL;
+    uint32_t deviceCount = 0;
+    vkEnumeratePhysicalDevices(session->instance, &deviceCount, NULL);
+    devices = calloc(deviceCount, sizeof(VkPhysicalDevice));
+    vkEnumeratePhysicalDevices(session->instance, &deviceCount, devices);
 
-    switch (session->deviceCount)
+    switch (deviceCount) // this just selects the device it thinks is appropriate, but doesn't actually make a VkDevice yet. Doesn't do any ranking if there's only one device (or DFL_GPU_CRITERIA_HASTY is set)
     {
     case 0:
         return NULL;
     case 1:
-        if (dflSessionDeviceOrganiseDataHIDN(GPUCriteria, 0, &session) != DFL_SUCCESS)
+        session->physDeviceData.physDevice = devices[deviceCount - 1];
+        if (dflSessionDeviceOrganiseDataHIDN(GPUCriteria, devices[deviceCount - 1], &(session->physDeviceData)) != DFL_SUCCESS)
             return NULL;
         break;
     default:
         if (GPUCriteria & DFL_GPU_CRITERIA_HASTY)
-            if (dflSessionDeviceOrganiseDataHIDN(GPUCriteria, 0, &session) != DFL_SUCCESS)
+        {
+            session->physDeviceData.physDevice = devices[deviceCount - 1];
+            if (dflSessionDeviceOrganiseDataHIDN(GPUCriteria, devices[deviceCount - 1], &(session->physDeviceData)) != DFL_SUCCESS)
                 return NULL;
+        }
         break;
     }
+
+    if (sessionCriteria & DFL_SESSION_CRITERIA_ONLY_OFFSCREEN)
+        dflSessionDeviceInit(NULL, &session);
 
     return (DflSession)session;
 }
 
+void dflSessionDeviceInit(VkSurfaceKHR* surface, DflSession* pSession)
+{
+    dflSessionDeviceQueuesGetHIDN(surface, ((struct DflSession_T*)*pSession));
+}
 /* -------------------- *
  *   GET & SET          *
  * -------------------- */

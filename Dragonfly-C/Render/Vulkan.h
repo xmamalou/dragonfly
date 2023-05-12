@@ -53,6 +53,7 @@ extern "C" {
 #define DFL_GPU_CRITERIA_INTEGRATED 2 // Dragonfly will normally implicitly assume that the desired GPU is discrete - use this flag to override that assumption. Won't fail if no integrated GPU is found.
 #define DFL_GPU_CRITERIA_LOW_PERFORMANCE 4 // Dragonfly will try to use the least intensive GPU available
 #define DFL_GPU_CRITERIA_ABUSE_MEMORY 16 // Dragonfly will normally implicitly leave a little wiggle room for GPU memory - use this flag to override that assumption
+#define DFL_GPU_CRITERIA_ALL_QUEUES 32 // Dragonfly will reserve only one queue for each queue family - use this flag to override that assumption
 
 struct DflSessionInfo
 {
@@ -71,6 +72,11 @@ DFL_MAKE_HANDLE(DflSession);
 // `sessionCriteria` is a bitfield of `DFL_SESSION_CRITERIA_*` flags.
 // `GPUCriteria` is a bitfield of `DFL_GPU_CRITERIA_*` flags.
 DflSession dflSessionInit(struct DflSessionInfo* pInfo, int sessionCriteria, int GPUCriteria);
+
+// initializes the rest of the session (the device). This is a separate function so it can be called either during
+// `dflSessionInit` (if onscreen rendering is disabled) or during `dflWindowCreate` (if onscreen rendering is enabled).
+// this isn't meant to be called by the user, but rather by the window creation function (if needed), which is in Render/GLFW.h
+void dflSessionDeviceInit(VkSurfaceKHR* surface, DflSession* pSession);
 
 /* -------------------- *
  *   GET & SET          *

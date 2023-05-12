@@ -117,6 +117,11 @@ struct DflVec2D dflWindowPosGet(DflWindow window);
 int				dflMonitorNumGet();
 // Get the primary monitor's position.
 struct DflVec2D dflPrimaryMonitorPosGet();
+// This is not meant to be used by the user.
+GLFWwindow*     dflWindowHandleGet(DflWindow window);
+
+// not meant to be used by the user.
+void dflWindowSurfaceIndexSet(int index, DflWindow* pWindow);
 
 /* -------------------- *
  *   CALLBACK SETTERS   *

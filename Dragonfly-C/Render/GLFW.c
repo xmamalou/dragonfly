@@ -43,6 +43,8 @@ struct DflWindow_T { // A Dragonfly window
     *   VULKAN SPECIFIC    *
     *  ------------------- */
 
+    int surfaceIndex; // The index of the window in the surface array
+
     // CALLBACKS 
 
     DflWindowReshapeCLBK    reshapeCLBK;
@@ -117,6 +119,7 @@ DflWindow dflWindowCreate(DflWindowInfo* pInfo, DflSession* session)
         pInfo->dim = (struct DflVec2D){ 1920, 1080 };
         pInfo->view = (struct DflVec2D){ 1920, 1080 };
         pInfo->res = (struct DflVec2D){ 1920, 1080 };
+        pInfo->pos = (struct DflVec2D){ 200, 200 };
         pInfo->name = "Dragonfly-App";
         pInfo->mode = DFL_WINDOWED;
     }
@@ -140,6 +143,9 @@ DflWindow dflWindowCreate(DflWindowInfo* pInfo, DflSession* session)
 
     if(pInfo->pos.x != NULL || pInfo->pos.y != NULL)
         glfwSetWindowPos(window->handle, window->info.pos.x, window->info.pos.y);
+
+
+    dflSessionDeviceInit(&((DflWindow)window), session);
 
     return (DflWindow)window;
 }
@@ -268,6 +274,16 @@ struct DflVec2D dflPrimaryMonitorPosGet()
     struct DflVec2D pos = { .x = 0, .y = 0 };
     glfwGetMonitorPos(glfwGetPrimaryMonitor(), &pos.x, &pos.y);
     return pos;
+}
+
+GLFWwindow* dflWindowHandleGet(DflWindow window)
+{
+    return &(((struct DflWindow_T*)window)->handle);
+}
+
+void dflWindowSurfaceIndexSet(int index, DflWindow* pWindow)
+{
+    ((struct DflWindow_T*)*pWindow)->surfaceIndex = index;
 }
 
 /* -------------------- *
