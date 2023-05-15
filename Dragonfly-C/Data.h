@@ -34,15 +34,25 @@
 extern "C" {
 #endif
 
-// ERROR CODES
+/* -------------------- *
+ *   ERROR CODES        *
+ * -------------------- */
 
 #define DFL_SUCCESS 0 // operation was successful
-#define DFL_FILE_NOT_FOUND 1 // Specified file was not found
-#define DFL_VULKAN_NOT_INITIALIZED 2 // Vulkan was not initialized
-#define DFL_ALLOC_ERROR 4 // Memory allocation error
-#define DFL_NO_LAYERS_FOUND 5 // No layers were found (only applicable if debug is desired but the host cannot provide tools for it)
-#define DFL_NO_GLFW_EXTENSIONS_LOADED 6 // GLFW extensions were not loaded
-#define DFL_NO_QUEUES_FOUND 7 // No queues were found
+
+#define DFL_GENERIC_ALLOC_ERROR -0xA110C // generic allocation error
+#define DFL_GENERIC_NO_SUCH_FILE_ERROR -0xF17E // generic file not found error
+
+#define DFL_GLFW_INIT_ERROR -0x50BAD // glfw initialization error
+#define DFL_GLFW_WINDOW_ERROR -0x533 // glfw window creation error
+
+#define DFL_VULKAN_INSTANCE_ERROR -0xDED // vulkan instance creation error
+#define DFL_VULKAN_DEVICE_ERROR -0xF00C // vulkan device creation error
+#define DFL_VULKAN_LAYER_ERROR -0xCA4E // vulkan layer creation error
+#define DFL_VULKAN_DEBUG_ERROR -0xB0B0 // vulkan debug creation error
+#define DFL_VULKAN_EXTENSION_ERROR -0xFA7 // vulkan extension creation error
+#define DFL_VULKAN_SURFACE_ERROR -0xBADBED // vulkan surface creation error
+#define DFL_VULKAN_QUEUE_ERROR -0x10B // vulkan queue creation error
 
 #include <stdbool.h>
 
@@ -54,6 +64,7 @@ struct DflVec2D
 };
 
 #define DFL_MAKE_HANDLE(type) typedef struct type##_HND* type; // a handle to a type
+#define DFL_HANDLE(type) ((struct Dfl##type##_T*)*p##type) // a shorthand for casting a handle to its type (will be used when `type` refers to a function argument in the form `ptype` (pointer to handle))
 
 #ifdef __cplusplus
 }
