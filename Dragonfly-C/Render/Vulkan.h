@@ -37,6 +37,7 @@ extern "C" {
 #include <vulkan/vulkan.h>
 
 #include "../Data.h" 
+#include "GLFW.h"
 
 #define DFL_VERSION(major, minor, patch) VK_MAKE_API_VERSION(0, major, minor, patch)
 
@@ -49,19 +50,25 @@ extern "C" {
 #define DFL_SESSION_CRITERIA_DO_DEBUG 2 // Dragonfly will enable validation layers and other debug features
 
 #define DFL_GPU_CRITERIA_NONE 0 // Dragonfly will choose the best GPU available - no extra criteria on how to use it. It will use it as it sees fit.
-#define DFL_GPU_CRITERIA_HASTY 1 // Dragonfly will choose the first GPU available - no extra criteria on how to use it. It will use it as it sees fit.
-#define DFL_GPU_CRITERIA_INTEGRATED 2 // Dragonfly will normally implicitly assume that the desired GPU is discrete - use this flag to override that assumption. Won't fail if no integrated GPU is found.
-#define DFL_GPU_CRITERIA_LOW_PERFORMANCE 4 // Dragonfly will try to use the least intensive GPU available
-#define DFL_GPU_CRITERIA_ABUSE_MEMORY 16 // Dragonfly will normally implicitly leave a little wiggle room for GPU memory - use this flag to override that assumption
-#define DFL_GPU_CRITERIA_ALL_QUEUES 32 // Dragonfly will reserve only one queue for each queue family - use this flag to override that assumption
+#define DFL_GPU_CRITERIA_ONLY_OFFSCREEN 1 // Dragonfly will implicitly assume that on-screen rendering is desired. Use this flag to override that assumption.
+#define DFL_GPU_CRITERIA_LOW_PERFORMANCE 2 // Dragonfly will try to use the least intensive GPU available
+#define DFL_GPU_CRITERIA_ABUSE_MEMORY 4 // Dragonfly will normally implicitly leave a little wiggle room for GPU memory - use this flag to override that assumption
+#define DFL_GPU_CRITERIA_ALL_QUEUES 8 // Dragonfly will reserve only one queue for each queue family - use this flag to override that assumption
 
 struct DflSessionInfo
 {
     const char* appName;
     uint32_t    appVersion;
 };
+struct DflPhysicalDevices
+{
+    VkPhysicalDevice* pDevices;
+    uint32_t          count;
+};
 // opaque handle for a DflSession_T object.
 DFL_MAKE_HANDLE(DflSession);
+// opaque handle for a DflDevice_T object.
+DFL_MAKE_HANDLE(DflDevice);
 
 /* -------------------- *
  *   INITIALIZE         *
@@ -71,18 +78,20 @@ DFL_MAKE_HANDLE(DflSession);
 // Use DFL_SESSION_CRITERIA_ONLY_OFFSCREEN to override this assumption.
 // `sessionCriteria` is a bitfield of `DFL_SESSION_CRITERIA_*` flags.
 // `GPUCriteria` is a bitfield of `DFL_GPU_CRITERIA_*` flags.
-DflSession dflSessionInit(struct DflSessionInfo* pInfo, int sessionCriteria, int GPUCriteria);
+DflSession dflSessionInit(int sessionCriteria, struct DflSessionInfo* pInfo);
 
-// initializes the rest of the session (the device). This is a separate function so it can be called either during
-// `dflSessionInit` (if onscreen rendering is disabled) or during `dflWindowCreate` (if onscreen rendering is enabled).
-// this isn't meant to be called by the user, but rather by the window creation function (if needed), which is in Render/GLFW.h
-void dflSessionDeviceInit(VkSurfaceKHR* surface, DflSession* pSession);
+int dflSessionBindWindow(DflWindow* pWindow, DflSession* pSession);
+
+// returns a list of physical devices that are available to the session.
+// this is useful only if you want to choose a GPU manually.
+struct DflPhysicalDevices dflSessionGetDevices(DflSession session);
+DflDevice dflDeviceInit(int GPUCriteria, int choice, struct DflPhysicalDevices* devices, DflSession* pSession);
 
 /* -------------------- *
  *   GET & SET          *
  * -------------------- */
 
-bool dflSessionCanPresentGet(DflSession session);
+bool dflDeviceCanPresentGet(DflDevice device);
 
 /* -------------------- *
  *   DESTROY            *

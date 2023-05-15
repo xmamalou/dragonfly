@@ -33,7 +33,6 @@
 
 #include "../Data.h"
 #include "../StbDummy.h"
-#include "Vulkan.h"
 
 struct DflWindow_T { // A Dragonfly window
     GLFWwindow* handle;
@@ -80,14 +79,18 @@ static GLFWwindow* dflWindowCallHIDN(struct DflVec2D dim, struct DflVec2D view, 
 
     switch (mode) {
     case DFL_WINDOWED:
+        glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
         glfwWindowHint(GLFW_DECORATED, GLFW_TRUE);
         return glfwCreateWindow(dim.x, dim.y, name, NULL, NULL);
     case DFL_FULLSCREEN:
+        glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
         return glfwCreateWindow(dim.x, dim.y, name, glfwGetPrimaryMonitor(), NULL);
     case DFL_BORDERLESS:
+        glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
         glfwWindowHint(GLFW_DECORATED, GLFW_FALSE);
         return glfwCreateWindow(dim.x, dim.y, name, NULL, NULL);
     default:
+        glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
         glfwWindowHint(GLFW_DECORATED, GLFW_TRUE);
         return glfwCreateWindow(dim.x, dim.y, name, NULL, NULL);
     }
@@ -103,15 +106,8 @@ inline static struct DflWindow_T* dflWindowAllocHIDN()
  *   INITIALIZE         *
  * -------------------- */
 
-DflWindow dflWindowCreate(DflWindowInfo* pInfo, DflSession* session)
+DflWindow dflWindowCreate(DflWindowInfo* pInfo)
 {
-    if(session == NULL)
-        return NULL;
-    if(*session == NULL)
-        return NULL;
-    if (dflSessionCanPresentGet(*session) == false)
-        return NULL;
-
     if(pInfo == NULL)
     {
         pInfo = calloc(1, sizeof(DflWindowInfo));
@@ -144,9 +140,6 @@ DflWindow dflWindowCreate(DflWindowInfo* pInfo, DflSession* session)
     if(pInfo->pos.x != NULL || pInfo->pos.y != NULL)
         glfwSetWindowPos(window->handle, window->info.pos.x, window->info.pos.y);
 
-
-    dflSessionDeviceInit(&((DflWindow)window), session);
-
     return (DflWindow)window;
 }
 
@@ -161,19 +154,19 @@ void dflWindowReshape(struct DflVec2D rect, int type, DflWindow* pWindow)
 
     switch (type) {
     case DFL_DIMENSIONS:
-        ((struct DflWindow_T*)*pWindow)->info.dim = rect;
-        glfwSetWindowSize(((struct DflWindow_T*)*pWindow)->handle, rect.x, rect.y);
+        DFL_HANDLE(Window)->info.dim = rect;
+        glfwSetWindowSize(DFL_HANDLE(Window)->handle, rect.x, rect.y);
         break;
     case DFL_VIEWPORT:
-        ((struct DflWindow_T*)*pWindow)->info.view = rect;
+        DFL_HANDLE(Window)->info.view = rect;
         break;
     default:
-        ((struct DflWindow_T*)*pWindow)->info.res = rect;
+        DFL_HANDLE(Window)->info.res = rect;
         break;
     }
 
-    if (((struct DflWindow_T*)*pWindow)->reshapeCLBK != NULL)
-        ((struct DflWindow_T*)*pWindow)->reshapeCLBK(rect, type, pWindow);
+    if (DFL_HANDLE(Window)->reshapeCLBK != NULL)
+        DFL_HANDLE(Window)->reshapeCLBK(rect, type, pWindow);
 }
 
 void dflWindowReposition(struct DflVec2D pos, DflWindow* pWindow)
@@ -181,11 +174,11 @@ void dflWindowReposition(struct DflVec2D pos, DflWindow* pWindow)
     if(pWindow == NULL)
         return;
 
-    ((struct DflWindow_T*)*pWindow)->info.pos = pos;
-    glfwSetWindowPos(((struct DflWindow_T*)*pWindow)->handle, pos.x, pos.y);
+    DFL_HANDLE(Window)->info.pos = pos;
+    glfwSetWindowPos(DFL_HANDLE(Window)->handle, pos.x, pos.y);
 
-    if (((struct DflWindow_T*)*pWindow)->repositionCLBK != NULL)
-        ((struct DflWindow_T*)*pWindow)->repositionCLBK(pos, pWindow);
+    if (DFL_HANDLE(Window)->repositionCLBK != NULL)
+        DFL_HANDLE(Window)->repositionCLBK(pos, pWindow);
 }
 
 void dflWindowChangeMode(int mode, DflWindow* pWindow)
@@ -193,27 +186,27 @@ void dflWindowChangeMode(int mode, DflWindow* pWindow)
     if(pWindow == NULL)
         return;
 
-    ((struct DflWindow_T*)*pWindow)->info.mode = mode;
+    DFL_HANDLE(Window)->info.mode = mode;
     switch (mode) {
     case DFL_WINDOWED:
-        glfwSetWindowAttrib(((struct DflWindow_T*)*pWindow)->handle, GLFW_DECORATED, GLFW_TRUE);
-        glfwSetWindowMonitor(((struct DflWindow_T*)*pWindow)->handle, NULL, ((struct DflWindow_T*)*pWindow)->info.pos.x, ((struct DflWindow_T*)*pWindow)->info.pos.y, ((struct DflWindow_T*)*pWindow)->info.dim.x, ((struct DflWindow_T*)*pWindow)->info.dim.y, GLFW_DONT_CARE);
+        glfwSetWindowAttrib(DFL_HANDLE(Window)->handle, GLFW_DECORATED, GLFW_TRUE);
+        glfwSetWindowMonitor(DFL_HANDLE(Window)->handle, NULL, DFL_HANDLE(Window)->info.pos.x, DFL_HANDLE(Window)->info.pos.y, DFL_HANDLE(Window)->info.dim.x, DFL_HANDLE(Window)->info.dim.y, GLFW_DONT_CARE);
         break;
     case DFL_FULLSCREEN:
-        glfwSetWindowMonitor(((struct DflWindow_T*)*pWindow)->handle, glfwGetPrimaryMonitor(), 0, 0, ((struct DflWindow_T*)*pWindow)->info.dim.x, ((struct DflWindow_T*)*pWindow)->info.dim.y, GLFW_DONT_CARE);
+        glfwSetWindowMonitor(DFL_HANDLE(Window)->handle, glfwGetPrimaryMonitor(), 0, 0, DFL_HANDLE(Window)->info.dim.x, DFL_HANDLE(Window)->info.dim.y, GLFW_DONT_CARE);
         break;
     case DFL_BORDERLESS:
-        glfwSetWindowAttrib(((struct DflWindow_T*)*pWindow)->handle, GLFW_DECORATED, GLFW_FALSE);
-        glfwSetWindowMonitor(((struct DflWindow_T*)*pWindow)->handle, NULL, ((struct DflWindow_T*)*pWindow)->info.pos.x, ((struct DflWindow_T*)*pWindow)->info.pos.y, ((struct DflWindow_T*)*pWindow)->info.dim.x, ((struct DflWindow_T*)*pWindow)->info.dim.y, GLFW_DONT_CARE);
+        glfwSetWindowAttrib(DFL_HANDLE(Window)->handle, GLFW_DECORATED, GLFW_FALSE);
+        glfwSetWindowMonitor(DFL_HANDLE(Window)->handle, NULL, DFL_HANDLE(Window)->info.pos.x, DFL_HANDLE(Window)->info.pos.y, DFL_HANDLE(Window)->info.dim.x, DFL_HANDLE(Window)->info.dim.y, GLFW_DONT_CARE);
         break;
     default:
-        glfwSetWindowAttrib(((struct DflWindow_T*)*pWindow)->handle, GLFW_DECORATED, GLFW_TRUE);
-        glfwSetWindowMonitor(((struct DflWindow_T*)*pWindow)->handle, NULL, ((struct DflWindow_T*)*pWindow)->info.pos.x, ((struct DflWindow_T*)*pWindow)->info.pos.y, ((struct DflWindow_T*)*pWindow)->info.dim.x, ((struct DflWindow_T*)*pWindow)->info.dim.y, GLFW_DONT_CARE);
+        glfwSetWindowAttrib(DFL_HANDLE(Window)->handle, GLFW_DECORATED, GLFW_TRUE);
+        glfwSetWindowMonitor(DFL_HANDLE(Window)->handle, NULL, DFL_HANDLE(Window)->info.pos.x, DFL_HANDLE(Window)->info.pos.y, DFL_HANDLE(Window)->info.dim.x, DFL_HANDLE(Window)->info.dim.y, GLFW_DONT_CARE);
         break;
     }
 
-    if (((struct DflWindow_T*)*pWindow)->modeCLBK != NULL)
-        ((struct DflWindow_T*)*pWindow)->modeCLBK(mode, pWindow);
+    if (DFL_HANDLE(Window)->modeCLBK != NULL)
+        DFL_HANDLE(Window)->modeCLBK(mode, pWindow);
 }
 
 void dflWindowRename(const char* name, DflWindow* pWindow)
@@ -221,11 +214,11 @@ void dflWindowRename(const char* name, DflWindow* pWindow)
     if(pWindow == NULL)
         return;
 
-    ((struct DflWindow_T*)*pWindow)->info.name = name;
+    DFL_HANDLE(Window)->info.name = name;
     glfwSetWindowTitle(((struct DflWindow_T*)*pWindow)->handle, name);
 
-    if (((struct DflWindow_T*)*pWindow)->renameCLBK != NULL)
-        ((struct DflWindow_T*)*pWindow)->renameCLBK(name, pWindow);
+    if (DFL_HANDLE(Window)->renameCLBK != NULL)
+        DFL_HANDLE(Window)->renameCLBK(name, pWindow);
 }
 
 void dflWindowChangeIcon(const char* icon, DflWindow* pWindow)
@@ -237,13 +230,13 @@ void dflWindowChangeIcon(const char* icon, DflWindow* pWindow)
     image.pixels = stbi_load(icon, &image.width, &image.height, 0, 4); //rgba channels 
     if (image.pixels != NULL)
     {
-        glfwSetWindowIcon(((struct DflWindow_T*)*pWindow)->handle, 1, &image);
-        ((struct DflWindow_T*)*pWindow)->info.icon = icon;
+        glfwSetWindowIcon(DFL_HANDLE(Window)->handle, 1, &image);
+        DFL_HANDLE(Window)->info.icon = icon;
     }
     stbi_image_free(image.pixels);
 
-    if (((struct DflWindow_T*)*pWindow)->iconCLBK != NULL)
-        ((struct DflWindow_T*)*pWindow)->iconCLBK(icon, pWindow);
+    if (DFL_HANDLE(Window)->iconCLBK != NULL)
+        DFL_HANDLE(Window)->iconCLBK(icon, pWindow);
 }
 
 /* -------------------- *
@@ -278,12 +271,12 @@ struct DflVec2D dflPrimaryMonitorPosGet()
 
 GLFWwindow* dflWindowHandleGet(DflWindow window)
 {
-    return &(((struct DflWindow_T*)window)->handle);
+    return (((struct DflWindow_T*)window)->handle);
 }
 
 void dflWindowSurfaceIndexSet(int index, DflWindow* pWindow)
 {
-    ((struct DflWindow_T*)*pWindow)->surfaceIndex = index;
+    DFL_HANDLE(Window)->surfaceIndex = index;
 }
 
 /* -------------------- *
@@ -292,32 +285,32 @@ void dflWindowSurfaceIndexSet(int index, DflWindow* pWindow)
 
 void dflWindowReshapeCLBKSet(DflWindowReshapeCLBK clbk, DflWindow* pWindow)
 {
-    ((struct DflWindow_T*)*pWindow)->reshapeCLBK = clbk;
+    DFL_HANDLE(Window)->reshapeCLBK = clbk;
 }
 
 void dflWindowRepositionCLBKSet(DflWindowRepositionCLBK clbk, DflWindow* pWindow)
 {
-    ((struct DflWindow_T*)*pWindow)->repositionCLBK = clbk;
+    DFL_HANDLE(Window)->repositionCLBK = clbk;
 }
 
 void dflWindowChangeModeCLBKSet(DflWindowChangeModeCLBK clbk, DflWindow* pWindow)
 {
-    ((struct DflWindow_T*)*pWindow)->modeCLBK = clbk;
+    DFL_HANDLE(Window)->modeCLBK = clbk;
 }
 
 void dflWindowRenameCLBKSet(DflWindowRenameCLBK clbk, DflWindow* pWindow)
 {
-    ((struct DflWindow_T*)*pWindow)->renameCLBK = clbk;
+    DFL_HANDLE(Window)->renameCLBK = clbk;
 }
 
 void dflWindowChangeIconCLBKSet(DflWindowChangeIconCLBK clbk, DflWindow* pWindow)
 {
-    ((struct DflWindow_T*)*pWindow)->iconCLBK = clbk;
+    DFL_HANDLE(Window)->iconCLBK = clbk;
 }
 
 void dflWindowDestroyCLBKSet(DflWindowCloseCLBK clbk, DflWindow* pWindow)
 {
-    ((struct DflWindow_T*)*pWindow)->destroyCLBK = clbk;
+    DFL_HANDLE(Window)->destroyCLBK = clbk;
 }
 
 /* -------------------- *
@@ -326,10 +319,10 @@ void dflWindowDestroyCLBKSet(DflWindowCloseCLBK clbk, DflWindow* pWindow)
 
 void dflWindowDestroy(DflWindow* pWindow)
 {
-    if (((struct DflWindow_T*)*pWindow)->destroyCLBK != NULL)
-        ((struct DflWindow_T*)*pWindow)->destroyCLBK(pWindow);
+    if (DFL_HANDLE(Window)->destroyCLBK != NULL)
+        DFL_HANDLE(Window)->destroyCLBK(pWindow);
 
-    glfwDestroyWindow(((struct DflWindow_T*)*pWindow)->handle);
+    glfwDestroyWindow(DFL_HANDLE(Window)->handle);
     glfwTerminate();
 
     free(*pWindow);

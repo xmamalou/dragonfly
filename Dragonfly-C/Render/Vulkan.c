@@ -35,7 +35,7 @@
 
 #include <GLFW/glfw3.h>
 
-#include "../Data.h" 
+#include "../Data.h"
 
 #define DFL_QUEUE_TYPE_GRAPHICS 0
 #define DFL_QUEUE_TYPE_COMPUTE 1
@@ -67,7 +67,9 @@ struct DflLocalMem_T {
 // this is some data about the device that will be used.
 // TODO: More fields to be added.
 struct DflDevice_T {
-    VkPhysicalDevice physDevice;
+    VkDevice                    device;
+    struct DflQueueCollection_T queues;
+    VkPhysicalDevice            physDevice;
 
     /* -------------------- *
      *   GPU PROPERTIES     *
@@ -93,24 +95,16 @@ struct DflDevice_T {
 
     bool doLowPerf;
     bool doAbuseMemory;
+
+    // Presentation
+
+    bool          canPresent;
 };
 
 struct DflSession_T {
     struct DflSessionInfo       info;
     VkInstance                  instance;
-    VkDevice                    GPU;
     VkDebugUtilsMessengerEXT    messenger;
-
-    struct DflDevice_T          physDeviceData;
-
-    VkDevice                    device;
-    struct DflQueueCollection_T queues;
-
-    int error; // Error code
-
-    // Presentation
-    
-    bool          canPresent;
 
     VkSurfaceKHR* surfaces; // multiple surfaces for multiple windows
     int           surfaceCount;
@@ -125,16 +119,29 @@ inline static struct DflSession_T* dflSessionAllocHIDN() {
     return calloc(1, sizeof(struct DflSession_T));
 }
 
+inline static struct DflDevice_T* dflDeviceAllocHIDN();
+inline static struct DflDevice_T* dflDeviceAllocHIDN() {
+    return calloc(1, sizeof(struct DflDevice_T));
+}
+
 static VKAPI_ATTR VkBool32 VKAPI_CALL dflDebugCLBK_HIDN(VkDebugUtilsMessageSeverityFlagBitsEXT severity, VkDebugUtilsMessageTypeFlagsEXT type, const VkDebugUtilsMessengerCallbackDataEXT* data, void* userData);
 static VKAPI_ATTR VkBool32 VKAPI_CALL dflDebugCLBK_HIDN(VkDebugUtilsMessageSeverityFlagBitsEXT severity, VkDebugUtilsMessageTypeFlagsEXT type, const VkDebugUtilsMessengerCallbackDataEXT* data, void* userData)
 {
-    if (severity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT)
-        printf("VULKAN INFORMS: %s\n", data->pMessage);
-    if (severity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT)
-        printf("VULKAN WARNS: %s\n", data->pMessage);
     if (severity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT)
+    {
         printf("VULKAN ENCOUNTERED AN ERROR: %s\n", data->pMessage);
-    return VK_FALSE;
+        return VK_FALSE;
+    }
+    if (severity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT)
+    {
+        printf("VULKAN WARNS: %s\n", data->pMessage);
+        return VK_FALSE;
+    }
+    if (severity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT)
+    {
+        printf("VULKAN INFORMS: %s\n", data->pMessage);
+        return VK_FALSE;
+    }
 }
 
 static int dflSessionVulkanInstanceInitHIDN(struct DflSessionInfo* info, VkInstance* instance, VkDebugUtilsMessengerEXT* pMessenger, int flags);
@@ -147,7 +154,7 @@ static int dflSessionVulkanInstanceInitHIDN(struct DflSessionInfo* info, VkInsta
         .sType = VK_STRUCTURE_TYPE_APPLICATION_INFO,
         .pNext = NULL,
         .pApplicationName = info->appName,
-        .applicationVersion = VK_MAKE_API_VERSION(0,0,1,0),
+        .applicationVersion = info->appVersion,
         .pEngineName = "Dragonfly",
         .engineVersion = VK_MAKE_API_VERSION(0, 0, 1, 0),
         .apiVersion = VK_API_VERSION_1_3
@@ -161,7 +168,14 @@ static int dflSessionVulkanInstanceInitHIDN(struct DflSessionInfo* info, VkInsta
     if (!(flags & DFL_SESSION_CRITERIA_ONLY_OFFSCREEN))
     {
         extensionCount++;
-        extensions[0] = "VK_KHR_surface";
+        extensions[extensionCount - 1] = "VK_KHR_surface";
+
+#ifdef _WIN32
+        extensionCount++;
+        const char** dummy = (const char**)realloc(extensions, sizeof(const char*) * extensionCount);
+        extensions = dummy;
+        extensions[extensionCount - 1] = "VK_KHR_win32_surface";
+#endif
     }
 
     const char* desiredLayers[] = {
@@ -171,20 +185,18 @@ static int dflSessionVulkanInstanceInitHIDN(struct DflSessionInfo* info, VkInsta
     {
         extensionCount++;
         const char** dummy = (const char**)realloc(extensions, sizeof(const char*) * extensionCount);
-        if (dummy == NULL)
-            return DFL_VULKAN_NOT_INITIALIZED;
         extensions = dummy;
         extensions[extensionCount - 1] = VK_EXT_DEBUG_UTILS_EXTENSION_NAME;
 
         uint32_t layerCount = 0;
         vkEnumerateInstanceLayerProperties(&layerCount, NULL);
         if (!layerCount)
-            return DFL_NO_LAYERS_FOUND;
+            return DFL_VULKAN_LAYER_ERROR;
         VkLayerProperties* layers = calloc(layerCount, sizeof(VkLayerProperties));
         vkEnumerateInstanceLayerProperties(&layerCount, layers);
 
         if (layers == NULL)
-            return DFL_NO_LAYERS_FOUND;
+            return DFL_VULKAN_LAYER_ERROR;
 
         for (int j = 0; j < 1; j++)
         {
@@ -193,7 +205,7 @@ static int dflSessionVulkanInstanceInitHIDN(struct DflSessionInfo* info, VkInsta
                 if (strcmp(layers[i].layerName, desiredLayers[j]) == 0)
                     break;
                 if (i == layerCount - 1)
-                    return DFL_NO_LAYERS_FOUND;
+                    return DFL_VULKAN_LAYER_ERROR;
             }
         }
     }
@@ -204,7 +216,7 @@ static int dflSessionVulkanInstanceInitHIDN(struct DflSessionInfo* info, VkInsta
     instInfo.ppEnabledExtensionNames = extensions;
 
     if (vkCreateInstance(&instInfo, NULL, instance) != VK_SUCCESS)
-        return DFL_VULKAN_NOT_INITIALIZED;
+        return DFL_VULKAN_INSTANCE_ERROR;
 
     if (flags & DFL_SESSION_CRITERIA_DO_DEBUG) // if debug is enabled, create a debug messenger (enables all severity messages, except verbose)
     {
@@ -219,10 +231,10 @@ static int dflSessionVulkanInstanceInitHIDN(struct DflSessionInfo* info, VkInsta
         };
         PFN_vkCreateDebugUtilsMessengerEXT createDebug = (PFN_vkCreateDebugUtilsMessengerEXT)vkGetInstanceProcAddr(*instance, "vkCreateDebugUtilsMessengerEXT");
         if(createDebug == NULL)
-            return DFL_NO_LAYERS_FOUND;
+            return DFL_VULKAN_DEBUG_ERROR;
         
         if(createDebug(*instance, &debugInfo, NULL, pMessenger) != VK_SUCCESS)
-            return DFL_NO_LAYERS_FOUND;
+            return DFL_VULKAN_DEBUG_ERROR;
     }
 
     return DFL_SUCCESS;
@@ -255,7 +267,7 @@ static int dflSessionDeviceOrganiseDataHIDN(int GPUCrit, int deviceCount, struct
             device->localHeaps++;
             void* dummy = realloc(device->localMem, device->localHeaps * sizeof(struct DflLocalMem_T));
             if (dummy == NULL)
-                return DFL_ALLOC_ERROR;
+                return DFL_GENERIC_ALLOC_ERROR;
             device->localMem = dummy;
             device->localMem->size = memProps.memoryHeaps[i].size;
             device->localMem->heapIndex = memProps.memoryTypes[i].heapIndex;
@@ -273,40 +285,40 @@ static int dflSessionDeviceOrganiseDataHIDN(int GPUCrit, int deviceCount, struct
 }
 
 
-static int dflSessionDeviceQueuesGetHIDN(VkSurfaceKHR* surface, struct DflSession_T* session);
-static int dflSessionDeviceQueuesGetHIDN(VkSurfaceKHR* surface, struct DflSession_T* session)
+static int dflSessionDeviceQueuesGetHIDN(VkSurfaceKHR* surface, struct DflDevice_T* pDevice);
+static int dflSessionDeviceQueuesGetHIDN(VkSurfaceKHR* surface, struct DflDevice_T* pDevice)
 {
-    session->queues.graphics = NULL;
-    session->queues.compute = NULL;
-    session->queues.transfer = NULL;
-    session->queues.presentation = NULL;
+    pDevice->queues.graphics = NULL;
+    pDevice->queues.compute = NULL;
+    pDevice->queues.transfer = NULL;
+    pDevice->queues.presentation = NULL;
 
     VkQueueFamilyProperties* queueProps = NULL;
     uint32_t queueCount = 0;
-    vkGetPhysicalDeviceQueueFamilyProperties(session->physDeviceData.physDevice, &queueCount, NULL);
+    vkGetPhysicalDeviceQueueFamilyProperties(pDevice->physDevice, &queueCount, NULL);
     if (queueCount == 0)
-        return DFL_NO_QUEUES_FOUND;
+        return DFL_VULKAN_QUEUE_ERROR;
     queueProps = calloc(queueCount, sizeof(VkQueueFamilyProperties));
-    vkGetPhysicalDeviceQueueFamilyProperties(session->physDeviceData.physDevice, &queueCount, queueProps);
+    vkGetPhysicalDeviceQueueFamilyProperties(pDevice->physDevice, &queueCount, queueProps);
 
     for (int i = 0; i < queueCount; i++)
     {
         if (queueProps[i].queueFlags & VK_QUEUE_GRAPHICS_BIT)
         {
-            session->queues.graphicsIndex = i;
-            session->queues.graphicsCount = queueProps[i].queueCount;
+            pDevice->queues.graphicsIndex = i;
+            pDevice->queues.graphicsCount = queueProps[i].queueCount;
             continue;
         }
         if (queueProps[i].queueFlags & VK_QUEUE_COMPUTE_BIT)
         {
-            session->queues.computeIndex = i;
-            session->queues.computeCount = queueProps[i].queueCount;
+            pDevice->queues.computeIndex = i;
+            pDevice->queues.computeCount = queueProps[i].queueCount;
             continue;
         }
         if (queueProps[i].queueFlags & VK_QUEUE_TRANSFER_BIT)
         {
-            session->queues.transferIndex = i;
-            session->queues.transferCount = queueProps[i].queueCount;
+            pDevice->queues.transferIndex = i;
+            pDevice->queues.transferCount = queueProps[i].queueCount;
             continue;
         }
     }
@@ -316,7 +328,7 @@ static int dflSessionDeviceQueuesGetHIDN(VkSurfaceKHR* surface, struct DflSessio
  *   INITIALIZE         *
  * -------------------- */
 
-DflSession dflSessionInit(struct DflSessionInfo* pInfo, int sessionCriteria, int GPUCriteria)
+DflSession dflSessionInit(int sessionCriteria, struct DflSessionInfo* pInfo)
 {
     struct DflSession_T* session = dflSessionAllocHIDN();
 
@@ -329,55 +341,99 @@ DflSession dflSessionInit(struct DflSessionInfo* pInfo, int sessionCriteria, int
     else
         session->info = *pInfo;
 
-    session->physDeviceData.doLowPerf = (sessionCriteria & DFL_GPU_CRITERIA_LOW_PERFORMANCE) ? true : false;
-    session->physDeviceData.doAbuseMemory = (sessionCriteria & DFL_GPU_CRITERIA_ABUSE_MEMORY) ? true : false;
-    session->canPresent = (sessionCriteria & DFL_SESSION_CRITERIA_ONLY_OFFSCREEN) ? false : true;
+    session->surfaceCount = 0;
 
     if (dflSessionVulkanInstanceInitHIDN(&(session->info), &(session->instance), &(session->messenger), sessionCriteria) != DFL_SUCCESS)
         return NULL;
 
-    VkPhysicalDevice* devices = NULL;
-    uint32_t deviceCount = 0;
-    vkEnumeratePhysicalDevices(session->instance, &deviceCount, NULL);
-    devices = calloc(deviceCount, sizeof(VkPhysicalDevice));
-    vkEnumeratePhysicalDevices(session->instance, &deviceCount, devices);
-
-    switch (deviceCount) // this just selects the device it thinks is appropriate, but doesn't actually make a VkDevice yet. Doesn't do any ranking if there's only one device (or DFL_GPU_CRITERIA_HASTY is set)
-    {
-    case 0:
-        return NULL;
-    case 1:
-        session->physDeviceData.physDevice = devices[deviceCount - 1];
-        if (dflSessionDeviceOrganiseDataHIDN(GPUCriteria, devices[deviceCount - 1], &(session->physDeviceData)) != DFL_SUCCESS)
-            return NULL;
-        break;
-    default:
-        if (GPUCriteria & DFL_GPU_CRITERIA_HASTY)
-        {
-            session->physDeviceData.physDevice = devices[deviceCount - 1];
-            if (dflSessionDeviceOrganiseDataHIDN(GPUCriteria, devices[deviceCount - 1], &(session->physDeviceData)) != DFL_SUCCESS)
-                return NULL;
-        }
-        break;
-    }
-
-    if (sessionCriteria & DFL_SESSION_CRITERIA_ONLY_OFFSCREEN)
-        dflSessionDeviceInit(NULL, &session);
-
     return (DflSession)session;
 }
 
-void dflSessionDeviceInit(VkSurfaceKHR* surface, DflSession* pSession)
+int dflSessionBindWindow(DflWindow* pWindow, DflSession* pSession)
 {
-    dflSessionDeviceQueuesGetHIDN(surface, ((struct DflSession_T*)*pSession));
+    if (DFL_HANDLE(Session)->surfaceCount == 0)
+    {
+        DFL_HANDLE(Session)->surfaces = calloc(1, sizeof(VkSurfaceKHR));
+        if (DFL_HANDLE(Session)->surfaces == NULL)
+            return DFL_GENERIC_ALLOC_ERROR;
+    }
+    else
+    {
+        VkSurfaceKHR* dummy = realloc(DFL_HANDLE(Session)->surfaces, (DFL_HANDLE(Session)->surfaceCount + 1) * sizeof(VkSurfaceKHR));
+        if (dummy == NULL)
+            return DFL_GENERIC_ALLOC_ERROR;
+        DFL_HANDLE(Session)->surfaces = dummy;
+    }
+
+    ((struct DflSession_T*)*pSession)->surfaceCount++;
+    GLFWwindow* window = dflWindowHandleGet(*pWindow);
+    if (glfwCreateWindowSurface(DFL_HANDLE(Session)->instance, window, NULL, &DFL_HANDLE(Session)->surfaces[DFL_HANDLE(Session)->surfaceCount - 1]) != VK_SUCCESS)
+        return DFL_VULKAN_SURFACE_ERROR;
+
+    dflWindowSurfaceIndexSet(DFL_HANDLE(Session)->surfaceCount - 1, pWindow);
+
+    return DFL_SUCCESS;
+}
+
+struct DflPhysicalDevices dflSessionGetDevices(DflSession session)
+{
+    VkPhysicalDevice* devices = NULL;
+    uint32_t deviceCount = 0;
+    vkEnumeratePhysicalDevices(((struct DflSession_T*)session)->instance, &deviceCount, NULL);
+    devices = calloc(deviceCount, sizeof(VkPhysicalDevice));
+    vkEnumeratePhysicalDevices(((struct DflSession_T*)session)->instance, &deviceCount, devices);
+
+    struct DflPhysicalDevices physDev = {
+        .count = deviceCount,
+        .pDevices = devices
+    };
+
+    return physDev;
+}
+
+DflDevice dflDeviceInit(int GPUCriteria, int choice, struct DflPhysicalDevices* deviceList, DflSession* pSession)
+{
+    struct DflDevice_T* device = dflDeviceAllocHIDN();
+
+    device->doLowPerf = (GPUCriteria & DFL_GPU_CRITERIA_LOW_PERFORMANCE) ? true : false;
+    device->doAbuseMemory = (GPUCriteria & DFL_GPU_CRITERIA_ABUSE_MEMORY) ? true : false;
+    device->canPresent = (GPUCriteria & DFL_GPU_CRITERIA_ONLY_OFFSCREEN) ? false : true;
+
+    if (deviceList == NULL)
+    {
+        VkPhysicalDevice* devices = NULL;
+        uint32_t deviceCount = 0;
+        vkEnumeratePhysicalDevices(((struct DflSession_T*)*pSession)->instance, &deviceCount, NULL);
+        devices = calloc(deviceCount, sizeof(VkPhysicalDevice));
+        vkEnumeratePhysicalDevices(((struct DflSession_T*)*pSession)->instance, &deviceCount, devices);
+
+        switch (deviceCount) // this just selects the device it thinks is appropriate, but doesn't actually make a VkDevice yet. Doesn't do any ranking if there's only one device
+        {
+        case 0:
+            return NULL;
+        case 1:
+            device->physDevice = devices[deviceCount - 1];
+            if (dflSessionDeviceOrganiseDataHIDN(GPUCriteria, devices[deviceCount - 1], device) != DFL_SUCCESS)
+                return NULL;
+            break;
+        default:
+            // TODO: actually rank the devices
+            break;
+        }
+
+        //if (sessionCriteria & DFL_SESSION_CRITERIA_ONLY_OFFSCREEN)
+            //dflSessionDeviceInit(NULL, &session);
+    }
+
+    return (DflDevice)device;
 }
 /* -------------------- *
  *   GET & SET          *
  * -------------------- */
 
-bool dflSessionCanPresentGet(DflSession session)
+bool dflDeviceCanPresentGet(DflDevice device)
 {
-    return ((struct DflSession_T*)session)->canPresent;
+    return ((struct DflDevice_T*)device)->canPresent;
 }
 
 /* -------------------- *
@@ -386,13 +442,15 @@ bool dflSessionCanPresentGet(DflSession session)
 
 void dflSessionEnd(DflSession* pSession)
 {
-    if (((struct DflSession_T*)*pSession)->messenger != NULL)
-    {
-        PFN_vkDestroyDebugUtilsMessengerEXT destroyDebug = (PFN_vkCreateDebugUtilsMessengerEXT)vkGetInstanceProcAddr(((struct DflSession_T*)*pSession)->instance, "vkDestroyDebugUtilsMessengerEXT");
-        if (destroyDebug != NULL)
-            destroyDebug(((struct DflSession_T*)*pSession)->instance, ((struct DflSession_T*)*pSession)->messenger, NULL);
-    }
-    vkDestroyInstance(((struct DflSession_T*)*pSession)->instance, NULL);
+    for(int i = 0; i < DFL_HANDLE(Session)->surfaceCount; i++)
+        vkDestroySurfaceKHR(DFL_HANDLE(Session)->instance, DFL_HANDLE(Session)->surfaces[i], NULL);
 
+    if (DFL_HANDLE(Session)->messenger != NULL)
+    {
+        PFN_vkDestroyDebugUtilsMessengerEXT destroyDebug = (PFN_vkCreateDebugUtilsMessengerEXT)vkGetInstanceProcAddr(DFL_HANDLE(Session)->instance, "vkDestroyDebugUtilsMessengerEXT");
+        if (destroyDebug != NULL)
+            destroyDebug(DFL_HANDLE(Session)->instance, DFL_HANDLE(Session)->messenger, NULL);
+    }
+    vkDestroyInstance(DFL_HANDLE(Session)->instance, NULL);
     free(*pSession);
 }

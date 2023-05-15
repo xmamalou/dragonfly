@@ -37,7 +37,6 @@ extern "C" {
 #include <GLFW/glfw3.h>
 
 #include "../Data.h"
-#include "Vulkan.h"
 
 /* -------------------- *
  *   TYPES              *
@@ -78,7 +77,7 @@ typedef void (*DflWindowChangeModeCLBK)(int mode, DflWindow* pWindow); // Called
 typedef void (*DflWindowRenameCLBK)(const char* name, DflWindow* pWindow); // Called when a window changes name.
 typedef void (*DflWindowChangeIconCLBK)(const char* iconPath, DflWindow* pWindow); // Called when a window changes its icon.
 
-typedef void (*DflWindowCloseCLBK)(DflWindow* window); // Called RIGHT BEFORE a window is closed.
+typedef void (*DflWindowCloseCLBK)(DflWindow* pWindow); // Called RIGHT BEFORE a window is closed.
 
 /* -------------------- *
  *   INITIALIZE         *
@@ -87,7 +86,7 @@ typedef void (*DflWindowCloseCLBK)(DflWindow* window); // Called RIGHT BEFORE a 
 // Returns NULL if unsuccessful.
 // `info`: the window's information. Set to NULL for default values.
 // NOTE: you can omit members of the struct. Dragonfly will set default values if NULL.
-DflWindow dflWindowCreate(DflWindowInfo* pInfo, DflSession* session); 
+DflWindow dflWindowCreate(DflWindowInfo* pInfo); 
 
 /* -------------------- *
  *   CHANGE             *
@@ -96,15 +95,15 @@ DflWindow dflWindowCreate(DflWindowInfo* pInfo, DflSession* session);
 // Changes the dimensions, viewport, or resolution of the window.
 // `rect`: the new rectangle.
 // `type`: DFL_DIMENSIONS for the dimensions, DFL_VIEWPORT for the viewport, and DFL_RESOLUTION for the resolution.
-void dflWindowReshape(struct DflVec2D rect, int type, DflWindow* window);
-void dflWindowReposition(struct DflVec2D pos, DflWindow* window);
+void dflWindowReshape(struct DflVec2D rect, int type, DflWindow* pWindow);
+void dflWindowReposition(struct DflVec2D pos, DflWindow* pWindow);
 // Change window mode.
 // `mode`: DFL_WINDOWED, DFL_FULLSCREEN, or DFL_BORDERLESS.
-void dflWindowChangeMode(int mode, DflWindow* window);
-void dflWindowRename(const char* name, DflWindow* window);
+void dflWindowChangeMode(int mode, DflWindow* pWindow);
+void dflWindowRename(const char* name, DflWindow* pWindow);
 // Will keep old icon if the path is invalid.
 // `icon`: path to the icon. NOT ITS DATA.
-void dflWindowChangeIcon(const char* icon, DflWindow* window);
+void dflWindowChangeIcon(const char* icon, DflWindow* pWindow);
 
 /* -------------------- *
  *   GET & SET          *
@@ -117,10 +116,11 @@ struct DflVec2D dflWindowPosGet(DflWindow window);
 int				dflMonitorNumGet();
 // Get the primary monitor's position.
 struct DflVec2D dflPrimaryMonitorPosGet();
-// This is not meant to be used by the user.
-GLFWwindow*     dflWindowHandleGet(DflWindow window);
 
-// not meant to be used by the user.
+/* -------------------- *
+ *   ONLY INTERNAL USE  *
+ * -------------------- */
+GLFWwindow* dflWindowHandleGet(DflWindow window);
 void dflWindowSurfaceIndexSet(int index, DflWindow* pWindow);
 
 /* -------------------- *
