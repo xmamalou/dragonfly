@@ -4,8 +4,8 @@ Dragonfly is not in a working state.
 
 Currently, it can do the following:
 - Create a Vulkan instance
-- Sort some device properties (only if the machine contains one device or `DFL_GPU_CRITERIA_HASTY` flag is enabled)
-- Create a window and change its properties (only if the instance it's bound to supports presentation)
+- Sort some device properties (only if the machine contains exactly one device or `DFL_GPU_CRITERIA_HASTY` flag is enabled)
+- Create a window, bind it to a Vulkan surface and change its properties (only if the instance it's bound to supports presentation)
 
 ## Building
 Currently, the repo is structured in such a way to be built using Visual Studio (2022). However, since the project (and the libraries it uses) are OS-agnostic, building in other OSes or using other build systems is possible, but currently, you'd need to do it manually. When Dragonfly is in a working state, more build methods will be worked on.
