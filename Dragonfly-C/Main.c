@@ -25,7 +25,9 @@ int MAIN()
 	DflSession	session = NULL;
 	DflDevice	device = NULL;
 
-	session = dflSessionInit(DFL_SESSION_CRITERIA_DO_DEBUG, NULL);
+	struct DflSessionInfo info = { "Dragonfly", 1, DFL_SESSION_CRITERIA_DO_DEBUG };
+
+	session = dflSessionInit(&info);
 	if (session == NULL)
 		return 1;
 
@@ -41,13 +43,15 @@ int MAIN()
 	if (device == NULL)
         return 1;
 
-	while (glfwWindowShouldClose(dflWindowHandleGet(window)) == GLFW_FALSE)
+	while ((glfwWindowShouldClose(dflWindowHandleGet(window)) == GLFW_FALSE))
 	{
         glfwPollEvents();
     }
 
 	dflWindowDestroy(&window);
 	dflSessionEnd(&session);
+
+	glfwTerminate();
 
 	return 0;
 }
