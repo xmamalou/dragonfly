@@ -68,24 +68,20 @@ struct DflSessionInfo
 
 // initializes Vulkan -- implicitly assumes that on-screen rendering is desired.
 // Use DFL_SESSION_CRITERIA_ONLY_OFFSCREEN to override this assumption.
-// `sessionCriteria` is a bitfield of `DFL_SESSION_CRITERIA_*` flags.
-// `GPUCriteria` is a bitfield of `DFL_GPU_CRITERIA_*` flags.
-DflSession dflSessionInit(struct DflSessionInfo* pInfo);
-
-int dflSessionBindWindow(DflWindow* pWindow, DflSession* pSession);
+DflSession  dflSessionCreate(struct DflSessionInfo* pInfo);
+// Bind an existing window to a surface and a session. If the window is already bound, the function will do nothing and exit successfully.
+int         dflSessionBindWindow(DflWindow* pWindow, DflSession* pSession);
 // unlike `dflWindowCreate`, this also binds the window to a surface.
-DflWindow dflWindowInit(struct DflWindowInfo windowInfo, DflSession* pSession);
-
-// returns a list of physical devices that are available to the session.
-// this is useful only if you want to choose a GPU manually.
-DflPhysicalDeviceList dflSessionGetDevices(DflSession session);
-DflDevice dflDeviceInit(int GPUCriteria, int choice, DflPhysicalDeviceList devices, DflSession* pSession);
+void        dflSessionInitWindow(struct DflWindowInfo* pWindowInfo, DflWindow* pWindow, DflSession* pSession);
+DflDevice   dflDeviceCreate(int GPUCriteria, DflPhysicalDeviceList* pDevices, int choice, DflSession* pSession);
 
 /* -------------------- *
  *   GET & SET          *
  * -------------------- */
-
-bool dflDeviceCanPresentGet(DflDevice device);
+// returns a list of physical devices that are available to the session.
+// this is useful only if you want to choose a GPU manually.
+DflPhysicalDeviceList   dflSessionDevicesGet(DflSession session);
+bool                    dflDeviceCanPresentGet(DflDevice device);
 
 /* -------------------- *
  *   DESTROY            *
@@ -98,5 +94,17 @@ void dflSessionEnd(DflSession* pSession);
 #ifdef __cplusplus
 }
 #endif
+
+/* ---------------------- * 
+ * INTERNAL USE ONLY      *
+ * ---------------------- */
+// To prevent the user from using an internal function, something that could cause a crash or undefined behavior,
+// this flag checks whether the function is being used internally or not. That is checked by the `int flags` bit in DflSession_T.
+// This bit will be switched by an exclusively internal function, and be checked by this function. Since the function that changes
+// the bit is exclusively internal, the user will not be able to use that function. Each internal function will check this flag using
+// the `dflSessionIsLegal` function. If the flag is not set, the function will return not execute. The flag will be set by any function 
+// that is allowed to use internal functions right before it uses them, and then unset it right afterwards. 
+// Some functions, like this one, won't be protected by this flag, since there's not much issue that could arise from using them.
+bool dflSessionIsLegal(DflSession session); 
 
 #endif // !DFL_RENDER_SESSION_H
