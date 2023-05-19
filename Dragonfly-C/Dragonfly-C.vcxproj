@@ -139,14 +139,14 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="Main.c" />
-    <ClCompile Include="Render\GLFW.c" />
-    <ClCompile Include="Render\Vulkan.c" />
+    <ClCompile Include="Render\Window.c" />
+    <ClCompile Include="Render\Session.c" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Data.h" />
     <ClInclude Include="Dragonfly.h" />
-    <ClInclude Include="Render\GLFW.h" />
-    <ClInclude Include="Render\Vulkan.h" />
+    <ClInclude Include="Render\Window.h" />
+    <ClInclude Include="Render\Session.h" />
     <ClInclude Include="StbDummy.h" />
     <ClInclude Include="stb\stb_image.h" />
   </ItemGroup>

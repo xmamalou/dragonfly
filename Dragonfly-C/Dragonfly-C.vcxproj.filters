@@ -24,10 +24,10 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="Render\GLFW.c">
+    <ClCompile Include="Render\Window.c">
       <Filter>Source Files\Render</Filter>
     </ClCompile>
-    <ClCompile Include="Render\Vulkan.c">
+    <ClCompile Include="Render\Session.c">
       <Filter>Source Files\Render</Filter>
     </ClCompile>
     <ClCompile Include="Main.c">
@@ -38,10 +38,10 @@
     <ClInclude Include="Data.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="Render\GLFW.h">
+    <ClInclude Include="Render\Window.h">
       <Filter>Header Files\Render</Filter>
     </ClInclude>
-    <ClInclude Include="Render\Vulkan.h">
+    <ClInclude Include="Render\Session.h">
       <Filter>Header Files\Render</Filter>
     </ClInclude>
     <ClInclude Include="stb\stb_image.h">
