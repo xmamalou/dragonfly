@@ -1,6 +1,3 @@
-#ifndef DFL_RENDER_GLFW_H
-#define DFL_RENDER_GLFW_H
-
 /*
     Copyright 2022 Christopher-Marios Mamaloukas
 
@@ -29,6 +26,8 @@
     NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
     EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
+#ifndef DFL_RENDER_WINDOW_H
+#define DFL_RENDER_WINDOW_H
 
 #ifdef __cplusplus
 extern "C" {
@@ -75,7 +74,7 @@ typedef void (*DflWindowReshapeCLBK)(struct DflVec2D rect, int type, DflWindow* 
 typedef void (*DflWindowRepositionCLBK)(struct DflVec2D pos, DflWindow* pWindow); // Called when a window is repositioned.
 typedef void (*DflWindowChangeModeCLBK)(int mode, DflWindow* pWindow); // Called when a window's mode changes.
 typedef void (*DflWindowRenameCLBK)(const char* name, DflWindow* pWindow); // Called when a window changes name.
-typedef void (*DflWindowChangeIconCLBK)(const char* iconPath, DflWindow* pWindow); // Called when a window changes its icon.
+typedef void (*DflWindowChangeIconCLBK)(const char* icon, DflWindow* pWindow); // Called when a window changes its icon.
 
 typedef void (*DflWindowCloseCLBK)(DflWindow* pWindow); // Called RIGHT BEFORE a window is closed.
 
@@ -95,7 +94,7 @@ DflWindow dflWindowCreate(DflWindowInfo* pInfo);
 // Changes the dimensions, viewport, or resolution of the window.
 // `rect`: the new rectangle.
 // `type`: DFL_DIMENSIONS for the dimensions, DFL_VIEWPORT for the viewport, and DFL_RESOLUTION for the resolution.
-void dflWindowReshape(struct DflVec2D rect, int type, DflWindow* pWindow);
+void dflWindowReshape(int type, struct DflVec2D rect, DflWindow* pWindow);
 void dflWindowReposition(struct DflVec2D pos, DflWindow* pWindow);
 // Change window mode.
 // `mode`: DFL_WINDOWED, DFL_FULLSCREEN, or DFL_BORDERLESS.
@@ -120,8 +119,10 @@ struct DflVec2D dflPrimaryMonitorPosGet();
 /* -------------------- *
  *   ONLY INTERNAL USE  *
  * -------------------- */
+size_t      dflWindowSizeRequirementsGet();
 GLFWwindow* dflWindowHandleGet(DflWindow window);
-void dflWindowSurfaceIndexSet(int index, DflWindow* pWindow);
+void        dflWindowSurfaceIndexSet(int index, DflWindow* pWindow);
+
 
 /* -------------------- *
  *   CALLBACK SETTERS   *
@@ -146,4 +147,4 @@ void dflWindowDestroy(DflWindow* pWindow);
 }
 #endif
 
-#endif // !DFL_RENDER_GLFW_H
+#endif // !DFL_RENDER_WINDOW_H

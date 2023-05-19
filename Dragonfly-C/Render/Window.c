@@ -27,7 +27,7 @@
     EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-#include "GLFW.h"
+#include "Window.h"
 
 #include <stdlib.h>
 
@@ -124,7 +124,7 @@ DflWindow dflWindowCreate(DflWindowInfo* pInfo)
 
     window->info = *pInfo;
     window->handle = dflWindowCallHIDN(pInfo->dim, pInfo->view, pInfo->res, pInfo->name, pInfo->mode);
-    
+
     if (window->handle == NULL)
         return NULL;
 
@@ -147,9 +147,11 @@ DflWindow dflWindowCreate(DflWindowInfo* pInfo)
  *   CHANGE             *
  * -------------------- */
 
-void dflWindowReshape(struct DflVec2D rect, int type, DflWindow* pWindow)
+void dflWindowReshape(int type, struct DflVec2D rect, DflWindow* pWindow)
 {
-    if(pWindow == NULL)
+    if (pWindow == NULL)
+        return;
+    if (*pWindow == NULL)
         return;
 
     switch (type) {
@@ -171,7 +173,9 @@ void dflWindowReshape(struct DflVec2D rect, int type, DflWindow* pWindow)
 
 void dflWindowReposition(struct DflVec2D pos, DflWindow* pWindow)
 {
-    if(pWindow == NULL)
+    if (pWindow == NULL)
+        return;
+    if (*pWindow == NULL)
         return;
 
     DFL_HANDLE(Window)->info.pos = pos;
@@ -183,7 +187,9 @@ void dflWindowReposition(struct DflVec2D pos, DflWindow* pWindow)
 
 void dflWindowChangeMode(int mode, DflWindow* pWindow)
 {
-    if(pWindow == NULL)
+    if (pWindow == NULL)
+        return;
+    if (*pWindow == NULL)
         return;
 
     DFL_HANDLE(Window)->info.mode = mode;
@@ -211,7 +217,9 @@ void dflWindowChangeMode(int mode, DflWindow* pWindow)
 
 void dflWindowRename(const char* name, DflWindow* pWindow)
 {
-    if(pWindow == NULL)
+    if (pWindow == NULL)
+        return;
+    if (*pWindow == NULL)
         return;
 
     DFL_HANDLE(Window)->info.name = name;
@@ -223,7 +231,9 @@ void dflWindowRename(const char* name, DflWindow* pWindow)
 
 void dflWindowChangeIcon(const char* icon, DflWindow* pWindow)
 {
-    if(pWindow == NULL)
+    if (pWindow == NULL)
+        return;
+    if (*pWindow == NULL)
         return;
 
     GLFWimage image;
@@ -232,8 +242,8 @@ void dflWindowChangeIcon(const char* icon, DflWindow* pWindow)
     {
         glfwSetWindowIcon(DFL_HANDLE(Window)->handle, 1, &image);
         DFL_HANDLE(Window)->info.icon = icon;
+        stbi_image_free(image.pixels);
     }
-    stbi_image_free(image.pixels);
 
     if (DFL_HANDLE(Window)->iconCLBK != NULL)
         DFL_HANDLE(Window)->iconCLBK(icon, pWindow);
@@ -245,6 +255,9 @@ void dflWindowChangeIcon(const char* icon, DflWindow* pWindow)
 
 struct DflVec2D dflWindowRectGet(int type, DflWindow window)
 {
+    if(window == NULL)
+        return (struct DflVec2D){ .x = 0, .y = 0 };
+
     switch (type) {
     case DFL_DIMENSIONS:
         return ((struct DflWindow_T*)window)->info.dim;
@@ -258,15 +271,27 @@ struct DflVec2D dflWindowRectGet(int type, DflWindow window)
 struct DflVec2D dflWindowPosGet(DflWindow window)
 {
     struct DflVec2D pos = { .x = 0, .y = 0 };
-    glfwGetWindowPos(((struct DflWindow_T*)window)->handle, &pos.x, &pos.y);
+    if(window != NULL)
+        glfwGetWindowPos(((struct DflWindow_T*)window)->handle, &pos.x, &pos.y);
     return pos;
 }
 
 struct DflVec2D dflPrimaryMonitorPosGet()
 {
     struct DflVec2D pos = { .x = 0, .y = 0 };
-    glfwGetMonitorPos(glfwGetPrimaryMonitor(), &pos.x, &pos.y);
+
+    if(glfwInit() == GLFW_TRUE)
+        glfwGetMonitorPos(glfwGetPrimaryMonitor(), &pos.x, &pos.y);
+    
     return pos;
+}
+
+/* -------------------- *
+ *   INTERNAL ONLY      *
+ *struct DflWindow_T--- */
+size_t dflWindowSizeRequirementsGet()
+{
+    return sizeof(struct DflWindow_T);
 }
 
 GLFWwindow* dflWindowHandleGet(DflWindow window)
@@ -276,6 +301,11 @@ GLFWwindow* dflWindowHandleGet(DflWindow window)
 
 void dflWindowSurfaceIndexSet(int index, DflWindow* pWindow)
 {
+    if (pWindow == NULL)
+        return;
+    if (*pWindow == NULL)
+        return;
+
     DFL_HANDLE(Window)->surfaceIndex = index;
 }
 
@@ -285,31 +315,61 @@ void dflWindowSurfaceIndexSet(int index, DflWindow* pWindow)
 
 void dflWindowReshapeCLBKSet(DflWindowReshapeCLBK clbk, DflWindow* pWindow)
 {
+    if (pWindow == NULL)
+        return;
+    if (*pWindow == NULL)
+        return;
+
     DFL_HANDLE(Window)->reshapeCLBK = clbk;
 }
 
 void dflWindowRepositionCLBKSet(DflWindowRepositionCLBK clbk, DflWindow* pWindow)
 {
+    if (pWindow == NULL)
+        return;
+    if (*pWindow == NULL)
+        return;
+
     DFL_HANDLE(Window)->repositionCLBK = clbk;
 }
 
 void dflWindowChangeModeCLBKSet(DflWindowChangeModeCLBK clbk, DflWindow* pWindow)
 {
+    if (pWindow == NULL)
+        return;
+    if (*pWindow == NULL)
+        return;
+
     DFL_HANDLE(Window)->modeCLBK = clbk;
 }
 
 void dflWindowRenameCLBKSet(DflWindowRenameCLBK clbk, DflWindow* pWindow)
 {
+    if (pWindow == NULL)
+        return;
+    if (*pWindow == NULL)
+        return;
+
     DFL_HANDLE(Window)->renameCLBK = clbk;
 }
 
 void dflWindowChangeIconCLBKSet(DflWindowChangeIconCLBK clbk, DflWindow* pWindow)
 {
+    if (pWindow == NULL)
+        return;
+    if (*pWindow == NULL)
+        return;
+
     DFL_HANDLE(Window)->iconCLBK = clbk;
 }
 
 void dflWindowDestroyCLBKSet(DflWindowCloseCLBK clbk, DflWindow* pWindow)
 {
+    if(pWindow == NULL)
+        return;
+    if(*pWindow == NULL)
+        return;
+
     DFL_HANDLE(Window)->destroyCLBK = clbk;
 }
 
@@ -319,11 +379,15 @@ void dflWindowDestroyCLBKSet(DflWindowCloseCLBK clbk, DflWindow* pWindow)
 
 void dflWindowDestroy(DflWindow* pWindow)
 {
+    if(pWindow == NULL)
+        return;
+    if(*pWindow == NULL)
+        return;
+
     if (DFL_HANDLE(Window)->destroyCLBK != NULL)
         DFL_HANDLE(Window)->destroyCLBK(pWindow);
 
     glfwDestroyWindow(DFL_HANDLE(Window)->handle);
-    glfwTerminate();
 
     free(*pWindow);
 }
