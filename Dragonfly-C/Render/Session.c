@@ -26,8 +26,7 @@
     NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
     EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
-
-#include "Vulkan.h"
+#include "Session.h"
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -101,6 +100,12 @@ struct DflDevice_T {
     bool          canPresent;
 };
 
+struct DflPhysicalDeviceList_T
+{
+    VkPhysicalDevice* pDevices;
+    uint32_t          count;
+};
+
 struct DflSession_T {
     struct DflSessionInfo       info;
     VkInstance                  instance;
@@ -108,6 +113,12 @@ struct DflSession_T {
 
     VkSurfaceKHR* surfaces; // multiple surfaces for multiple windows
     int           surfaceCount;
+
+    /* -------------------- *
+    *  POOLS               *
+    * -------------------- */
+
+    void* windowPool;
 };
 
 /* -------------------- *
@@ -217,7 +228,7 @@ static int dflSessionVulkanInstanceInitHIDN(struct DflSessionInfo* info, VkInsta
 
     if (vkCreateInstance(&instInfo, NULL, instance) != VK_SUCCESS)
         return DFL_VULKAN_INSTANCE_ERROR;
-
+    
     if (flags & DFL_SESSION_CRITERIA_DO_DEBUG) // if debug is enabled, create a debug messenger (enables all severity messages, except verbose)
     {
         VkDebugUtilsMessengerCreateInfoEXT debugInfo = {
@@ -328,7 +339,7 @@ static int dflSessionDeviceQueuesGetHIDN(VkSurfaceKHR* surface, struct DflDevice
  *   INITIALIZE         *
  * -------------------- */
 
-DflSession dflSessionInit(int sessionCriteria, struct DflSessionInfo* pInfo)
+DflSession dflSessionInit(struct DflSessionInfo* pInfo)
 {
     struct DflSession_T* session = dflSessionAllocHIDN();
 
@@ -337,13 +348,14 @@ DflSession dflSessionInit(int sessionCriteria, struct DflSessionInfo* pInfo)
         pInfo = calloc(1, sizeof(struct DflSessionInfo));
         pInfo->appName = "Dragonfly-App";
         pInfo->appVersion = VK_MAKE_VERSION(1, 0, 0);
+        pInfo->sessionCriteria = NULL;
     }
     else
         session->info = *pInfo;
 
     session->surfaceCount = 0;
 
-    if (dflSessionVulkanInstanceInitHIDN(&(session->info), &(session->instance), &(session->messenger), sessionCriteria) != DFL_SUCCESS)
+    if (dflSessionVulkanInstanceInitHIDN(&(session->info), &(session->instance), &(session->messenger), pInfo->sessionCriteria) != DFL_SUCCESS)
         return NULL;
 
     return (DflSession)session;
@@ -375,7 +387,12 @@ int dflSessionBindWindow(DflWindow* pWindow, DflSession* pSession)
     return DFL_SUCCESS;
 }
 
-struct DflPhysicalDevices dflSessionGetDevices(DflSession session)
+DflWindow dflWindowInit(DflWindowInfo windowInfo, DflSession* pSession)
+{
+    return NULL;
+}
+
+DflPhysicalDeviceList dflSessionGetDevices(DflSession session)
 {
     VkPhysicalDevice* devices = NULL;
     uint32_t deviceCount = 0;
@@ -383,12 +400,12 @@ struct DflPhysicalDevices dflSessionGetDevices(DflSession session)
     devices = calloc(deviceCount, sizeof(VkPhysicalDevice));
     vkEnumeratePhysicalDevices(((struct DflSession_T*)session)->instance, &deviceCount, devices);
 
-    struct DflPhysicalDevices physDev = {
-        .count = deviceCount,
-        .pDevices = devices
-    };
+    struct DflPhysicalDeviceList_T* physDevices = calloc(deviceCount, sizeof(struct DflPhysicalDeviceList_T));
 
-    return physDev;
+    physDevices->pDevices = devices;
+    physDevices->count = deviceCount;
+
+    return (DflPhysicalDeviceList)physDevices;
 }
 
 DflDevice dflDeviceInit(int GPUCriteria, int choice, struct DflPhysicalDevices* deviceList, DflSession* pSession)

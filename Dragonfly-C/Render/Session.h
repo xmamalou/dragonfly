@@ -27,8 +27,8 @@
     EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-#ifndef DFL_RENDER_VULKAN_H
-#define DFL_RENDER_VULKAN_H
+#ifndef DFL_RENDER_SESSION_H
+#define DFL_RENDER_SESSION_H
 
 #ifdef __cplusplus
 extern "C" {
@@ -37,7 +37,7 @@ extern "C" {
 #include <vulkan/vulkan.h>
 
 #include "../Data.h" 
-#include "GLFW.h"
+#include "Window.h"
 
 #define DFL_VERSION(major, minor, patch) VK_MAKE_API_VERSION(0, major, minor, patch)
 
@@ -59,16 +59,8 @@ struct DflSessionInfo
 {
     const char* appName;
     uint32_t    appVersion;
+    uint32_t    sessionCriteria;
 };
-struct DflPhysicalDevices
-{
-    VkPhysicalDevice* pDevices;
-    uint32_t          count;
-};
-// opaque handle for a DflSession_T object.
-DFL_MAKE_HANDLE(DflSession);
-// opaque handle for a DflDevice_T object.
-DFL_MAKE_HANDLE(DflDevice);
 
 /* -------------------- *
  *   INITIALIZE         *
@@ -78,14 +70,16 @@ DFL_MAKE_HANDLE(DflDevice);
 // Use DFL_SESSION_CRITERIA_ONLY_OFFSCREEN to override this assumption.
 // `sessionCriteria` is a bitfield of `DFL_SESSION_CRITERIA_*` flags.
 // `GPUCriteria` is a bitfield of `DFL_GPU_CRITERIA_*` flags.
-DflSession dflSessionInit(int sessionCriteria, struct DflSessionInfo* pInfo);
+DflSession dflSessionInit(struct DflSessionInfo* pInfo);
 
 int dflSessionBindWindow(DflWindow* pWindow, DflSession* pSession);
+// unlike `dflWindowCreate`, this also binds the window to a surface.
+DflWindow dflWindowInit(struct DflWindowInfo windowInfo, DflSession* pSession);
 
 // returns a list of physical devices that are available to the session.
 // this is useful only if you want to choose a GPU manually.
-struct DflPhysicalDevices dflSessionGetDevices(DflSession session);
-DflDevice dflDeviceInit(int GPUCriteria, int choice, struct DflPhysicalDevices* devices, DflSession* pSession);
+DflPhysicalDeviceList dflSessionGetDevices(DflSession session);
+DflDevice dflDeviceInit(int GPUCriteria, int choice, DflPhysicalDeviceList devices, DflSession* pSession);
 
 /* -------------------- *
  *   GET & SET          *
@@ -105,4 +99,4 @@ void dflSessionEnd(DflSession* pSession);
 }
 #endif
 
-#endif // !DFL_RENDER_VULKAN_H
+#endif // !DFL_RENDER_SESSION_H
