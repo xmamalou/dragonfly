@@ -61,8 +61,7 @@ typedef struct DflWindowInfo {
 	int	            rate; // refresh rate, set 0 for unlimited
 	struct DflVec2D pos;
 } DflWindowInfo;
-// opaque handle for a DflWindow_T object.
-DFL_MAKE_HANDLE(DflWindow);
+
 
 /* -------------------- *
  *   CALLBACKS          *
@@ -83,7 +82,6 @@ typedef void (*DflWindowCloseCLBK)(DflWindow* pWindow); // Called RIGHT BEFORE a
  * -------------------- */
 
 // Returns NULL if unsuccessful.
-// `info`: the window's information. Set to NULL for default values.
 // NOTE: you can omit members of the struct. Dragonfly will set default values if NULL.
 DflWindow dflWindowCreate(DflWindowInfo* pInfo); 
 
@@ -92,7 +90,6 @@ DflWindow dflWindowCreate(DflWindowInfo* pInfo);
  * -------------------- */
 
 // Changes the dimensions, viewport, or resolution of the window.
-// `rect`: the new rectangle.
 // `type`: DFL_DIMENSIONS for the dimensions, DFL_VIEWPORT for the viewport, and DFL_RESOLUTION for the resolution.
 void dflWindowReshape(int type, struct DflVec2D rect, DflWindow* pWindow);
 void dflWindowReposition(struct DflVec2D pos, DflWindow* pWindow);
@@ -115,13 +112,25 @@ struct DflVec2D dflWindowPosGet(DflWindow window);
 int				dflMonitorNumGet();
 // Get the primary monitor's position.
 struct DflVec2D dflPrimaryMonitorPosGet();
+// check if the window is supposed to close.
+bool            dflWindowShouldCloseGet(DflWindow window);
+
+/* -------------------- *
+ *   DESTROY            *
+ * -------------------- */
+
+ // It frees the `window` pointer.
+void dflWindowDestroy(DflWindow* pWindow);
 
 /* -------------------- *
  *   ONLY INTERNAL USE  *
  * -------------------- */
-size_t      dflWindowSizeRequirementsGet();
-GLFWwindow* dflWindowHandleGet(DflWindow window);
-void        dflWindowSurfaceIndexSet(int index, DflWindow* pWindow);
+
+size_t      dflWindowSizeRequirementsGet(); // not protected since its results are trivial and cannot cause any harm.
+GLFWwindow* dflWindowHandleGet(DflWindow window, DflSession session); // protected from outside use.
+int         dflWindowSurfaceIndexGet(DflWindow window); // not protected since its results are trivial and cannot cause any harm.
+
+void        dflWindowSurfaceIndexSet(int index, DflWindow* pWindow, DflSession session); // protected from outside use.
 
 
 /* -------------------- *
@@ -135,13 +144,6 @@ void dflWindowRenameCLBKSet(DflWindowRenameCLBK clbk, DflWindow* pWindow);
 void dflWindowChangeIconCLBKSet(DflWindowChangeIconCLBK clbk, DflWindow* pWindow);
 
 void dflWindowDestroyCLBKSet(DflWindowCloseCLBK clbk, DflWindow* window);
-
-/* -------------------- *
- *   DESTROY            *
- * -------------------- */
-
-// It frees the `window` pointer.
-void dflWindowDestroy(DflWindow* pWindow);
 
 #ifdef __cplusplus
 }

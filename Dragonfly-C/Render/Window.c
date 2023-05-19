@@ -33,6 +33,7 @@
 
 #include "../Data.h"
 #include "../StbDummy.h"
+#include "Session.h"
 
 struct DflWindow_T { // A Dragonfly window
     GLFWwindow* handle;
@@ -42,7 +43,7 @@ struct DflWindow_T { // A Dragonfly window
     *   VULKAN SPECIFIC    *
     *  ------------------- */
 
-    int surfaceIndex; // The index of the window in the surface array
+    int surfaceIndex; // The index of the window in the surface array. If < 0, then the window doesn't have a surface.
 
     // CALLBACKS 
 
@@ -111,6 +112,8 @@ DflWindow dflWindowCreate(DflWindowInfo* pInfo)
     if(pInfo == NULL)
     {
         pInfo = calloc(1, sizeof(DflWindowInfo));
+        if (pInfo == NULL)
+            return NULL;
 
         pInfo->dim = (struct DflVec2D){ 1920, 1080 };
         pInfo->view = (struct DflVec2D){ 1920, 1080 };
@@ -139,6 +142,8 @@ DflWindow dflWindowCreate(DflWindowInfo* pInfo)
 
     if(pInfo->pos.x != NULL || pInfo->pos.y != NULL)
         glfwSetWindowPos(window->handle, window->info.pos.x, window->info.pos.y);
+
+    window->surfaceIndex = -1;
 
     return (DflWindow)window;
 }
@@ -286,24 +291,55 @@ struct DflVec2D dflPrimaryMonitorPosGet()
     return pos;
 }
 
+bool dflWindowShouldCloseGet(DflWindow window)
+{
+    return glfwWindowShouldClose(((struct DflWindow_T*)window)->handle);
+}
+
+/* -------------------- *
+ *   DESTROY            *
+ * -------------------- */
+
+void dflWindowDestroy(DflWindow* pWindow)
+{
+    if (pWindow == NULL)
+        return;
+    if (*pWindow == NULL)
+        return;
+
+    if (DFL_HANDLE(Window)->destroyCLBK != NULL)
+        DFL_HANDLE(Window)->destroyCLBK(pWindow);
+
+    glfwDestroyWindow(DFL_HANDLE(Window)->handle);
+
+    free(*pWindow);
+}
+
 /* -------------------- *
  *   INTERNAL ONLY      *
- *struct DflWindow_T--- */
+ * -------------------- */
+
 size_t dflWindowSizeRequirementsGet()
 {
     return sizeof(struct DflWindow_T);
 }
 
-GLFWwindow* dflWindowHandleGet(DflWindow window)
+GLFWwindow* dflWindowHandleGet(DflWindow window, DflSession session)
 {
+    if ((window == NULL) || (session == NULL) || (dflSessionIsLegal(session) == false))
+        return NULL;
+
     return (((struct DflWindow_T*)window)->handle);
 }
 
-void dflWindowSurfaceIndexSet(int index, DflWindow* pWindow)
+int dflWindowSurfaceIndexGet(DflWindow window)
 {
-    if (pWindow == NULL)
-        return;
-    if (*pWindow == NULL)
+    return (((struct DflWindow_T*)window)->surfaceIndex);
+}
+
+void dflWindowSurfaceIndexSet(int index, DflWindow* pWindow, DflSession session)
+{
+    if ((pWindow == NULL) || (*pWindow == NULL) || (session == NULL) || (dflSessionIsLegal(session) == false))
         return;
 
     DFL_HANDLE(Window)->surfaceIndex = index;
@@ -371,23 +407,4 @@ void dflWindowDestroyCLBKSet(DflWindowCloseCLBK clbk, DflWindow* pWindow)
         return;
 
     DFL_HANDLE(Window)->destroyCLBK = clbk;
-}
-
-/* -------------------- *
- *   DESTROY            *
- * -------------------- */
-
-void dflWindowDestroy(DflWindow* pWindow)
-{
-    if(pWindow == NULL)
-        return;
-    if(*pWindow == NULL)
-        return;
-
-    if (DFL_HANDLE(Window)->destroyCLBK != NULL)
-        DFL_HANDLE(Window)->destroyCLBK(pWindow);
-
-    glfwDestroyWindow(DFL_HANDLE(Window)->handle);
-
-    free(*pWindow);
 }
