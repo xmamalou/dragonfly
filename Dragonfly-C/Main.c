@@ -25,25 +25,21 @@ int MAIN()
 	DflSession	session = NULL;
 	DflDevice	device = NULL;
 
-	struct DflSessionInfo info = { "Dragonfly", 1, DFL_SESSION_CRITERIA_DO_DEBUG };
+	struct DflSessionInfo info = { "Dragonfly", DFL_VERSION(0, 1, 0), DFL_SESSION_CRITERIA_DO_DEBUG};
 
-	session = dflSessionInit(&info);
+	session = dflSessionCreate(&info);
 	if (session == NULL)
 		return 1;
 
-	window = dflWindowCreate(NULL);
+	dflSessionInitWindow(NULL, &window, &session);
 	if (window == NULL)
 		return 1;
 
-	int error = dflSessionBindWindow(&window, &session);
-	if (error != DFL_SUCCESS)
-		return error;
-
-	device = dflDeviceInit(DFL_GPU_CRITERIA_NONE, NULL, NULL, &session);
+	device = dflDeviceCreate(DFL_GPU_CRITERIA_NONE, NULL, NULL, &session);
 	if (device == NULL)
         return 1;
 
-	while ((glfwWindowShouldClose(dflWindowHandleGet(window)) == GLFW_FALSE))
+	while (dflWindowShouldCloseGet(window) == false)
 	{
         glfwPollEvents();
     }

@@ -40,8 +40,9 @@ extern "C" {
 
 #define DFL_SUCCESS 0 // operation was successful
 
-#define DFL_GENERIC_ALLOC_ERROR -0xA110C // generic allocation error
+#define DFL_GENERIC_OOM_ERROR -0x00F // generic out of memory error
 #define DFL_GENERIC_NO_SUCH_FILE_ERROR -0xF17E // generic file not found error
+#define DFL_GENERIC_NULL_POINTER_ERROR -0xA110 // generic null pointer error
 
 #define DFL_GLFW_INIT_ERROR -0x50BAD // glfw initialization error
 #define DFL_GLFW_WINDOW_ERROR -0x533 // glfw window creation error
