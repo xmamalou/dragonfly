@@ -481,41 +481,6 @@ void dflSessionInitWindow(DflWindowInfo* pWindowInfo, DflWindow* pWindow, DflSes
 
 void dflDeviceInit(int GPUCriteria, int choice, DflDevice* pDevices, DflSession* pSession)
 {
-    /*
-    if (choice < 0) // this will rank the devices, unless there is only one, or none
-    {
-        VkPhysicalDevice* devices = NULL;
-        uint32_t deviceCount = 0;
-        vkEnumeratePhysicalDevices(((struct DflSession_T*)*pSession)->instance, &deviceCount, NULL);
-        devices = calloc(deviceCount, sizeof(VkPhysicalDevice));
-        if (devices == NULL)
-            return NULL;
-        vkEnumeratePhysicalDevices(((struct DflSession_T*)*pSession)->instance, &deviceCount, devices);
-
-        switch (deviceCount) // this picks the device by ranking them (unless there is only one, or none)
-        {
-        case 0:
-            return NULL;
-        case 1:
-            device->physDevice = devices[deviceCount - 1];
-            if (dflSessionDeviceOrganiseDataHIDN(GPUCriteria, devices[deviceCount - 1], device) != DFL_SUCCESS)
-                return NULL;
-            if (DFL_HANDLE(Session)->surfaces != NULL)
-            {
-                if (dflSessionDeviceQueuesGetHIDN(DFL_HANDLE(Session)->surfaces, device) != DFL_SUCCESS)
-                    return NULL;
-            }
-            break;
-        default:
-            return; // TODO: actually rank the devices, currently just fails
-            break;
-        }
-
-        //if (sessionCriteria & DFL_SESSION_CRITERIA_ONLY_OFFSCREEN)
-            //dflSessionDeviceInit(NULL, &session);
-    }
-    */
-
     // device creation
 
     VkDeviceCreateInfo deviceInfo = {
