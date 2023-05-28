@@ -528,21 +528,21 @@ int dflDeviceInit(int GPUCriteria, int choice, DflDevice* pDevices, DflSession* 
 DflDevice* dflSessionDevicesGet(int* pCount, DflSession* pSession)
 {
     VkPhysicalDevice* physDevices = NULL;
-    *count = 0;
-    vkEnumeratePhysicalDevices(DFL_HANDLE(Session)->instance, count, NULL);
-    physDevices = calloc(*count, sizeof(VkPhysicalDevice));
+    *pCount = 0;
+    vkEnumeratePhysicalDevices(DFL_HANDLE(Session)->instance, pCount, NULL);
+    physDevices = calloc(*pCount, sizeof(VkPhysicalDevice));
     if (physDevices == NULL)
         return NULL;
-    vkEnumeratePhysicalDevices(DFL_HANDLE(Session)->instance, count, physDevices);
+    vkEnumeratePhysicalDevices(DFL_HANDLE(Session)->instance, pCount, physDevices);
     if(physDevices == NULL)
         return NULL;
 
-    struct DflDevice_T** devices = calloc(*count, sizeof(struct DflDevice_T*));
-    DFL_HANDLE(Session)->deviceCount = *count;
+    struct DflDevice_T** devices = calloc(*pCount, sizeof(struct DflDevice_T*));
+    DFL_HANDLE(Session)->deviceCount = *pCount;
     if (devices == NULL)
         return NULL;
 
-    for (int i = 0; i < *count; i++)
+    for (int i = 0; i < *pCount; i++)
     {
         devices[i] = calloc(1, sizeof(struct DflDevice_T));
         if (devices[i] == NULL)
@@ -583,6 +583,9 @@ void dflSessionEnd(DflSession* pSession)
 
 void dflDeviceDestroy(int choice, DflDevice* pDevices)
 {
+    if (DFL_HANDLE_ARRAY(Device, choice)->device == NULL)
+        return; // device doesn't exist so it doesn't matter
+
     vkDestroyDevice(DFL_HANDLE_ARRAY(Device, choice)->device, NULL);
 }
 
