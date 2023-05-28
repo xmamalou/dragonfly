@@ -31,8 +31,7 @@ int MAIN()
 	if (session == NULL)
 		return 1;
 
-	dflSessionInitWindow(NULL, &window, &session);
-	if (window == NULL)
+	if (dflSessionInitWindow(NULL, &window, &session) != DFL_SUCCESS)
 		return 1;
 
 	int choice = 0;
