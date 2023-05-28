@@ -66,11 +66,10 @@ struct DflVec2D
 
 #define DFL_MAKE_HANDLE(type) typedef struct type##_HND* type; // a handle to a type
 #define DFL_HANDLE(type) ((struct Dfl##type##_T*)*p##type) // a shorthand for casting a handle to its type (will be used when `type` refers to a function argument in the form `ptype` (pointer to handle))
+#define DFL_HANDLE_ARRAY(type, pos) ((struct Dfl##type##_T*)*(p##type##s + pos)) // a shorthand for casting a handle to its type (will be used when `type` refers to a function argument in the form `ptype` (pointer to handle))
 
 // opaque handle for a DflSession_T object.
 DFL_MAKE_HANDLE(DflSession);
-// opaque handle for a DflPhysicalDeviceList_T object.
-DFL_MAKE_HANDLE(DflPhysicalDeviceList);
 // opaque handle for a DflDevice_T object.
 DFL_MAKE_HANDLE(DflDevice);
 // opaque handle for a DflWindow_T object.
