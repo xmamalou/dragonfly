@@ -589,7 +589,7 @@ void dflDeviceDestroy(int choice, DflDevice* pDevices, DflSession* pSession)
     if((pDevices == NULL) || (pSession == NULL))
         return;
 
-    if(DFL_HANDLE(Session)->deviceCount <= choice)
+    if((DFL_HANDLE(Session)->deviceCount <= choice) || (choice < 0))
         return; // out of bounds
 
     if (DFL_HANDLE_ARRAY(Device, choice)->device == NULL)
