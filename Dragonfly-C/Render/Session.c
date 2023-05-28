@@ -470,15 +470,27 @@ int dflSessionBindWindow(DflWindow* pWindow, DflSession* pSession)
     return DFL_SUCCESS;
 }
 
-void dflSessionInitWindow(DflWindowInfo* pWindowInfo, DflWindow* pWindow, DflSession* pSession)
+int dflSessionInitWindow(DflWindowInfo* pWindowInfo, DflWindow* pWindow, DflSession* pSession)
 {
-    if ((pWindow == NULL) || (*pWindow != NULL)) // Dragonfly will not attempt to overwrite an existing window
-        return;
+    if ((pWindow == NULL)) // Dragonfly will not attempt to overwrite an existing window
+        return DFL_GENERIC_NULL_POINTER_ERROR;
+
+    if (*pWindow != NULL)
+        return DFL_GENERIC_ALREADY_INITIALIZED_ERROR;
 
     *pWindow = dflWindowCreate(pWindowInfo);
 
-    if (dflSessionBindWindow(pWindow, pSession) != DFL_SUCCESS)
+    if (*pWindow == NULL)
+        return DFL_GLFW_WINDOW_ERROR;
+
+    int error = dflSessionBindWindow(pWindow, pSession);
+    if (error != DFL_SUCCESS)
+    {
         *pWindow = NULL;
+        return error;
+    }
+
+    return DFL_SUCCESS;
 }
 
 int dflDeviceInit(int GPUCriteria, int choice, DflDevice* pDevices, DflSession* pSession)

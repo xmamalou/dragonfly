@@ -72,7 +72,7 @@ DflSession  dflSessionCreate(struct DflSessionInfo* pInfo);
 // Bind an existing window to a surface and a session. If the window is already bound, the function will do nothing and exit successfully.
 int         dflSessionBindWindow(DflWindow* pWindow, DflSession* pSession);
 // unlike `dflWindowCreate`, this also binds the window to a surface.
-void        dflSessionInitWindow(struct DflWindowInfo* pWindowInfo, DflWindow* pWindow, DflSession* pSession);
+int         dflSessionInitWindow(struct DflWindowInfo* pWindowInfo, DflWindow* pWindow, DflSession* pSession);
 int         dflDeviceInit(int GPUCriteria, int choice, DflDevice* pDevices, DflSession* pSession);
 
 /* -------------------- *
