@@ -36,7 +36,7 @@ int MAIN()
 		return 1;
 
 	int choice = 0;
-	devices = dflSessionDevicesGet(&choice, session);
+	devices = dflSessionDevicesGet(&choice, &session);
 	if (devices == NULL)
         return 1;
 
