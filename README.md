@@ -4,7 +4,7 @@ Dragonfly is not in a working state.
 
 Currently, it can do the following:
 - Create a Vulkan instance
-- Sort some device properties
+- Initiate a Vulkan device
 - Create a window, bind it to a Vulkan surface and change its properties (only if the instance it's bound to supports presentation)
 
 ## Building
