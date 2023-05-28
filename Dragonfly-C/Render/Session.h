@@ -73,15 +73,15 @@ DflSession  dflSessionCreate(struct DflSessionInfo* pInfo);
 int         dflSessionBindWindow(DflWindow* pWindow, DflSession* pSession);
 // unlike `dflWindowCreate`, this also binds the window to a surface.
 void        dflSessionInitWindow(struct DflWindowInfo* pWindowInfo, DflWindow* pWindow, DflSession* pSession);
-DflDevice   dflDeviceCreate(int GPUCriteria, DflPhysicalDeviceList* pDevices, int choice, DflSession* pSession);
+void        dflDeviceInit(int GPUCriteria, int choice, DflDevice* pDevices, DflSession* pSession);
 
 /* -------------------- *
  *   GET & SET          *
  * -------------------- */
 // returns a list of physical devices that are available to the session.
 // this is useful only if you want to choose a GPU manually.
-DflPhysicalDeviceList   dflSessionDevicesGet(DflSession session);
-bool                    dflDeviceCanPresentGet(DflDevice device);
+DflDevice*  dflSessionDevicesGet(int* count, DflSession session);
+bool        dflDeviceCanPresentGet(DflDevice device);
 
 /* -------------------- *
  *   DESTROY            *
@@ -90,11 +90,7 @@ bool                    dflDeviceCanPresentGet(DflDevice device);
 // Also frees the session pointer. Does not destroy any associated windows. Any on-screen specific resources are not freed from this function.
 // Use `dflWindowDestroy` (see `Render/GLFW.h`) to destroy any associated windows and on-screen rendering specific resources.
 void dflSessionEnd(DflSession* pSession);
-
-#ifdef __cplusplus
-}
-#endif
-
+void dflDeviceDestroy(int choice, DflDevice* pDevice);
 /* ---------------------- * 
  * INTERNAL USE ONLY      *
  * ---------------------- */
@@ -106,5 +102,9 @@ void dflSessionEnd(DflSession* pSession);
 // that is allowed to use internal functions right before it uses them, and then unset it right afterwards. 
 // Some functions, like this one, won't be protected by this flag, since there's not much issue that could arise from using them.
 bool dflSessionIsLegal(DflSession session); 
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif // !DFL_RENDER_SESSION_H
