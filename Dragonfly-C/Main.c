@@ -47,7 +47,7 @@ int MAIN()
         glfwPollEvents();
     }
 
-	dflDeviceDestroy(0, devices);
+	dflDeviceDestroy(0, devices, &session);
 	dflWindowDestroy(&window);
 	dflSessionEnd(&session);
 
