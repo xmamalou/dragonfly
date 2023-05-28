@@ -80,7 +80,7 @@ int         dflDeviceInit(int GPUCriteria, int choice, DflDevice* pDevices, DflS
  * -------------------- */
 // returns a list of physical devices that are available to the session.
 // this is useful only if you want to choose a GPU manually.
-DflDevice*  dflSessionDevicesGet(int* count, DflSession* pSession);
+DflDevice*  dflSessionDevicesGet(int* pCount, DflSession* pSession);
 bool        dflDeviceCanPresentGet(DflDevice device);
 
 /* -------------------- *

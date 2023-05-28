@@ -525,7 +525,7 @@ int dflDeviceInit(int GPUCriteria, int choice, DflDevice* pDevices, DflSession* 
  *   GET & SET          *
  * -------------------- */
 
-DflDevice* dflSessionDevicesGet(int* count, DflSession* pSession)
+DflDevice* dflSessionDevicesGet(int* pCount, DflSession* pSession)
 {
     VkPhysicalDevice* physDevices = NULL;
     *count = 0;
