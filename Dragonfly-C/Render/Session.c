@@ -479,7 +479,7 @@ void dflSessionInitWindow(DflWindowInfo* pWindowInfo, DflWindow* pWindow, DflSes
         *pWindow = NULL;
 }
 
-void dflDeviceInit(int GPUCriteria, int choice, DflDevice* pDevices, DflSession* pSession)
+int dflDeviceInit(int GPUCriteria, int choice, DflDevice* pDevices, DflSession* pSession)
 {
     // device creation
 
@@ -494,7 +494,9 @@ void dflDeviceInit(int GPUCriteria, int choice, DflDevice* pDevices, DflSession*
     };
 
     if(vkCreateDevice(DFL_HANDLE_ARRAY(Device, choice)->physDevice, &deviceInfo, NULL, &DFL_HANDLE_ARRAY(Device, choice)->device) != VK_SUCCESS)
-        return NULL;
+        return DFL_VULKAN_DEVICE_ERROR;
+
+    return DFL_SUCCESS;
 }
 
 /* -------------------- *

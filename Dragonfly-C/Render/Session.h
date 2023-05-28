@@ -73,7 +73,7 @@ DflSession  dflSessionCreate(struct DflSessionInfo* pInfo);
 int         dflSessionBindWindow(DflWindow* pWindow, DflSession* pSession);
 // unlike `dflWindowCreate`, this also binds the window to a surface.
 void        dflSessionInitWindow(struct DflWindowInfo* pWindowInfo, DflWindow* pWindow, DflSession* pSession);
-void        dflDeviceInit(int GPUCriteria, int choice, DflDevice* pDevices, DflSession* pSession);
+int         dflDeviceInit(int GPUCriteria, int choice, DflDevice* pDevices, DflSession* pSession);
 
 /* -------------------- *
  *   GET & SET          *
