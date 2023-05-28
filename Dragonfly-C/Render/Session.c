@@ -584,8 +584,14 @@ void dflSessionEnd(DflSession* pSession)
     free(*pSession);
 }
 
-void dflDeviceDestroy(int choice, DflDevice* pDevices)
+void dflDeviceDestroy(int choice, DflDevice* pDevices, DflSession* pSession)
 {
+    if((pDevices == NULL) || (pSession == NULL))
+        return;
+
+    if(DFL_HANDLE(Session)->deviceCount <= choice)
+        return; // out of bounds
+
     if (DFL_HANDLE_ARRAY(Device, choice)->device == NULL)
         return; // device doesn't exist so it doesn't matter
 

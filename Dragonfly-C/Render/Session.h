@@ -90,7 +90,7 @@ bool        dflDeviceCanPresentGet(DflDevice device);
 // Also frees the session pointer. Does not destroy any associated windows. Any on-screen specific resources are not freed from this function.
 // Use `dflWindowDestroy` (see `Render/GLFW.h`) to destroy any associated windows and on-screen rendering specific resources.
 void dflSessionEnd(DflSession* pSession);
-void dflDeviceDestroy(int choice, DflDevice* pDevice);
+void dflDeviceDestroy(int choice, DflDevice* pDevice, DflSession* pSession);
 /* ---------------------- * 
  * INTERNAL USE ONLY      *
  * ---------------------- */
