@@ -499,6 +499,9 @@ int dflDeviceInit(int GPUCriteria, int choice, DflDevice* pDevices, DflSession* 
     if((choice < 0) || (choice >= DFL_HANDLE(Session)->deviceCount))
         return DFL_GENERIC_OUT_OF_BOUNDS_ERROR;
 
+    if(pDevices == NULL)
+        return DFL_GENERIC_NULL_POINTER_ERROR;
+
     if(DFL_HANDLE_ARRAY(Device, choice)->device != NULL)
         return DFL_GENERIC_ALREADY_INITIALIZED_ERROR;
 
