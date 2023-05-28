@@ -100,6 +100,8 @@ struct DflSession_T {
     VkInstance                  instance;
     VkDebugUtilsMessengerEXT    messenger;
 
+    int                         deviceCount;
+
     VkSurfaceKHR* surfaces; // multiple surfaces for multiple windows
     int           surfaceCount;
 
@@ -482,6 +484,8 @@ void dflSessionInitWindow(DflWindowInfo* pWindowInfo, DflWindow* pWindow, DflSes
 int dflDeviceInit(int GPUCriteria, int choice, DflDevice* pDevices, DflSession* pSession)
 {
     // device creation
+    if((choice < 0) || (choice >= DFL_HANDLE(Session)->deviceCount))
+        return DFL_GENERIC_OUT_OF_BOUNDS_ERROR;
 
     VkDeviceCreateInfo deviceInfo = {
         .sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
@@ -503,19 +507,20 @@ int dflDeviceInit(int GPUCriteria, int choice, DflDevice* pDevices, DflSession* 
  *   GET & SET          *
  * -------------------- */
 
-DflDevice* dflSessionDevicesGet(int* count, DflSession session)
+DflDevice* dflSessionDevicesGet(int* count, DflSession* pSession)
 {
     VkPhysicalDevice* physDevices = NULL;
     *count = 0;
-    vkEnumeratePhysicalDevices(((struct DflSession_T*)session)->instance, count, NULL);
+    vkEnumeratePhysicalDevices(DFL_HANDLE(Session)->instance, count, NULL);
     physDevices = calloc(*count, sizeof(VkPhysicalDevice));
     if (physDevices == NULL)
         return NULL;
-    vkEnumeratePhysicalDevices(((struct DflSession_T*)session)->instance, count, physDevices);
+    vkEnumeratePhysicalDevices(DFL_HANDLE(Session)->instance, count, physDevices);
     if(physDevices == NULL)
         return NULL;
 
     struct DflDevice_T** devices = calloc(*count, sizeof(struct DflDevice_T*));
+    DFL_HANDLE(Session)->deviceCount = *count;
     if (devices == NULL)
         return NULL;
 
@@ -527,7 +532,7 @@ DflDevice* dflSessionDevicesGet(int* count, DflSession session)
         devices[i]->physDevice = physDevices[i];
         if (dflSessionDeviceOrganiseDataHIDN(devices[i]) != DFL_SUCCESS)
             return NULL;
-        if (dflSessionDeviceQueuesGetHIDN(((struct DflSession_T*)session)->surfaces, devices[i]) != DFL_SUCCESS)
+        if (dflSessionDeviceQueuesGetHIDN(DFL_HANDLE(Session)->surfaces, devices[i]) != DFL_SUCCESS)
             return NULL;
     }
 
