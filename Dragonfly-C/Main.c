@@ -40,7 +40,8 @@ int MAIN()
 	if (devices == NULL)
         return 1;
 
-	dflDeviceInit(DFL_GPU_CRITERIA_NONE, 0, devices, &session);
+	if (dflDeviceInit(DFL_GPU_CRITERIA_NONE, 0, devices, &session) != DFL_SUCCESS)
+		return 1;
 
 	while (dflWindowShouldCloseGet(window) == false)
 	{
