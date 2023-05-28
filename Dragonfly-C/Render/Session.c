@@ -568,6 +568,9 @@ bool dflDeviceCanPresentGet(DflDevice device)
 
 void dflSessionEnd(DflSession* pSession)
 {
+    if((pSession == NULL) || (*pSession == NULL))
+        return;
+
     for(int i = 0; i < DFL_HANDLE(Session)->surfaceCount; i++)
         vkDestroySurfaceKHR(DFL_HANDLE(Session)->instance, DFL_HANDLE(Session)->surfaces[i], NULL);
 
