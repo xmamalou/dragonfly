@@ -23,33 +23,37 @@ int MAIN()
 {
 	DflWindow	window = NULL;
 	DflSession	session = NULL;
-	DflDevice*	devices = NULL;
+	DflDevice	device = NULL;
 
+	struct DflWindowInfo winfo = { .dim = {1920, 1080}, .view = {1920, 1080}, .res = {1920, 1080}, .name = "Dragonfly", .icon = NULL, .mode = 0, .rate = 144, .pos = {200, 200} };
 	struct DflSessionInfo info = { "Dragonfly", DFL_VERSION(0, 1, 0), DFL_SESSION_CRITERIA_DO_DEBUG};
 
 	session = dflSessionCreate(&info);
-	if (session == NULL)
+	if (dflSessionErrorGet(session) != DFL_SUCCESS)
 		return 1;
 
-	if (dflSessionInitWindow(NULL, &window, &session) != DFL_SUCCESS)
-		return 1;
+	window = dflWindowInit(&winfo, &session);
+	if(dflWindowErrorGet(window) != DFL_SUCCESS)
+        return 1;
 
 	int choice = 0;
-	devices = dflSessionDevicesGet(&choice, &session);
+	DflDevice* devices = dflSessionDevicesGet(&choice, &session);
 	if (devices == NULL)
         return 1;
 
-	if (dflDeviceInit(DFL_GPU_CRITERIA_NONE, 0, devices, &session) != DFL_SUCCESS)
+	device = dflDeviceInit(DFL_GPU_CRITERIA_NONE, 0, devices, &session);
+	if (dflDeviceErrorGet(device) != DFL_SUCCESS)
 		return 1;
+	free(devices);
 
 	while (dflWindowShouldCloseGet(window) == false)
 	{
         glfwPollEvents();
     }
 
-	dflDeviceDestroy(0, devices, &session);
-	dflWindowDestroy(&window);
-	dflSessionEnd(&session);
+	dflDeviceTerminate(&device, &session);
+	dflWindowTerminate(&window, &session);
+	dflSessionDestroy(&session);
 
 	glfwTerminate();
 
