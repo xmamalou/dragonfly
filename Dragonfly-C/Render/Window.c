@@ -36,7 +36,7 @@
 #include "Session.h"
 
 struct DflWindow_T { // A Dragonfly window
-    GLFWwindow* handle;
+    GLFWwindow*     handle;
     DflWindowInfo	info;
 
     /* ------------------- *
@@ -54,14 +54,17 @@ struct DflWindow_T { // A Dragonfly window
     DflWindowChangeIconCLBK iconCLBK;
 
     DflWindowCloseCLBK      destroyCLBK;
+
+    // error
+    int error;
 };
 
 /* -------------------- *
  *   INTERNAL           *
  * -------------------- */
 
-static GLFWwindow* dflWindowCallHIDN(struct DflVec2D dim, struct DflVec2D view, struct DflVec2D res, const char* name, int mode);
-static GLFWwindow* dflWindowCallHIDN(struct DflVec2D dim, struct DflVec2D view, struct DflVec2D res, const char* name, int mode)
+static GLFWwindow* _dflWindowCall(struct DflVec2D dim, struct DflVec2D view, struct DflVec2D res, const char* name, int mode, int* error);
+static GLFWwindow* _dflWindowCall(struct DflVec2D dim, struct DflVec2D view, struct DflVec2D res, const char* name, int mode, int* error)
 {
     if (name == NULL)
         name = "Dragonfly-App";
@@ -76,7 +79,10 @@ static GLFWwindow* dflWindowCallHIDN(struct DflVec2D dim, struct DflVec2D view, 
         res = (struct DflVec2D){ 1920, 1080 };
 
     if (!glfwInit())
+    {
+        *error = DFL_GLFW_INIT_ERROR;
         return NULL;
+    }
 
     switch (mode) {
     case DFL_WINDOWED:
@@ -97,8 +103,8 @@ static GLFWwindow* dflWindowCallHIDN(struct DflVec2D dim, struct DflVec2D view, 
     }
 }
 
-inline static struct DflWindow_T* dflWindowAllocHIDN();
-inline static struct DflWindow_T* dflWindowAllocHIDN()
+inline static struct DflWindow_T* _dflWindowAlloc();
+inline static struct DflWindow_T* _dflWindowAlloc()
 {
     return calloc(1, sizeof(struct DflWindow_T));
 }
@@ -107,31 +113,36 @@ inline static struct DflWindow_T* dflWindowAllocHIDN()
  *   INITIALIZE         *
  * -------------------- */
 
-DflWindow dflWindowCreate(DflWindowInfo* pInfo)
+DflWindow _dflWindowCreate(DflWindowInfo* pInfo)
 {
-    if(pInfo == NULL)
+    struct DflWindow_T* window = _dflWindowAlloc();
+
+    if (pInfo == NULL)
     {
-        pInfo = calloc(1, sizeof(DflWindowInfo));
-        if (pInfo == NULL)
-            return NULL;
-
-        pInfo->dim = (struct DflVec2D){ 1920, 1080 };
-        pInfo->view = (struct DflVec2D){ 1920, 1080 };
-        pInfo->res = (struct DflVec2D){ 1920, 1080 };
-        pInfo->pos = (struct DflVec2D){ 200, 200 };
-        pInfo->name = "Dragonfly-App";
-        pInfo->mode = DFL_WINDOWED;
+        DflWindowInfo info = {
+            .dim = (struct DflVec2D){ 1920, 1080 },
+            .view = (struct DflVec2D){ 1920, 1080 },
+            .res = (struct DflVec2D){ 1920, 1080 },
+            .pos = (struct DflVec2D){ 200, 200 },
+            .name = "Dragonfly-App",
+            .mode = DFL_WINDOWED
+        };
+        window->info = info;
     }
-
-    struct DflWindow_T* window = dflWindowAllocHIDN();
-
-    window->info = *pInfo;
-    window->handle = dflWindowCallHIDN(pInfo->dim, pInfo->view, pInfo->res, pInfo->name, pInfo->mode);
+    else
+        window->info = *pInfo;
+    
+    window->error = 0;
+    window->handle = _dflWindowCall(window->info.dim, window->info.view, window->info.res, window->info.name, window->info.mode, &window->error);
 
     if (window->handle == NULL)
-        return NULL;
+    {
+        if(window->error != DFL_GLFW_INIT_ERROR)
+            window->error = DFL_GLFW_WINDOW_ERROR;
+        return (DflWindow)window;
+    }
 
-    if (pInfo->icon != NULL)
+    if (window->info.icon != NULL)
     {
         GLFWimage image;
         image.pixels = stbi_load(window->info.icon, &image.width, &image.height, 0, 4); //rgba channels 
@@ -140,7 +151,7 @@ DflWindow dflWindowCreate(DflWindowInfo* pInfo)
         stbi_image_free(image.pixels);
     }
 
-    if(pInfo->pos.x != NULL || pInfo->pos.y != NULL)
+    if(window->info.pos.x != NULL || window->info.pos.y != NULL)
         glfwSetWindowPos(window->handle, window->info.pos.x, window->info.pos.y);
 
     window->surfaceIndex = -1;
@@ -227,7 +238,7 @@ void dflWindowRename(const char* name, DflWindow* pWindow)
     if (*pWindow == NULL)
         return;
 
-    DFL_HANDLE(Window)->info.name = name;
+    strcpy_s(&DFL_HANDLE(Window)->info.name, DFL_MAX_CHAR_COUNT, name);
     glfwSetWindowTitle(((struct DflWindow_T*)*pWindow)->handle, name);
 
     if (DFL_HANDLE(Window)->renameCLBK != NULL)
@@ -246,7 +257,7 @@ void dflWindowChangeIcon(const char* icon, DflWindow* pWindow)
     if (image.pixels != NULL)
     {
         glfwSetWindowIcon(DFL_HANDLE(Window)->handle, 1, &image);
-        DFL_HANDLE(Window)->info.icon = icon;
+        strcpy_s(&DFL_HANDLE(Window)->info.icon, DFL_MAX_CHAR_COUNT, icon);
         stbi_image_free(image.pixels);
     }
 
@@ -293,14 +304,50 @@ struct DflVec2D dflPrimaryMonitorPosGet()
 
 bool dflWindowShouldCloseGet(DflWindow window)
 {
+    if (window == NULL)
+        return true; // if the window is null, then there's no window to close, which could cause an endless loop, this makes sure that doesn't happen
     return glfwWindowShouldClose(((struct DflWindow_T*)window)->handle);
+}
+
+int dflWindowErrorGet(DflWindow window)
+{
+    return ((struct DflWindow_T*)window)->error;
+}
+
+int _dflWindowSurfaceIndexGet(DflWindow window)
+{
+    return (((struct DflWindow_T*)window)->surfaceIndex);
+}
+
+GLFWwindow* _dflWindowHandleGet(DflWindow window, DflSession session)
+{
+    if ((window == NULL) || (session == NULL) || (_dflSessionIsLegalGet(session) == false))
+        return NULL;
+
+    return (((struct DflWindow_T*)window)->handle);
+}
+
+void _dflWindowErrorSet(int error, DflWindow* pWindow, DflSession session)
+{
+    if ((pWindow == NULL) || (*pWindow == NULL) || (session == NULL) || (_dflSessionIsLegalGet(session) == false))
+        return;
+
+    DFL_HANDLE(Window)->error = error;
+}
+
+void _dflWindowSurfaceIndexSet(int index, DflWindow* pWindow, DflSession session)
+{
+    if ((pWindow == NULL) || (*pWindow == NULL) || (session == NULL) || (_dflSessionIsLegalGet(session) == false))
+        return;
+
+    DFL_HANDLE(Window)->surfaceIndex = index;
 }
 
 /* -------------------- *
  *   DESTROY            *
  * -------------------- */
 
-void dflWindowDestroy(DflWindow* pWindow)
+void _dflWindowDestroy(DflWindow* pWindow)
 {
     if (pWindow == NULL)
         return;
@@ -313,36 +360,6 @@ void dflWindowDestroy(DflWindow* pWindow)
     glfwDestroyWindow(DFL_HANDLE(Window)->handle);
 
     free(*pWindow);
-}
-
-/* -------------------- *
- *   INTERNAL ONLY      *
- * -------------------- */
-
-size_t dflWindowSizeRequirementsGet()
-{
-    return sizeof(struct DflWindow_T);
-}
-
-GLFWwindow* dflWindowHandleGet(DflWindow window, DflSession session)
-{
-    if ((window == NULL) || (session == NULL) || (dflSessionIsLegal(session) == false))
-        return NULL;
-
-    return (((struct DflWindow_T*)window)->handle);
-}
-
-int dflWindowSurfaceIndexGet(DflWindow window)
-{
-    return (((struct DflWindow_T*)window)->surfaceIndex);
-}
-
-void dflWindowSurfaceIndexSet(int index, DflWindow* pWindow, DflSession session)
-{
-    if ((pWindow == NULL) || (*pWindow == NULL) || (session == NULL) || (dflSessionIsLegal(session) == false))
-        return;
-
-    DFL_HANDLE(Window)->surfaceIndex = index;
 }
 
 /* -------------------- *
