@@ -70,10 +70,10 @@ struct DflSessionInfo
 // Use DFL_SESSION_CRITERIA_ONLY_OFFSCREEN to override this assumption.
 DflSession  dflSessionCreate(struct DflSessionInfo* pInfo);
 // Bind an existing window to a surface and a session. If the window is already bound, the function will do nothing and exit successfully.
-int         dflSessionBindWindow(DflWindow* pWindow, DflSession* pSession);
+int         _dflWindowBindToSession(DflWindow* pWindow, DflSession* pSession);
 // unlike `dflWindowCreate`, this also binds the window to a surface.
-int         dflSessionInitWindow(struct DflWindowInfo* pWindowInfo, DflWindow* pWindow, DflSession* pSession);
-int         dflDeviceInit(int GPUCriteria, int choice, DflDevice* pDevices, DflSession* pSession);
+DflWindow   dflWindowInit(struct DflWindowInfo* pWindowInfo, DflSession* pSession);
+DflDevice   dflDeviceInit(int GPUCriteria, int choice, DflDevice* pDevices, DflSession* pSession);
 
 /* -------------------- *
  *   GET & SET          *
@@ -81,19 +81,10 @@ int         dflDeviceInit(int GPUCriteria, int choice, DflDevice* pDevices, DflS
 // returns a list of physical devices that are available to the session.
 // this is useful only if you want to choose a GPU manually.
 DflDevice*  dflSessionDevicesGet(int* pCount, DflSession* pSession);
+int         dflSessionErrorGet(DflSession session);
 bool        dflDeviceCanPresentGet(DflDevice device);
-
-/* -------------------- *
- *   DESTROY            *
- * -------------------- */
-
-// Also frees the session pointer. Does not destroy any associated windows. Any on-screen specific resources are not freed from this function.
-// Use `dflWindowDestroy` (see `Render/GLFW.h`) to destroy any associated windows and on-screen rendering specific resources.
-void dflSessionEnd(DflSession* pSession);
-void dflDeviceDestroy(int choice, DflDevice* pDevices, DflSession* pSession);
-/* ---------------------- * 
- * INTERNAL USE ONLY      *
- * ---------------------- */
+const char* dflDeviceNameGet(DflDevice device);
+int         dflDeviceErrorGet(DflDevice device);
 // To prevent the user from using an internal function, something that could cause a crash or undefined behavior,
 // this flag checks whether the function is being used internally or not. That is checked by the `int flags` bit in DflSession_T.
 // This bit will be switched by an exclusively internal function, and be checked by this function. Since the function that changes
@@ -101,7 +92,18 @@ void dflDeviceDestroy(int choice, DflDevice* pDevices, DflSession* pSession);
 // the `dflSessionIsLegal` function. If the flag is not set, the function will return not execute. The flag will be set by any function 
 // that is allowed to use internal functions right before it uses them, and then unset it right afterwards. 
 // Some functions, like this one, won't be protected by this flag, since there's not much issue that could arise from using them.
-bool dflSessionIsLegal(DflSession session); 
+bool        _dflSessionIsLegalGet(DflSession session);
+
+/* -------------------- *
+ *   DESTROY            *
+ * -------------------- */
+
+// Also frees the session pointer. Does not destroy any associated windows. Any on-screen specific resources are not freed from this function.
+// Use `dflWindowDestroy` (see `Render/GLFW.h`) to destroy any associated windows and on-screen rendering specific resources.
+void dflSessionDestroy(DflSession* pSession);
+void dflDeviceTerminate(DflDevice* pDevice, DflSession* pSession);
+void dflWindowTerminate(DflWindow* pWindow, DflSession* pSession);
+
 
 #ifdef __cplusplus
 }
