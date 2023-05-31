@@ -34,6 +34,8 @@
 extern "C" {
 #endif
 
+#include <stdbool.h>
+
 /* -------------------- *
  *   ERROR CODES        *
  * -------------------- */
@@ -45,6 +47,8 @@ extern "C" {
 #define DFL_GENERIC_NULL_POINTER_ERROR -0xA110 // generic null pointer error
 #define DFL_GENERIC_OUT_OF_BOUNDS_ERROR -0x0B0B // generic out of bounds error
 #define DFL_GENERIC_ALREADY_INITIALIZED_ERROR -0x1A1A // generic already initialized error
+#define DFL_GENERIC_OVERFLOW_ERROR -0x0F10 // generic overflow error
+#define DFL_GENERIC_ILLEGAL_ACTION_ERROR -0x1A5E // thrown by functions that are not supposed to be called by the user (any prefixed with `_dfl` that could potentially cause dramatic issues)
 
 #define DFL_GLFW_INIT_ERROR -0x50BAD // glfw initialization error
 #define DFL_GLFW_WINDOW_ERROR -0x533 // glfw window creation error
@@ -57,7 +61,10 @@ extern "C" {
 #define DFL_VULKAN_SURFACE_ERROR -0xBADBED // vulkan surface creation error
 #define DFL_VULKAN_QUEUE_ERROR -0x10B // vulkan queue creation error
 
-#include <stdbool.h>
+// other definitions
+
+#define DFL_MAX_WINDOW_COUNT 64 // the maximum number of windows that can be created
+#define DFL_MAX_CHAR_COUNT 256 // the maximum number of characters that can be used in a string
 
 // A generic 2D vector that can refer to anything that needs 2 coordinates.
 struct DflVec2D
