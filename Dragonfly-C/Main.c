@@ -1,4 +1,4 @@
-/*
+﻿/*
 * NOTE: THIS EXISTS ONLY AS A DUMMY FILE! 
 * WHEN DRAGONFLY REACHES A DESIRED WORKING STATE, THIS FILE WILL BE DELETED!
 * WHEN THAT HAPPENS, DRAGONFLY WILL BE SET TO COMPILE AS A DYNAMIC LIBRARY!
@@ -9,6 +9,8 @@
 
 #ifdef _WIN32
 #include <windows.h>
+#include <VersionHelpers.h>
+#include <shellapi.h>
 #endif
 
 #ifndef _DEBUG
@@ -33,23 +35,31 @@ int MAIN()
 		return 1;
 
 	window = dflWindowInit(&winfo, &session);
-	if(dflWindowErrorGet(window) != DFL_SUCCESS)
-        return 1;
+	if (dflWindowErrorGet(window) != DFL_SUCCESS)
+		return 1;
+
+#ifdef _WIN32
+	dflWindowWin32AttributeSet(DFL_WINDOW_WIN32_BORDER_COLOUR, RGB(120, 120, 120), &window);
+	dflWindowWin32AttributeSet(DFL_WINDOW_WIN32_TITLE_TEXT_COLOUR, RGB(120, 120, 120), &window);
+	dflWindowWin32AttributeSet(DFL_WINDOW_WIN32_DARK_MODE, true, &window);
+#endif
 
 	int choice = 0;
 	DflDevice* devices = dflSessionDevicesGet(&choice, &session);
 	if (devices == NULL)
-        return 1;
+		return 1;
 
 	device = dflDeviceInit(DFL_GPU_CRITERIA_NONE, 0, devices, &session);
 	if (dflDeviceErrorGet(device) != DFL_SUCCESS)
 		return 1;
 	free(devices);
 
-	while (dflWindowShouldCloseGet(window) == false)
+	while ((dflWindowShouldCloseGet(window) == false))
 	{
-        glfwPollEvents();
-    }
+		glfwPollEvents();
+	}
+
+	struct DflVec2D pos = { 0, 0 };
 
 	dflDeviceTerminate(&device, &session);
 	dflWindowTerminate(&window, &session);
