@@ -65,6 +65,8 @@ struct DflDevice_T {
     struct DflQueueCollection_T queues;
     VkPhysicalDevice            physDevice;
 
+    DflSession                  session;
+
     /* -------------------- *
      *   GPU PROPERTIES     *
      * -------------------- */
@@ -105,7 +107,7 @@ struct DflSession_T {
 
     int                         deviceCount;
 
-    VkSurfaceKHR  surfaces[DFL_MAX_WINDOW_COUNT]; // multiple surfaces for multiple windows
+    VkSurfaceKHR  surface; // this exists purely to make device creation work, because it requires to check a surface for presentation support.
 
     /* -------------------- *
      *  FLAGS               *
@@ -120,6 +122,7 @@ struct DflSession_T {
 /* -------------------- *
  *   INTERNAL           *
  * -------------------- */
+
 static float* _dflSessionQueuePrioritiesSet(int count);
 static float* _dflSessionQueuePrioritiesSet(int count) {
     float* priorities = calloc(count, sizeof(float));
@@ -228,7 +231,7 @@ static int _dflSessionVulkanInstanceInit(struct DflSessionInfo* info, VkInstance
         extensionCount++;
         extensions[extensionCount - 1] = "VK_KHR_surface";
 
-#ifdef _WIN32
+#ifdef _WIN32 // Windows demands an extra extension for surfaces to work.
         extensionCount++;
         const char** dummy = (const char**)realloc(extensions, sizeof(const char*) * extensionCount);
         if (dummy == NULL)
@@ -246,9 +249,7 @@ static int _dflSessionVulkanInstanceInit(struct DflSessionInfo* info, VkInstance
         extensionCount++;
         const char** dummy = (const char**)realloc(extensions, sizeof(const char*) * extensionCount);
         if (dummy == NULL)
-        {
             return DFL_GENERIC_OOM_ERROR;
-        }
         extensions = dummy;
         extensions[extensionCount - 1] = VK_EXT_DEBUG_UTILS_EXTENSION_NAME;
 
@@ -420,6 +421,28 @@ static int _dflSessionDeviceQueuesGet(VkSurfaceKHR* surface, struct DflDevice_T*
     return DFL_SUCCESS;
 } 
 
+static int _dflWindowBindToSession(DflWindow* pWindow, DflSession* pSession);
+static int _dflWindowBindToSession(DflWindow* pWindow, DflSession* pSession)
+{
+    if (!(DFL_HANDLE(Session)->flags & DFL_ACTION_IS_LEGAL))
+        return DFL_GENERIC_ILLEGAL_ACTION_ERROR;
+
+    if ((dflWindowSessionGet(*pWindow) != NULL))
+        return DFL_SUCCESS;
+
+    _dflSessionLegalize(pSession);
+    _dflWindowSessionSet(NULL, *pSession, pWindow);
+    GLFWwindow* window = _dflWindowHandleGet(*pWindow, *pSession);
+    VkSurfaceKHR surface;
+    if (glfwCreateWindowSurface(DFL_HANDLE(Session)->instance, window, NULL, &surface) != VK_SUCCESS)
+        return DFL_VULKAN_SURFACE_ERROR;
+    DFL_HANDLE(Session)->surface = surface; // This exists simply for the sake of the _dflSessionDeviceQueuesGet function.
+    _dflWindowSessionSet(surface, *pSession, pWindow);
+    _dflSessionIllegalize(pSession);
+
+    return DFL_SUCCESS;
+}
+
 /* -------------------- *
  *   INITIALIZE         *
  * -------------------- */
@@ -446,38 +469,6 @@ DflSession dflSessionCreate(struct DflSessionInfo* pInfo)
     return (DflSession)session;
 }
 
-int _dflWindowBindToSession(DflWindow* pWindow, DflSession* pSession)
-{
-    if(!(DFL_HANDLE(Session)->flags & DFL_ACTION_IS_LEGAL))
-        return DFL_GENERIC_ILLEGAL_ACTION_ERROR;
-
-    if ((_dflWindowSurfaceIndexGet(*pWindow) >= 0))
-        return DFL_SUCCESS;
-
-    if((pWindow == NULL) || (*pWindow == NULL) || (*pSession == NULL) || (pSession == NULL))
-        return DFL_GENERIC_NULL_POINTER_ERROR;
-
-    _dflSessionLegalize(pSession); 
-    // Dragonfly will search for the first empty slot in the session's surface array and create a new surface there.
-    // If there are no empty slots, an error will be returned.
-    // Since the amount of available slots is not too large, this shouldn't be inefficient.
-
-    for (int i = 0; i < DFL_MAX_WINDOW_COUNT; i++)
-    {
-        if (DFL_HANDLE(Session)->surfaces[i] == NULL)
-        {
-            GLFWwindow* window = _dflWindowHandleGet(*pWindow, *pSession);
-            if (glfwCreateWindowSurface(DFL_HANDLE(Session)->instance, window, NULL, &DFL_HANDLE(Session)->surfaces[i]) != VK_SUCCESS)
-                return DFL_VULKAN_SURFACE_ERROR;
-            _dflWindowSurfaceIndexSet(i, pWindow, *pSession);
-            _dflSessionIllegalize(pSession);
-            return DFL_SUCCESS;
-        }
-    }
-    
-    return DFL_GENERIC_OUT_OF_BOUNDS_ERROR;
-}
-
 DflWindow dflWindowInit(DflWindowInfo* pWindowInfo, DflSession* pSession)
 {
     DflWindow window = _dflWindowCreate(pWindowInfo);
@@ -485,7 +476,7 @@ DflWindow dflWindowInit(DflWindowInfo* pWindowInfo, DflSession* pSession)
     if (dflWindowErrorGet(window) == DFL_SUCCESS)
     {
         _dflSessionLegalize(pSession);
-        _dflWindowErrorSet(_dflWindowBindToSession(&window, pSession), &window, *pSession);
+        _dflWindowErrorSet(_dflWindowBindToSession(&window, pSession), &window);
         _dflSessionIllegalize(pSession);
     }
     
@@ -495,16 +486,11 @@ DflWindow dflWindowInit(DflWindowInfo* pWindowInfo, DflSession* pSession)
 DflDevice dflDeviceInit(int GPUCriteria, int choice, DflDevice* pDevices, DflSession* pSession)
 {
     struct DflDevice_T* device = _dflDeviceAlloc();
+
     // device creation
-    if ((choice < 0) || (choice >= DFL_HANDLE(Session)->deviceCount))
+    if ((choice < 0) || (choice >= DFL_HANDLE(Session)->deviceCount)) // TODO: Negative numbers tell Dragonfly to choose the device based on a rating system (which will also depend on the criteria).
     {
         device->error = DFL_GENERIC_OUT_OF_BOUNDS_ERROR;
-        return (DflDevice)device;
-    }
-
-    if(pDevices == NULL)
-    {
-        device->error = DFL_GENERIC_NULL_POINTER_ERROR;
         return (DflDevice)device;
     }
 
@@ -524,6 +510,8 @@ DflDevice dflDeviceInit(int GPUCriteria, int choice, DflDevice* pDevices, DflSes
         device->error = DFL_VULKAN_DEVICE_ERROR;
         return (DflDevice)device;
     }
+
+    device->session = *pSession;
 
     return (DflDevice)device;
 }
@@ -557,7 +545,7 @@ DflDevice* dflSessionDevicesGet(int* pCount, DflSession* pSession)
         devices[i]->physDevice = physDevices[i];
         if (_dflSessionDeviceOrganiseData(devices[i]) != DFL_SUCCESS)
             return NULL;
-        if (_dflSessionDeviceQueuesGet(DFL_HANDLE(Session)->surfaces, devices[i]) != DFL_SUCCESS)
+        if (_dflSessionDeviceQueuesGet(&(DFL_HANDLE(Session)->surface), devices[i]) != DFL_SUCCESS)
             return NULL;
     }
 
@@ -592,16 +580,19 @@ bool _dflSessionIsLegalGet(DflSession session)
     return false;
 }
 
+VkInstance _dflSessionInstanceGet(DflSession session)
+{
+    if(((struct DflSession_T*)session)->flags & DFL_ACTION_IS_LEGAL)
+        return ((struct DflSession_T*)session)->instance;
+}
+
 /* -------------------- *
  *   DESTROY            *
  * -------------------- */
 
 void dflSessionDestroy(DflSession* pSession)
 {
-    if((pSession == NULL) || (*pSession == NULL))
-        return;
-
-    if (DFL_HANDLE(Session)->messenger != NULL)
+    if (DFL_HANDLE(Session)->messenger != NULL) // that means debugging was enabled.
     {
         PFN_vkDestroyDebugUtilsMessengerEXT destroyDebug = (PFN_vkCreateDebugUtilsMessengerEXT)vkGetInstanceProcAddr(DFL_HANDLE(Session)->instance, "vkDestroyDebugUtilsMessengerEXT");
         if (destroyDebug != NULL)
@@ -613,23 +604,21 @@ void dflSessionDestroy(DflSession* pSession)
 
 void dflDeviceTerminate(DflDevice* pDevice, DflSession* pSession)
 {
-    if((pDevice == NULL) || (pSession == NULL) || (*pDevice == NULL) || (*pSession == NULL))
+    if(*pSession != DFL_HANDLE(Device)->session) // the device doesn't belong to the session and cannot be destroyed by it.
         return;
 
     if (DFL_HANDLE(Device)->device == NULL)
-        return; // device doesn't exist so it doesn't matter
+        return; // since devices in Dragonfly *can* be uninitialized, it's prudent, I think, to check for that.
 
     vkDestroyDevice(DFL_HANDLE(Device)->device, NULL);
 }
 
 void dflWindowTerminate(DflWindow* pWindow, DflSession* pSession)
 {
-    if((pWindow == NULL) || (pSession == NULL))
-        return;
-    if(*pWindow == NULL)
+    if(*pSession != dflWindowSessionGet(*pWindow)) // the window doesn't belong to the session and cannot be destroyed by it.
         return;
 
-    vkDestroySurfaceKHR(DFL_HANDLE(Session)->instance, DFL_HANDLE(Session)->surfaces[_dflWindowSurfaceIndexGet(pWindow, *pSession)], NULL);
-    DFL_HANDLE(Session)->surfaces[_dflWindowSurfaceIndexGet(pWindow, *pSession)] = VK_NULL_HANDLE;
+    _dflSessionLegalize(pSession);
     _dflWindowDestroy(pWindow);
+    _dflSessionIllegalize(pSession);
 }

@@ -45,15 +45,15 @@ extern "C" {
  *   TYPES              *
  * -------------------- */
 
-#define DFL_SESSION_CRITERIA_NONE 0 // Dragonfly will operate as it sees fit. No extra criteria on how to manage the session.
-#define DFL_SESSION_CRITERIA_ONLY_OFFSCREEN 1 // Dragonfly implicitly assumes that on-screen rendering is desired. Use this flag to override that assumption.
-#define DFL_SESSION_CRITERIA_DO_DEBUG 2 // Dragonfly will enable validation layers and other debug features
+#define DFL_SESSION_CRITERIA_NONE 0x00000000 // Dragonfly will operate as it sees fit. No extra criteria on how to manage the session.
+#define DFL_SESSION_CRITERIA_ONLY_OFFSCREEN 0x00000001 // Dragonfly implicitly assumes that on-screen rendering is desired. Use this flag to override that assumption.
+#define DFL_SESSION_CRITERIA_DO_DEBUG 0x00000002 // Dragonfly will enable validation layers and other debug features
 
-#define DFL_GPU_CRITERIA_NONE 0 // Dragonfly will choose the best GPU available - no extra criteria on how to use it. It will use it as it sees fit.
-#define DFL_GPU_CRITERIA_ONLY_OFFSCREEN 1 // Dragonfly will implicitly assume that on-screen rendering is desired. Use this flag to override that assumption.
-#define DFL_GPU_CRITERIA_LOW_PERFORMANCE 2 // Dragonfly will try to use the least intensive GPU available
-#define DFL_GPU_CRITERIA_ABUSE_MEMORY 4 // Dragonfly will normally implicitly leave a little wiggle room for GPU memory - use this flag to override that assumption
-#define DFL_GPU_CRITERIA_ALL_QUEUES 8 // Dragonfly will reserve only one queue for each queue family - use this flag to override that assumption
+#define DFL_GPU_CRITERIA_NONE 0x00000000 // Dragonfly will choose the best GPU available - no extra criteria on how to use it. It will use it as it sees fit.
+#define DFL_GPU_CRITERIA_ONLY_OFFSCREEN 0x00000001 // Dragonfly will implicitly assume that on-screen rendering is desired. Use this flag to override that assumption.
+#define DFL_GPU_CRITERIA_LOW_PERFORMANCE 0x00000002 // Dragonfly will try to use the least intensive GPU available
+#define DFL_GPU_CRITERIA_ABUSE_MEMORY 0x00000004 // Dragonfly will normally implicitly leave a little wiggle room for GPU memory - use this flag to override that assumption
+#define DFL_GPU_CRITERIA_ALL_QUEUES 0x00000008 // Dragonfly will reserve only one queue for each queue family - use this flag to override that assumption
 
 struct DflSessionInfo
 {
@@ -69,8 +69,6 @@ struct DflSessionInfo
 // initializes Vulkan -- implicitly assumes that on-screen rendering is desired.
 // Use DFL_SESSION_CRITERIA_ONLY_OFFSCREEN to override this assumption.
 DflSession  dflSessionCreate(struct DflSessionInfo* pInfo);
-// Bind an existing window to a surface and a session. If the window is already bound, the function will do nothing and exit successfully.
-int         _dflWindowBindToSession(DflWindow* pWindow, DflSession* pSession);
 // unlike `dflWindowCreate`, this also binds the window to a surface.
 DflWindow   dflWindowInit(struct DflWindowInfo* pWindowInfo, DflSession* pSession);
 DflDevice   dflDeviceInit(int GPUCriteria, int choice, DflDevice* pDevices, DflSession* pSession);
@@ -78,29 +76,35 @@ DflDevice   dflDeviceInit(int GPUCriteria, int choice, DflDevice* pDevices, DflS
 /* -------------------- *
  *   GET & SET          *
  * -------------------- */
-// returns a list of physical devices that are available to the session.
-// this is useful only if you want to choose a GPU manually.
-DflDevice*  dflSessionDevicesGet(int* pCount, DflSession* pSession);
-int         dflSessionErrorGet(DflSession session);
-bool        dflDeviceCanPresentGet(DflDevice device);
-const char* dflDeviceNameGet(DflDevice device);
-int         dflDeviceErrorGet(DflDevice device);
-// To prevent the user from using an internal function, something that could cause a crash or undefined behavior,
-// this flag checks whether the function is being used internally or not. That is checked by the `int flags` bit in DflSession_T.
-// This bit will be switched by an exclusively internal function, and be checked by this function. Since the function that changes
-// the bit is exclusively internal, the user will not be able to use that function. Each internal function will check this flag using
-// the `dflSessionIsLegal` function. If the flag is not set, the function will return not execute. The flag will be set by any function 
-// that is allowed to use internal functions right before it uses them, and then unset it right afterwards. 
-// Some functions, like this one, won't be protected by this flag, since there's not much issue that could arise from using them.
-bool        _dflSessionIsLegalGet(DflSession session);
+/**
+* @brief Returns the number of devices that are available to the session, plus the devices themselves.
+* Note that they are all uninitialized at this state.
+* 
+* @param pCount: A pointer to an integer that will be set to the number of devices available to the session.
+*/
+DflDevice*                 dflSessionDevicesGet(int* pCount, DflSession* pSession);
+extern inline int          dflSessionErrorGet(DflSession session);
+extern inline bool         dflDeviceCanPresentGet(DflDevice device);
+extern inline const char*  dflDeviceNameGet(DflDevice device);
+extern inline int          dflDeviceErrorGet(DflDevice device);
+/**
+ * @brief This is an internal function used to check whether other internal functions can be used
+ * The flag this function checks for is set only by the library itself and cannot be set by the user.
+*/
+extern inline bool        _dflSessionIsLegalGet(DflSession session);
+extern inline VkInstance  _dflSessionInstanceGet(DflSession session);
 
 /* -------------------- *
  *   DESTROY            *
  * -------------------- */
 
-// Also frees the session pointer. Does not destroy any associated windows. Any on-screen specific resources are not freed from this function.
-// Use `dflWindowDestroy` (see `Render/GLFW.h`) to destroy any associated windows and on-screen rendering specific resources.
+ /*
+ * @brief Destroy a session. Also frees the memory allocated for it.
+ * 
+ * Must be called after destroying any object that was created with this session.
+ */
 void dflSessionDestroy(DflSession* pSession);
+
 void dflDeviceTerminate(DflDevice* pDevice, DflSession* pSession);
 void dflWindowTerminate(DflWindow* pWindow, DflSession* pSession);
 
