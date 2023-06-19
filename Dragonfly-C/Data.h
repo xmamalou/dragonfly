@@ -63,7 +63,6 @@ extern "C" {
 
 // other definitions
 
-#define DFL_MAX_WINDOW_COUNT 64 // the maximum number of windows that can be created
 #define DFL_MAX_CHAR_COUNT 256 // the maximum number of characters that can be used in a string
 
 // A generic 2D vector that can refer to anything that needs 2 coordinates.
