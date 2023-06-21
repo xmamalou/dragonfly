@@ -285,11 +285,6 @@ int dflWindowErrorGet(DflWindow window)
     return ((struct DflWindow_T*)window)->error;
 }
 
-GLFWwindow* _dflWindowHandleGet(DflWindow window)
-{
-    return (((struct DflWindow_T*)window)->handle);
-}
-
 void dflWindowWin32AttributeSet(int attrib, int value, DflWindow* pWindow)
 {
 #ifdef _WIN32
