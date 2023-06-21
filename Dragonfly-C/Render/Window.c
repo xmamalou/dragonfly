@@ -27,9 +27,9 @@
     EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-#include "Window.h"
-
 #include <stdlib.h>
+
+#include "../Internal.h"
 
 #ifdef _WIN32
 #include <Windows.h>
@@ -41,35 +41,7 @@
 
 #include <GLFW/glfw3native.h>
 
-#include "../Data.h"
 #include "../StbDummy.h"
-#include "Session.h"
-
-struct DflWindow_T { // A Dragonfly window
-    GLFWwindow*     handle;
-    DflWindowInfo	info;
-
-    DflSession      session;
-
-    /* ------------------- *
-    *   VULKAN SPECIFIC    *
-    *  ------------------- */
-
-    VkSurfaceKHR surface; // The surface of the window. If NULL, then the window doesn't have a surface.
-
-    // CALLBACKS 
-
-    DflWindowReshapeCLBK    reshapeCLBK;
-    DflWindowRepositionCLBK repositionCLBK;
-    DflWindowChangeModeCLBK modeCLBK;
-    DflWindowRenameCLBK     renameCLBK;
-    DflWindowChangeIconCLBK iconCLBK;
-
-    DflWindowCloseCLBK      destroyCLBK;
-
-    // error
-    int error;
-};
 
 /* -------------------- *
  *   INTERNAL           *
@@ -315,9 +287,6 @@ int dflWindowErrorGet(DflWindow window)
 
 GLFWwindow* _dflWindowHandleGet(DflWindow window)
 {
-    if (_dflSessionIsLegalGet(((struct DflWindow_T*)window)->session) == false)
-        return NULL;
-
     return (((struct DflWindow_T*)window)->handle);
 }
 
@@ -325,6 +294,7 @@ void dflWindowWin32AttributeSet(int attrib, int value, DflWindow* pWindow)
 {
 #ifdef _WIN32
     HWND hwnd = glfwGetWin32Window(DFL_HANDLE(Window)->handle);
+    HRESULT hr = S_OK;
 
     if (attrib > 0)
     {
@@ -332,19 +302,19 @@ void dflWindowWin32AttributeSet(int attrib, int value, DflWindow* pWindow)
         {
         case DFL_WINDOW_WIN32_DARK_MODE:
             BOOL dark = TRUE;
-            DwmSetWindowAttribute(hwnd, DWMWA_USE_IMMERSIVE_DARK_MODE, &dark, sizeof(BOOL));
+            hr = DwmSetWindowAttribute(hwnd, DWMWA_USE_IMMERSIVE_DARK_MODE, &dark, sizeof(BOOL));
             break;
         case DFL_WINDOW_WIN32_BORDER_COLOUR:
-            DwmSetWindowAttribute(hwnd, DWMWA_BORDER_COLOR, &value, sizeof(DWORD));
+            hr = DwmSetWindowAttribute(hwnd, DWMWA_BORDER_COLOR, &value, sizeof(DWORD));
             break;
         case DFL_WINDOW_WIN32_TITLE_TEXT_COLOUR:
-            DwmSetWindowAttribute(hwnd, DWMWA_TEXT_COLOR, &value, sizeof(DWORD));
+            hr = DwmSetWindowAttribute(hwnd, DWMWA_TEXT_COLOR, &value, sizeof(DWORD));
             break;
         case DFL_WINDOW_WIN32_TITLE_BAR_COLOUR:
-            DwmSetWindowAttribute(hwnd, DWMWA_CAPTION_COLOR, &value, sizeof(DWORD));
+            hr = DwmSetWindowAttribute(hwnd, DWMWA_CAPTION_COLOR, &value, sizeof(DWORD));
             break;
         case DFL_WINDOW_WIN32_ROUND_CORNERS:
-            DwmSetWindowAttribute(hwnd, DWMWA_WINDOW_CORNER_PREFERENCE, &value, sizeof(DWORD));
+            hr = DwmSetWindowAttribute(hwnd, DWMWA_WINDOW_CORNER_PREFERENCE, &value, sizeof(DWORD));
             break;
         }
     }
@@ -358,16 +328,18 @@ void dflWindowWin32AttributeSet(int attrib, int value, DflWindow* pWindow)
                 .cyTopHeight = -50,
                 .cyBottomHeight = 0 
             };
-            DwmExtendFrameIntoClientArea(hwnd, &margins);
+            hr = DwmExtendFrameIntoClientArea(hwnd, &margins);
 
             SetWindowPos(hwnd, NULL, DFL_HANDLE(Window)->info.pos.x, DFL_HANDLE(Window)->info.pos.y, DFL_HANDLE(Window)->info.dim.x, DFL_HANDLE(Window)->info.dim.y, SWP_FRAMECHANGED);
         }
         else
         {
             MARGINS margins = { 0, 0, 0, 0 };
-            DwmExtendFrameIntoClientArea(hwnd, &margins);
+            hr = DwmExtendFrameIntoClientArea(hwnd, &margins);
         }
     }
+
+    DFL_HANDLE(Window)->error = hr;
 #endif
 
     return;
@@ -375,17 +347,11 @@ void dflWindowWin32AttributeSet(int attrib, int value, DflWindow* pWindow)
 
 void _dflWindowErrorSet(int error, DflWindow* pWindow)
 {
-    if (_dflSessionIsLegalGet(DFL_HANDLE(Window)->session) == false)
-        return;
-
     DFL_HANDLE(Window)->error = error;
 }
 
 void _dflWindowSessionSet(VkSurfaceKHR surface, DflSession session, DflWindow* pWindow)
 {
-    if (_dflSessionIsLegalGet(session) == false)
-        return;
-
     DFL_HANDLE(Window)->session = session;
     DFL_HANDLE(Window)->surface = surface;
 }
@@ -396,13 +362,10 @@ void _dflWindowSessionSet(VkSurfaceKHR surface, DflSession session, DflWindow* p
 
 void _dflWindowDestroy(DflWindow* pWindow)
 {
-    if (_dflSessionIsLegalGet(DFL_HANDLE(Window)->session) == false)
-        return;
-
     if (DFL_HANDLE(Window)->destroyCLBK != NULL)
         DFL_HANDLE(Window)->destroyCLBK(pWindow);
 
-    vkDestroySurfaceKHR(_dflSessionInstanceGet(DFL_HANDLE(Window)->session), DFL_HANDLE(Window)->surface, NULL);
+    vkDestroySurfaceKHR(((struct DflSession_T*)(DFL_HANDLE(Window)->session))->instance, DFL_HANDLE(Window)->surface, NULL);
     glfwDestroyWindow(DFL_HANDLE(Window)->handle);
 
     free(*pWindow);

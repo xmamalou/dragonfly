@@ -13,102 +13,11 @@
    See the License for the specific language governing permissions and
    limitations under the License.
 */
-#include "Session.h"
+#include "../Internal.h"
 
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
-
-#include <GLFW/glfw3.h>
-
-#include "../Data.h"
-
-#define DFL_QUEUE_TYPE_GRAPHICS 0
-#define DFL_QUEUE_TYPE_COMPUTE 1
-#define DFL_QUEUE_TYPE_TRANSFER 2
-#define DFL_QUEUE_TYPE_PRESENTATION 3
-
-#define DFL_ACTION_IS_LEGAL 1
-
-struct DflQueueCollection_T { // the order of the queues is: graphics, compute, transfer, presentation (see up)
-    VkQueue* handles[4]; 
-
-    uint32_t count[4];
-
-    uint32_t index[4];
-};
-
-
-struct DflLocalMem_T {
-    uint64_t size;
-    uint32_t heapIndex;
-};
-
-// this is some data about the device that will be used.
-// TODO: More fields to be added.
-struct DflDevice_T {
-    VkDevice                    device;
-    int                         queueFamilyCount;
-    struct DflQueueCollection_T queues;
-    VkPhysicalDevice            physDevice;
-
-    DflSession                  session;
-
-    /* -------------------- *
-     *   GPU PROPERTIES     *
-     * -------------------- */
-
-    char name[VK_MAX_PHYSICAL_DEVICE_NAME_SIZE];
-
-    // memory
-
-    uint32_t              localHeaps;
-    struct DflLocalMem_T* localMem;
-
-    // capabilities 
-
-    uint32_t maxDim1D;
-    uint32_t maxDim2D;
-    uint32_t maxDim3D;
-
-    bool canDoGeomShade;
-    bool canDoTessShade;
-
-    // GPU flags
-
-    bool doLowPerf;
-    bool doAbuseMemory;
-
-    // Presentation
-
-    bool canPresent;
-
-    // error
-    int error;
-};
-
-struct DflSession_T {
-    struct DflSessionInfo       info;
-    VkInstance                  instance;
-    VkDebugUtilsMessengerEXT    messenger;
-
-    const char                  processorName[DFL_MAX_CHAR_COUNT];
-    int                         processorCount;
-    int                         processorSpeed;
-
-    int                         deviceCount;
-
-    VkSurfaceKHR  surface; // this exists purely to make device creation work, because it requires to check a surface for presentation support.
-
-    /* -------------------- *
-     *  FLAGS               *
-     * -------------------- */
-
-     int flags;
-
-     // error 
-     int error;
-};
 
 /* -------------------- *
  *   INTERNAL           *
@@ -149,16 +58,6 @@ static VkDeviceQueueCreateInfo* _dflSessionQueueCreateInfoSet(struct DflDevice_T
     }
 
     return infos;
-}
-
-inline static void _dflSessionLegalize(DflSession* pSession);
-inline static void _dflSessionLegalize(DflSession* pSession) {
-    DFL_HANDLE(Session)->flags |= DFL_ACTION_IS_LEGAL;
-}
-
-inline static void _dflSessionIllegalize(DflSession* pSession);
-inline static void _dflSessionIllegalize(DflSession* pSession) {
-    DFL_HANDLE(Session)->flags &= ~DFL_ACTION_IS_LEGAL;
 }
 
 inline static struct DflSession_T* _dflSessionAlloc();
@@ -415,21 +314,11 @@ static int _dflSessionDeviceQueuesGet(VkSurfaceKHR* surface, struct DflDevice_T*
 static int _dflWindowBindToSession(DflWindow* pWindow, DflSession* pSession);
 static int _dflWindowBindToSession(DflWindow* pWindow, DflSession* pSession)
 {
-    if (!(DFL_HANDLE(Session)->flags & DFL_ACTION_IS_LEGAL))
-        return DFL_GENERIC_ILLEGAL_ACTION_ERROR;
-
-    if ((dflWindowSessionGet(*pWindow) != NULL))
-        return DFL_SUCCESS;
-
-    _dflSessionLegalize(pSession);
-    _dflWindowSessionSet(NULL, *pSession, pWindow);
-    GLFWwindow* window = _dflWindowHandleGet(*pWindow, *pSession);
     VkSurfaceKHR surface;
-    if (glfwCreateWindowSurface(DFL_HANDLE(Session)->instance, window, NULL, &surface) != VK_SUCCESS)
+    if (glfwCreateWindowSurface(DFL_HANDLE(Session)->instance, DFL_HANDLE(Window)->handle, NULL, &surface) != VK_SUCCESS)
         return DFL_VULKAN_SURFACE_ERROR;
     DFL_HANDLE(Session)->surface = surface; // This exists simply for the sake of the _dflSessionDeviceQueuesGet function.
-    _dflWindowSessionSet(surface, *pSession, pWindow);
-    _dflSessionIllegalize(pSession);
+    DFL_HANDLE(Window)->surface = surface;
 
     return DFL_SUCCESS;
 }
@@ -464,11 +353,11 @@ DflWindow dflWindowInit(DflWindowInfo* pWindowInfo, DflSession* pSession)
 {
     DflWindow window = _dflWindowCreate(pWindowInfo);
 
-    if (dflWindowErrorGet(window) == DFL_SUCCESS)
+    ((struct DflWindow_T*)window)->session = *pSession;
+
+    if (((struct DflWindow_T*)window)->error == DFL_SUCCESS)
     {
-        _dflSessionLegalize(pSession);
-        _dflWindowErrorSet(_dflWindowBindToSession(&window, pSession), &window);
-        _dflSessionIllegalize(pSession);
+        ((struct DflWindow_T*)window)->error = _dflWindowBindToSession(&window, pSession);
     }
     
     return window;
@@ -563,20 +452,6 @@ int dflDeviceErrorGet(DflDevice device)
     return ((struct DflDevice_T*)device)->error;
 }
 
-bool _dflSessionIsLegalGet(DflSession session)
-{
-    if (((struct DflSession_T*)session)->flags & DFL_ACTION_IS_LEGAL)
-        return true;
-
-    return false;
-}
-
-VkInstance _dflSessionInstanceGet(DflSession session)
-{
-    if(((struct DflSession_T*)session)->flags & DFL_ACTION_IS_LEGAL)
-        return ((struct DflSession_T*)session)->instance;
-}
-
 /* -------------------- *
  *   DESTROY            *
  * -------------------- */
@@ -606,10 +481,8 @@ void dflDeviceTerminate(DflDevice* pDevice, DflSession* pSession)
 
 void dflWindowTerminate(DflWindow* pWindow, DflSession* pSession)
 {
-    if(*pSession != dflWindowSessionGet(*pWindow)) // the window doesn't belong to the session and cannot be destroyed by it.
+    if(*pSession != DFL_HANDLE(Window)->session) // the window doesn't belong to the session and cannot be destroyed by it.
         return;
 
-    _dflSessionLegalize(pSession);
     _dflWindowDestroy(pWindow);
-    _dflSessionIllegalize(pSession);
 }
