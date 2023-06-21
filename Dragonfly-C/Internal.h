@@ -24,13 +24,8 @@ struct DflSession_T { // A Dragonfly session
 
     VkSurfaceKHR  surface; // this exists purely to make device creation work, because it requires to check a surface for presentation support.
 
-    /* -------------------- *
-     *  FLAGS               *
-     * -------------------- */
-
     int flags;
 
-    // error 
     int error;
 };
 
@@ -73,12 +68,8 @@ struct DflDevice_T {
 
     char name[VK_MAX_PHYSICAL_DEVICE_NAME_SIZE];
 
-    // memory
-
     uint32_t              localHeaps;
     struct DflLocalMem_T* localMem;
-
-    // capabilities 
 
     uint32_t maxDim1D;
     uint32_t maxDim2D;
@@ -87,16 +78,11 @@ struct DflDevice_T {
     bool canDoGeomShade;
     bool canDoTessShade;
 
-    // GPU flags
-
     bool doLowPerf;
     bool doAbuseMemory;
 
-    // Presentation
-
     bool canPresent;
 
-    // error
     int error;
 };
 
