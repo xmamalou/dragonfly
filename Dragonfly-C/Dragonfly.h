@@ -17,16 +17,16 @@
 #ifndef DFL_DRAGONFLY_H_
 #define DFL_DRAGONFLY_H_
 
-#include <stdbool.h>
-
-#include <GLFW/glfw3.h>
-#include <vulkan/vulkan.h>
-
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-#define DFL_VERSION(major, minor, patch) VK_MAKE_API_VERSION(0, major, minor, patch)
+#include <stdint.h>
+#include <stdbool.h>
+
+#define DFL_VERSION(major, minor, patch) \
+	( ((uint32_t)(major)) << 22U) | ( ((uint32_t)(minor)) << 12U) | ((uint32_t)(patch)) )
+
 #define DFL_ENGINE_VERSION DFL_VERSION(0, 1, 0)
 
 /* -------------------- *
@@ -35,24 +35,25 @@ extern "C" {
 
 #define DFL_SUCCESS 0 // operation was successful
 
-#define DFL_GENERIC_OOM_ERROR -0x00F // generic out of memory error
-#define DFL_GENERIC_NO_SUCH_FILE_ERROR -0xF17E // generic file not found error
-#define DFL_GENERIC_NULL_POINTER_ERROR -0xA110 // generic null pointer error
-#define DFL_GENERIC_OUT_OF_BOUNDS_ERROR -0x0B0B // generic out of bounds error
-#define DFL_GENERIC_ALREADY_INITIALIZED_ERROR -0x1A1A // generic already initialized error
-#define DFL_GENERIC_OVERFLOW_ERROR -0x0F10 // generic overflow error
-#define DFL_GENERIC_ILLEGAL_ACTION_ERROR -0x1A5E // thrown by functions that are not supposed to be called by the user (any prefixed with `_dfl` that could potentially cause dramatic issues)
+#define DFL_GENERIC_OOM_ERROR -0x10001 // generic out of memory error
+#define DFL_GENERIC_NO_SUCH_FILE_ERROR -0x10002 // generic file not found error
+#define DFL_GENERIC_NULL_POINTER_ERROR -0x10003 // generic null pointer error
+#define DFL_GENERIC_OUT_OF_BOUNDS_ERROR -0x10004 // generic out of bounds error
+#define DFL_GENERIC_ALREADY_INITIALIZED_ERROR -0x10005 // generic already initialized error
+#define DFL_GENERIC_OVERFLOW_ERROR -0x10006 // generic overflow error
+#define DFL_GENERIC_ILLEGAL_ACTION_ERROR -0x10007 // thrown by functions that are not supposed to be called by the user (any prefixed with `_dfl` that could potentially cause dramatic issues)
 
-#define DFL_GLFW_INIT_ERROR -0x50BAD // glfw initialization error
-#define DFL_GLFW_WINDOW_ERROR -0x533 // glfw window creation error
+#define DFL_GLFW_API_INIT_ERROR -0x2101 // glfw initialization error
+#define DFL_GLFW_WINDOW_INIT_ERROR -0x2201 // glfw window creation error
 
-#define DFL_VULKAN_INSTANCE_ERROR -0xDED // vulkan instance creation error
-#define DFL_VULKAN_DEVICE_ERROR -0xF00C // vulkan device creation error
-#define DFL_VULKAN_LAYER_ERROR -0xCA4E // vulkan layer creation error
-#define DFL_VULKAN_DEBUG_ERROR -0xB0B0 // vulkan debug creation error
-#define DFL_VULKAN_EXTENSION_ERROR -0xFA7 // vulkan extension creation error
-#define DFL_VULKAN_SURFACE_ERROR -0xBADBED // vulkan surface creation error
-#define DFL_VULKAN_QUEUE_ERROR -0x10B // vulkan queue creation error
+#define DFL_VULKAN_INSTANCE_ERROR -0x3101 // vulkan instance creation error
+#define DFL_VULKAN_DEVICE_ERROR -0x3201 // vulkan device creation error
+#define DFL_VULKAN_LAYER_ERROR -0x3301 // vulkan layer creation error
+#define DFL_VULKAN_DEBUG_ERROR -0x3401 // vulkan debug creation error
+#define DFL_VULKAN_EXTENSION_ERROR -0x3501 // vulkan extension creation error
+#define DFL_VULKAN_SURFACE_ERROR -0x3601 // vulkan surface creation error
+#define DFL_VULKAN_QUEUE_ERROR -0x3701 // vulkan queue creation error
+#define DFL_VULKAN_QUEUES_NO_PROPERTIES_ERROR -0x3702 // queues have no properties
 
 // other definitions
 
@@ -79,6 +80,11 @@ DFL_MAKE_HANDLE(DflSession);
 DFL_MAKE_HANDLE(DflDevice);
 // opaque handle for a DflWindow_T object.
 DFL_MAKE_HANDLE(DflWindow);
+
+// abstract objects
+
+// opaque handle for a DflImage_T object. (not the same as a Vulkan image)
+DFL_MAKE_HANDLE(DflImage);
 
 /* ================================ *
  *             SESSIONS             *
@@ -120,7 +126,7 @@ DflSession  dflSessionCreate(struct DflSessionInfo* pInfo);
 */
 DflDevice*        dflSessionDevicesGet(int* pCount, DflSession* pSession);
 
-extern inline int dflSessionErrorGet(DflSession session);
+extern inline int dflSessionErrorGet(DflSession* pSession);
 
 /* -------------------- *
  *   DESTROY            *
@@ -132,6 +138,31 @@ extern inline int dflSessionErrorGet(DflSession session);
 * Must be called after destroying any object that was created with this session.
 */
 void dflSessionDestroy(DflSession* pSession);
+
+/* ================================ *
+ *             THREADS              *
+ * ================================ */
+
+/* -------------------- *
+ *   TYPES              *
+ * -------------------- */
+
+DFL_MAKE_HANDLE(DflThread); // a thread handle
+
+typedef void (*DflThreadProc)(void* parameters); // a thread function
+
+/* -------------------- *
+ *   INITIALIZE         *
+ * -------------------- */
+
+/*
+* @brief Initializes a thread.
+* 
+* @param pFuncProc: A pointer to the function that will be executed by the thread.
+* @param pParams: A pointer to the parameters that will be passed to the thread function.
+* @param pSession: A pointer to the session that will be used to create the thread and where its shared memory wil be.
+*/
+DflThread dflThreadInit(DflThreadProc pFuncProc, void* pParams, DflSession* pSession);
 
 /* ================================ *
  *             DEVICES              *
@@ -166,17 +197,46 @@ DflDevice   dflDeviceInit(int GPUCriteria, int choice, DflDevice* pDevices, DflS
  *   GET & SET          *
  * -------------------- */
 
-extern inline bool        dflDeviceCanPresentGet(DflDevice device);
+extern inline bool        dflDeviceCanPresentGet(DflDevice* pDevice);
 
-extern inline const char* dflDeviceNameGet(DflDevice device);
+extern inline const char* dflDeviceNameGet(DflDevice* pDevice);
 
-extern inline int         dflDeviceErrorGet(DflDevice device);
+extern inline int         dflDeviceErrorGet(DflDevice* pDevice);
 
 /* -------------------- *
  *   DESTROY            *
  * -------------------- */
 
 void dflDeviceTerminate(DflDevice* pDevice, DflSession* pSession);
+
+/* ================================ *
+ *             MONITORS             *
+ * ================================ */
+
+/* -------------------- *
+*   TYPES              *
+* -------------------- */
+
+struct DflMonitorInfo {
+	struct DflVec2D res; // the resolution in screen coordinates
+	struct DflVec2D pos; // the position in screen coordinates
+	struct DflVec2D workArea; // the work area in screen coordinates
+	
+	char name[DFL_MAX_CHAR_COUNT];
+
+	int  rate;
+};
+
+/* -------------------- *
+ *   GET & SET          *
+ * -------------------- */
+
+/*
+* @brief Returns the monitors connected to the system + their number.
+* 
+* @param pCount: A pointer to an integer that will be set to the number of monitors connected to the system.
+*/
+struct DflMonitorInfo*     dflMonitorsGet(int* pCount);
 
 /* ================================ *
  *             WINDOWS              *
@@ -225,18 +285,33 @@ void dflDeviceTerminate(DflDevice* pDevice, DflSession* pSession);
 * @param mode: the mode of the window. Check the definitions for more information.
 * @param rate: the refresh rate of the window. Set 0 for unlimited.
 * @param pos: the position of the window.
+* 
+* @remark The window stores this information. Thus, you can discard the struct after the window is created.
 */
 typedef struct DflWindowInfo {
-	struct DflVec2D	dim;
+	struct DflVec2D	dim; // the dimensions of the window in SCREEN COORDINATES
+	/*
+	* @brief The viewport of the window in PIXELS. This is relevant once the window is "charted"
+	* (i.e. when the device learns about the window and makes a swapchain for it).
+	* 
+	* The viewport specifically refers to the part of the images in the swapchain (their view) that 
+	* will be used for rendering to.
+	*/
 	struct DflVec2D view;
+	/*
+	* @brief The resolution of the window in PIXELS. This is relevant once the window is "charted"
+	* (i.e. when the device learns about the window and makes a swapchain for it).
+	* 
+	* The resolution refers to the extent of the images in the swapchain.
+	*/
 	struct DflVec2D res;
 
 	char name[DFL_MAX_CHAR_COUNT];
-	char icon[DFL_MAX_CHAR_COUNT];
+	DflImage icon;
 
 	int				mode : 2; // DFL_WINDOWED, DFL_FULLSCREEN, DFL_BORDERLESS
-	int	            rate;
-	struct DflVec2D pos;
+	int	            rate; // the refresh rate of the window. Set 0 for unlimited.
+	struct DflVec2D pos; // the position of the window in SCREEN COORDINATES
 } DflWindowInfo;
 
 
@@ -291,7 +366,7 @@ void dflWindowRename(const char* name, DflWindow* pWindow);
 * Note: This function keeps the old icon if the new one is invalid.
 * @param icon: the new icon's path.
 */
-void dflWindowChangeIcon(const char* icon, DflWindow* pWindow);
+void dflWindowChangeIcon(DflImage icon, DflWindow* pWindow);
 
 /* -------------------- *
  *   GET & SET          *
@@ -305,11 +380,6 @@ void dflWindowChangeIcon(const char* icon, DflWindow* pWindow);
 struct DflVec2D            dflWindowRectGet(int type, DflWindow window);
 
 struct DflVec2D            dflWindowPosGet(DflWindow window);
-
-int				           dflMonitorNumGet();
-
-// Get the primary monitor's position.
-struct DflVec2D            dflPrimaryMonitorPosGet();
 
 /**
 * @brief Check if the window should close.
@@ -356,6 +426,19 @@ extern inline void dflWindowDestroyCLBKSet(DflWindowCloseCLBK clbk, DflWindow* w
  * -------------------- */
 
 void dflWindowTerminate(DflWindow* pWindow, DflSession* pSession);
+
+/* ================================ *
+ *             IMAGES               *
+ * ================================ */
+
+/* -------------------- *
+ *   GET & SET          *
+ * -------------------- */
+
+/**
+* @brief Get an image from a file.
+*/
+DflImage dflImageFromFileGet(const char* path);
 
 #ifdef __cplusplus
 }

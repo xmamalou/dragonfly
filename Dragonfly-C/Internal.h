@@ -7,6 +7,9 @@
 
 #include "Dragonfly.h"
 
+#include <GLFW/glfw3.h>
+#include <vulkan/vulkan.h>
+
 /* ================================ *
  *             SESSION              *
  * ================================ */
@@ -27,6 +30,22 @@ struct DflSession_T { // A Dragonfly session
     int flags;
 
     int error;
+
+    //TODO: Add memory blocks for shared memory between threads.
+};
+
+/* ================================ *
+ *             THREADS              *
+ * ================================ */
+
+struct DflThread_T
+{
+    void* handle;
+
+    DflSession    session; // the session the thread is running on - where the shared memory is
+
+    DflThreadProc process;
+    int           stackSize;
 };
 
 /* ================================ *
@@ -134,5 +153,15 @@ DflWindow _dflWindowCreate(DflWindowInfo* pInfo);
 * @brief Destroy a window. Also frees the memory allocated for it.
 */
 void _dflWindowDestroy(DflWindow* pWindow);
+
+/* ================================ *
+ *             IMAGES               *
+ * ================================ */
+
+struct DflImage_T {
+    void* data; // RGB and Alpha
+
+    struct DflVec2D size;
+};
 
 #endif // !DFL_INTERNAL_H

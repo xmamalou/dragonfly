@@ -28,10 +28,14 @@ int MAIN()
 	DflDevice	device = NULL;
 
 	struct DflWindowInfo winfo = { .dim = {1920, 1080}, .view = {1920, 1080}, .res = {1920, 1080}, .name = "Dragonfly", .icon = NULL, .mode = 0, .rate = 144, .pos = {200, 200} };
-	struct DflSessionInfo info = { "Dragonfly", DFL_VERSION(0, 1, 0), DFL_SESSION_CRITERIA_DO_DEBUG};
+	struct DflSessionInfo info = { "Dragonfly", 1, DFL_SESSION_CRITERIA_DO_DEBUG};
+
+	DflImage icon = dflImageFromFileGet("bugs.png");
+
+	winfo.icon = icon;
 
 	session = dflSessionCreate(&info);
-	if (dflSessionErrorGet(session) != DFL_SUCCESS)
+	if (dflSessionErrorGet(&session) != DFL_SUCCESS)
 		return 1;
 
 	window = dflWindowInit(&winfo, &session);
@@ -50,9 +54,17 @@ int MAIN()
 		return 1;
 
 	device = dflDeviceInit(DFL_GPU_CRITERIA_NONE, 0, devices, &session);
-	if (dflDeviceErrorGet(device) != DFL_SUCCESS)
+	if (dflDeviceErrorGet(&device) != DFL_SUCCESS)
 		return 1;
 	free(devices);
+
+	int count = 0;
+	struct DflMonitorInfo* monitors = dflMonitorsGet(&count);
+	for (int i = 0; i < count; i++)
+    {
+        printf("Monitor %d: SIZE: (%d, %d), RATE: %dHz\n", i, monitors[i].res.x, monitors[i].res.y, monitors[i].rate);
+    }
+	free(monitors);
 
 	while ((dflWindowShouldCloseGet(window) == false))
 	{
