@@ -35,13 +35,11 @@
 #include <Windows.h>
 #include <uxtheme.h>
 #include <dwmapi.h>
-#pragma comment (lib, "Dwmapi")
+//#pragma comment (lib, "Dwmapi")
 #define GLFW_EXPOSE_NATIVE_WIN32
 #endif
 
 #include <GLFW/glfw3native.h>
-
-#include "../StbDummy.h"
 
 /* -------------------- *
  *   INTERNAL           *
@@ -72,7 +70,7 @@ static GLFWwindow* _dflWindowCall(struct DflVec2D dim, struct DflVec2D view, str
 
     if (!glfwInit())
     {
-        *error = DFL_GLFW_INIT_ERROR;
+        *error = DFL_GLFW_API_INIT_ERROR;
         return NULL;
     }
 
@@ -135,18 +133,16 @@ DflWindow _dflWindowCreate(DflWindowInfo* pInfo)
         // 1. glfwInit() failed
         // 2. glfwCreateWindow() failed
         // We know that if 1 didn't happen, then 2 did.
-        if(window->error != DFL_GLFW_INIT_ERROR)
-            window->error = DFL_GLFW_WINDOW_ERROR;
+        if(window->error != DFL_GLFW_API_INIT_ERROR)
+            window->error = DFL_GLFW_WINDOW_INIT_ERROR;
         return (DflWindow)window;
     }
 
     if (window->info.icon != NULL)
     {
         GLFWimage image;
-        image.pixels = stbi_load(window->info.icon, &image.width, &image.height, 0, 4); //rgba channels 
-        if (image.pixels != NULL)
-            glfwSetWindowIcon(window->handle, 1, &image);
-        stbi_image_free(image.pixels);
+        image.pixels = ((struct DflImage_T*)window->info.icon)->data;
+        glfwSetWindowIcon(window->handle, 1, &image);
     }
 
     if(window->info.pos.x != NULL || window->info.pos.y != NULL)
@@ -221,16 +217,13 @@ void dflWindowRename(const char* name, DflWindow* pWindow)
         DFL_HANDLE(Window)->renameCLBK(name, pWindow);
 }
 
-void dflWindowChangeIcon(const char* icon, DflWindow* pWindow)
+void dflWindowChangeIcon(DflImage icon, DflWindow* pWindow)
 {
     GLFWimage image;
-    image.pixels = stbi_load(icon, &image.width, &image.height, 0, 4); //rgba channels 
-    if (image.pixels != NULL)
-    {
-        glfwSetWindowIcon(DFL_HANDLE(Window)->handle, 1, &image);
-        strcpy_s(&DFL_HANDLE(Window)->info.icon, DFL_MAX_CHAR_COUNT, icon);
-        stbi_image_free(image.pixels);
-    }
+    image.pixels = ((struct DflImage_T*)icon)->data;
+
+    glfwSetWindowIcon(DFL_HANDLE(Window)->handle, 1, &image);
+    DFL_HANDLE(Window)->info.icon = icon;
 
     if (DFL_HANDLE(Window)->iconCLBK != NULL)
         DFL_HANDLE(Window)->iconCLBK(icon, pWindow);
@@ -257,16 +250,6 @@ struct DflVec2D dflWindowPosGet(DflWindow window)
     struct DflVec2D pos = { .x = 0, .y = 0 };
 
     glfwGetWindowPos(((struct DflWindow_T*)window)->handle, &pos.x, &pos.y);
-    return pos;
-}
-
-struct DflVec2D dflPrimaryMonitorPosGet()
-{
-    struct DflVec2D pos = { .x = 0, .y = 0 };
-
-    if(glfwInit() == GLFW_TRUE)
-        glfwGetMonitorPos(glfwGetPrimaryMonitor(), &pos.x, &pos.y);
-    
     return pos;
 }
 

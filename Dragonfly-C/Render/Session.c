@@ -23,17 +23,19 @@
  *   INTERNAL           *
  * -------------------- */
 
-static float* _dflSessionQueuePrioritiesSet(int count);
-static float* _dflSessionQueuePrioritiesSet(int count) {
+static float* _dflDeviceQueuePrioritiesSet(int count);
+static float* _dflDeviceQueuePrioritiesSet(int count) {
     float* priorities = calloc(count, sizeof(float));
+    if (priorities == NULL)
+        return NULL;
     for (int i = 0; i < count; i++) { // exponential dropoff
         priorities[i] = 1.0f/((float)i + 1.0f);
     }
     return priorities;
 }
 
-static VkDeviceQueueCreateInfo* _dflSessionQueueCreateInfoSet(struct DflDevice_T* pDevice);
-static VkDeviceQueueCreateInfo* _dflSessionQueueCreateInfoSet(struct DflDevice_T* pDevice) 
+static VkDeviceQueueCreateInfo* _dflDeviceQueueCreateInfoSet(struct DflDevice_T* pDevice);
+static VkDeviceQueueCreateInfo* _dflDeviceQueueCreateInfoSet(struct DflDevice_T* pDevice) 
 {
     VkDeviceQueueCreateInfo* infos = calloc(pDevice->queueFamilyCount, sizeof(VkDeviceQueueCreateInfo));
     if (infos == NULL) {
@@ -43,9 +45,15 @@ static VkDeviceQueueCreateInfo* _dflSessionQueueCreateInfoSet(struct DflDevice_T
     int count = 0;
     vkGetPhysicalDeviceQueueFamilyProperties(pDevice->physDevice, &count, NULL);
     if (count == 0) {
+        pDevice->error = DFL_VULKAN_QUEUES_NO_PROPERTIES_ERROR;
         return NULL;
     }
     VkQueueFamilyProperties* props = calloc(count, sizeof(VkQueueFamilyProperties));
+    if (props == NULL)
+    {
+        pDevice->error = DFL_GENERIC_OOM_ERROR;
+        return NULL;
+    }
     vkGetPhysicalDeviceQueueFamilyProperties(pDevice->physDevice, &count, props);
 
     for (int i = 0; i < pDevice->queueFamilyCount; i++) {
@@ -54,7 +62,7 @@ static VkDeviceQueueCreateInfo* _dflSessionQueueCreateInfoSet(struct DflDevice_T
         infos[i].flags = 0;
         infos[i].queueFamilyIndex = i;
         infos[i].queueCount = props[i].queueCount;
-        infos[i].pQueuePriorities = _dflSessionQueuePrioritiesSet(props[i].queueCount);
+        infos[i].pQueuePriorities = _dflDeviceQueuePrioritiesSet(props[i].queueCount);
     }
 
     return infos;
@@ -212,8 +220,8 @@ static int _dflSessionVulkanInstanceInit(struct DflSessionInfo* info, VkInstance
 // just a helper function that fills GPU specific information in DflSession_T. When ranking devices,
 // Dragonfly will always sort each checked device using this function, unless the previous device
 // was already ranked higher. This will help avoid calling this function too many times.
-static int _dflSessionDeviceOrganiseData(struct DflDevice_T* device);
-static int _dflSessionDeviceOrganiseData(struct DflDevice_T* device)
+static int _dflDeviceOrganiseData(struct DflDevice_T* device);
+static int _dflDeviceOrganiseData(struct DflDevice_T* device)
 {
     VkDeviceCreateInfo deviceInfo = {
             .sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
@@ -380,7 +388,7 @@ DflDevice dflDeviceInit(int GPUCriteria, int choice, DflDevice* pDevices, DflSes
         .pNext = NULL,
         .flags = 0,
         .queueCreateInfoCount = DFL_HANDLE_ARRAY(Device, choice)->queueFamilyCount,
-        .pQueueCreateInfos = _dflSessionQueueCreateInfoSet(DFL_HANDLE_ARRAY(Device, choice)),
+        .pQueueCreateInfos = _dflDeviceQueueCreateInfoSet(DFL_HANDLE_ARRAY(Device, choice)),
         .enabledExtensionCount = 0,
         .ppEnabledExtensionNames = NULL,
     };
@@ -423,7 +431,7 @@ DflDevice* dflSessionDevicesGet(int* pCount, DflSession* pSession)
         if (devices[i] == NULL)
             return NULL;
         devices[i]->physDevice = physDevices[i];
-        if (_dflSessionDeviceOrganiseData(devices[i]) != DFL_SUCCESS)
+        if (_dflDeviceOrganiseData(devices[i]) != DFL_SUCCESS)
             return NULL;
         if (_dflSessionDeviceQueuesGet(&(DFL_HANDLE(Session)->surface), devices[i]) != DFL_SUCCESS)
             return NULL;
@@ -432,24 +440,24 @@ DflDevice* dflSessionDevicesGet(int* pCount, DflSession* pSession)
     return (DflDevice*)devices;
 }
 
-int dflSessionErrorGet(DflSession session)
+int dflSessionErrorGet(DflSession* pSession)
 {
-    return ((struct DflSession_T*)session)->error;
+    return DFL_HANDLE(Session)->error;
 }
 
-bool dflDeviceCanPresentGet(DflDevice device)
+bool dflDeviceCanPresentGet(DflDevice* pDevice)
 {
-    return ((struct DflDevice_T*)device)->canPresent;
+    return DFL_HANDLE(Device)->canPresent;
 }
 
-const char* dflDeviceNameGet(DflDevice device)
+const char* dflDeviceNameGet(DflDevice* pDevice)
 {
-    return ((struct DflDevice_T*)device)->name;
+    return DFL_HANDLE(Device)->name;
 }
 
-int dflDeviceErrorGet(DflDevice device)
+int dflDeviceErrorGet(DflDevice* pDevice)
 {
-    return ((struct DflDevice_T*)device)->error;
+    return DFL_HANDLE(Device)->error;
 }
 
 /* -------------------- *
