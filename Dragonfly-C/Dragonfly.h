@@ -24,8 +24,7 @@ extern "C" {
 #include <stdint.h>
 #include <stdbool.h>
 
-#define DFL_VERSION(major, minor, patch) \
-	( ((uint32_t)(major)) << 22U) | ( ((uint32_t)(minor)) << 12U) | ((uint32_t)(patch)) )
+#define DFL_VERSION(major, minor, patch) (((unsigned int)major << 16) | ((unsigned int)minor << 8) | (unsigned int)patch)
 
 #define DFL_ENGINE_VERSION DFL_VERSION(0, 1, 0)
 
@@ -35,13 +34,19 @@ extern "C" {
 
 #define DFL_SUCCESS 0 // operation was successful
 
-#define DFL_GENERIC_OOM_ERROR -0x10001 // generic out of memory error
-#define DFL_GENERIC_NO_SUCH_FILE_ERROR -0x10002 // generic file not found error
-#define DFL_GENERIC_NULL_POINTER_ERROR -0x10003 // generic null pointer error
-#define DFL_GENERIC_OUT_OF_BOUNDS_ERROR -0x10004 // generic out of bounds error
-#define DFL_GENERIC_ALREADY_INITIALIZED_ERROR -0x10005 // generic already initialized error
-#define DFL_GENERIC_OVERFLOW_ERROR -0x10006 // generic overflow error
-#define DFL_GENERIC_ILLEGAL_ACTION_ERROR -0x10007 // thrown by functions that are not supposed to be called by the user (any prefixed with `_dfl` that could potentially cause dramatic issues)
+// errors are < 0. Warnings are > 0.
+/*
+* Errors and warnings are a 2-byte integer, laid out in hex as follows:
+* 
+* The first digit (from the left) is the general category of the error. For example, 0x1XXX is a generic error, 0x2XXX is a GLFW error, etc.
+* The second digit is a more specified category of the error. For example, for Vulkan, there could be multiple errors concerning the instance, the device, the surface, etc.
+* The third and fourth digits are the error code number.
+*/
+
+#define DFL_GENERIC_OOM_ERROR -0x1001
+#define DFL_GENERIC_NO_SUCH_FILE_ERROR -0x1002
+#define DFL_GENERIC_OUT_OF_BOUNDS_ERROR -0x1003 // attempted to create more items than the maximum allowed
+#define DFL_GENERIC_ALREADY_INITIALIZED_ERROR -0x1004 // the item is already initialized
 
 #define DFL_GLFW_API_INIT_ERROR -0x2101 // glfw initialization error
 #define DFL_GLFW_WINDOW_INIT_ERROR -0x2201 // glfw window creation error
@@ -52,12 +57,16 @@ extern "C" {
 #define DFL_VULKAN_DEBUG_ERROR -0x3401 // vulkan debug creation error
 #define DFL_VULKAN_EXTENSION_ERROR -0x3501 // vulkan extension creation error
 #define DFL_VULKAN_SURFACE_ERROR -0x3601 // vulkan surface creation error
+#define DFL_VULKAN_SURFACE_NO_FORMATS_ERROR -0x3602 // vulkan surface has no formats
+#define DFL_VULKAN_SURFACE_NO_SWAPCHAIN_ERROR -0x3603 // vulkan swapchain couldn't be created
 #define DFL_VULKAN_QUEUE_ERROR -0x3701 // vulkan queue creation error
 #define DFL_VULKAN_QUEUES_NO_PROPERTIES_ERROR -0x3702 // queues have no properties
+#define DFL_VULKAN_QUEUES_COMPOOL_ALLOC_ERROR -0x3703 // failed to allocate command pool
 
 // other definitions
 
 #define DFL_MAX_CHAR_COUNT 256 // the maximum number of characters that can be used in a string
+#define DFL_MAX_ITEM_COUNT 64 // the maximum number of items that can be used in a list
 
 /* -------------------- *
  *  GLOBAL TYPES        *
@@ -70,9 +79,30 @@ struct DflVec2D
 	int y;
 };
 
+// a triple of integers
+struct DflVec3D
+{
+    int x;
+    int y;
+    int z;
+};
+
+// colours
+#define DFL_COLOR_RGB(r, g, b) (((unsigned int)r) | ((unsigned int)g << 8) | (unsigned int)b << 16)
+
+// some predefined colours
+
+#define DFL_COLOR_BLACK DFL_COLOR_RGB(0, 0, 0)
+#define DFL_COLOR_WHITE DFL_COLOR_RGB(255, 255, 255)
+#define DFL_COLOR_GRAY DFL_COLOR_RGB(128, 128, 128)
+#define DFL_COLOR_RED DFL_COLOR_RGB(255, 0, 0)
+#define DFL_COLOR_GREEN DFL_COLOR_RGB(0, 255, 0)
+#define DFL_COLOR_BLUE DFL_COLOR_RGB(0, 0, 255)
+#define DFL_COLOR_YELLOW DFL_COLOR_RGB(255, 255, 0)
+#define DFL_COLOR_MAGENTA DFL_COLOR_RGB(255, 0, 255)
+#define DFL_COLOR_CYAN DFL_COLOR_RGB(0, 255, 255)
+
 #define DFL_MAKE_HANDLE(type) typedef struct type##_HND* type; // a handle to a type
-#define DFL_HANDLE(type) ((struct Dfl##type##_T*)*p##type) // a shorthand for casting a handle to its type (will be used when `type` refers to a function argument in the form `ptype` (pointer to handle))
-#define DFL_HANDLE_ARRAY(type, pos) ((struct Dfl##type##_T*)*(p##type##s + pos)) // a shorthand for casting a handle to its type (will be used when `type` refers to a function argument in the form `ptype` (pointer to handle))
 
 // opaque handle for a DflSession_T object.
 DFL_MAKE_HANDLE(DflSession);
@@ -124,9 +154,9 @@ DflSession  dflSessionCreate(struct DflSessionInfo* pInfo);
 *
 * @param pCount: A pointer to an integer that will be set to the number of devices available to the session.
 */
-DflDevice*        dflSessionDevicesGet(int* pCount, DflSession* pSession);
+DflDevice*        dflSessionDevicesGet(int* pCount, DflSession hSession);
 
-extern inline int dflSessionErrorGet(DflSession* pSession);
+extern inline int dflSessionErrorGet(DflSession hSession);
 
 /* -------------------- *
  *   DESTROY            *
@@ -137,7 +167,7 @@ extern inline int dflSessionErrorGet(DflSession* pSession);
 *
 * Must be called after destroying any object that was created with this session.
 */
-void dflSessionDestroy(DflSession* pSession);
+void dflSessionDestroy(DflSession hSession);
 
 /* ================================ *
  *             THREADS              *
@@ -162,7 +192,7 @@ typedef void (*DflThreadProc)(void* parameters); // a thread function
 * @param pParams: A pointer to the parameters that will be passed to the thread function.
 * @param pSession: A pointer to the session that will be used to create the thread and where its shared memory wil be.
 */
-DflThread dflThreadInit(DflThreadProc pFuncProc, void* pParams, DflSession* pSession);
+DflThread dflThreadInit(DflThreadProc pFuncProc, void* pParams, DflSession hSession);
 
 /* ================================ *
  *             DEVICES              *
@@ -191,23 +221,23 @@ DflThread dflThreadInit(DflThreadProc pFuncProc, void* pParams, DflSession* pSes
 * @param choice: the choice of the GPU. If you want Dragonfly to decide for itself, pass `DFL_GPU_RANK_N_CHOOSE`.
 * @param pDevices: A pointer to an array of devices that are available to the session.
 */
-DflDevice   dflDeviceInit(int GPUCriteria, int choice, DflDevice* pDevices, DflSession* pSession);
+DflDevice   dflDeviceInit(int GPUCriteria, int choice, DflDevice* pDevices, DflSession hSession);
 
 /* -------------------- *
  *   GET & SET          *
  * -------------------- */
 
-extern inline bool        dflDeviceCanPresentGet(DflDevice* pDevice);
+extern inline bool        dflDeviceCanPresentGet(DflDevice hDevice);
 
-extern inline const char* dflDeviceNameGet(DflDevice* pDevice);
+extern inline const char* dflDeviceNameGet(DflDevice hDevice);
 
-extern inline int         dflDeviceErrorGet(DflDevice* pDevice);
+extern inline int         dflDeviceErrorGet(DflDevice hDevice);
 
 /* -------------------- *
  *   DESTROY            *
  * -------------------- */
 
-void dflDeviceTerminate(DflDevice* pDevice, DflSession* pSession);
+void dflDeviceTerminate(DflDevice hDevice);
 
 /* ================================ *
  *             MONITORS             *
@@ -224,7 +254,10 @@ struct DflMonitorInfo {
 	
 	char name[DFL_MAX_CHAR_COUNT];
 
-	int  rate;
+	int	rate;
+
+	int 			colorDepth;
+	struct DflVec3D colorDepthPerPixel; // x = red, y = green, z = blue
 };
 
 /* -------------------- *
@@ -256,7 +289,6 @@ struct DflMonitorInfo*     dflMonitorsGet(int* pCount);
 
 #define DFL_DIMENSIONS 0
 #define DFL_VIEWPORT 1
-#define DFL_RESOLUTION 2
 
 // Window attributes (for Windows only -maybe MacOS too, when I am able to develop for it-)
 // Since in Linux there's not a specific compositor/window manager + different display protocols,
@@ -273,6 +305,13 @@ struct DflMonitorInfo*     dflMonitorsGet(int* pCount);
 #define DFL_WINDOW_CORNER_NORMAL 0
 #define DFL_WINDOW_CORNER_SHARP 1
 #define DFL_WINDOW_CORNER_SMALL_ROUND 3
+
+// format numbers are taken from Vulkan
+
+#define DFL_WINDOW_FORMAT_R8G8B8A8_UNORM 44
+#define DFL_WINDOW_FORMAT_R8G8B8A8_SRGB 50
+#define DFL_WINDOW_FORMAT_R16G16B16A16_UNORM 88
+#define DFL_WINDOW_FOMRAT_R16G16B16A16_SFLOAT 97
 
 /**
 * @brief Constructor info for a window.
@@ -291,29 +330,26 @@ struct DflMonitorInfo*     dflMonitorsGet(int* pCount);
 typedef struct DflWindowInfo {
 	struct DflVec2D	dim; // the dimensions of the window in SCREEN COORDINATES
 	/*
-	* @brief The viewport of the window in PIXELS. This is relevant once the window is "charted"
+	* @brief The viewport of the window in SCREEN COORDINATES. This is relevant once the window is "charted"
 	* (i.e. when the device learns about the window and makes a swapchain for it).
 	* 
-	* The viewport specifically refers to the part of the images in the swapchain (their view) that 
-	* will be used for rendering to.
+	* The viewport specifically refers to how much of the window will be used for rendering.
 	*/
 	struct DflVec2D view;
-	/*
-	* @brief The resolution of the window in PIXELS. This is relevant once the window is "charted"
-	* (i.e. when the device learns about the window and makes a swapchain for it).
-	* 
-	* The resolution refers to the extent of the images in the swapchain.
-	*/
-	struct DflVec2D res;
 
 	char name[DFL_MAX_CHAR_COUNT];
 	DflImage icon;
 
 	int				mode : 2; // DFL_WINDOWED, DFL_FULLSCREEN, DFL_BORDERLESS
-	int	            rate; // the refresh rate of the window. Set 0 for unlimited.
-	struct DflVec2D pos; // the position of the window in SCREEN COORDINATES
-} DflWindowInfo;
 
+	int	            rate; // the refresh rate of the window. Set 0 for unlimited.
+	bool            vsync; // overrides rate.
+
+	struct DflVec2D pos; // the position of the window in SCREEN COORDINATES
+
+	int             colorFormat; // the image format of the window. Set 0 for default. If not supported, the default will be used.
+	int				layers; // how many layers the images for the window will have. Useful for VR.
+} DflWindowInfo;
 
 /* -------------------- *
  *   CALLBACKS          *
@@ -322,11 +358,11 @@ typedef struct DflWindowInfo {
 	Most of the time, callbacks take the same parameters as the functions they are called from.
 */
 
-typedef void (*DflWindowReshapeCLBK)(struct DflVec2D rect, int type, DflWindow* pWindow); // Called when a window is reshaped.
-typedef void (*DflWindowRepositionCLBK)(struct DflVec2D pos, DflWindow* pWindow); // Called when a window is repositioned.
-typedef void (*DflWindowChangeModeCLBK)(int mode, DflWindow* pWindow); // Called when a window's mode changes.
-typedef void (*DflWindowRenameCLBK)(const char* name, DflWindow* pWindow); // Called when a window changes name.
-typedef void (*DflWindowChangeIconCLBK)(const char* icon, DflWindow* pWindow); // Called when a window changes its icon.
+typedef void (*DflWindowReshapeCLBK)(struct DflVec2D rect, int type, DflWindow hWindow); // Called when a window is reshaped.
+typedef void (*DflWindowRepositionCLBK)(struct DflVec2D pos, DflWindow hWindow); // Called when a window is repositioned.
+typedef void (*DflWindowChangeModeCLBK)(int mode, DflWindow hWindow); // Called when a window's mode changes.
+typedef void (*DflWindowRenameCLBK)(const char* name, DflWindow hWindow); // Called when a window changes name.
+typedef void (*DflWindowChangeIconCLBK)(const char* icon, DflWindow hWindow); // Called when a window changes its icon.
 
 typedef void (*DflWindowCloseCLBK)(DflWindow* pWindow); // Called RIGHT BEFORE a window is closed.
 
@@ -337,7 +373,15 @@ typedef void (*DflWindowCloseCLBK)(DflWindow* pWindow); // Called RIGHT BEFORE a
 /*
 * @brief Creates a window and binds it to a session and a Vulkan surface.
 */
-DflWindow   dflWindowInit(struct DflWindowInfo* pWindowInfo, DflSession* pSession);
+DflWindow   dflWindowInit(struct DflWindowInfo* pWindowInfo, DflSession hSession);
+
+/*
+* @brief Bind a Window to a Device (i.e. make a swapchain for it).
+* 
+* This function is used to bind a window to a device. You don't need to pass any parameters specifying the swapchain, as 
+* DflWindowInfo already contains all the information needed to create a swapchain. This function just uses that information.
+*/
+void dflWindowBindToDevice(DflWindow hWindow, DflDevice hDevice);
 
 /* -------------------- *
  *   CHANGE             *
@@ -349,24 +393,24 @@ DflWindow   dflWindowInit(struct DflWindowInfo* pWindowInfo, DflSession* pSessio
 * @param type: DFL_DIMENSIONS for the dimensions, DFL_VIEWPORT for the viewport, and DFL_RESOLUTION for the resolution.
 * @param rect: the new dimensions, viewport, or resolution.
 */
-void dflWindowReshape(int type, struct DflVec2D rect, DflWindow* pWindow);
+void dflWindowReshape(int type, struct DflVec2D rect, DflWindow hWindow);
 
-void dflWindowReposition(struct DflVec2D pos, DflWindow* pWindow);
+void dflWindowReposition(struct DflVec2D pos, DflWindow hWindow);
 /*
 * @brief Change the window's mode.
 *
 * @param mode: DFL_WINDOWED, DFL_FULLSCREEN, or DFL_BORDERLESS. Check their definitions for more information.
 */
-void dflWindowChangeMode(int mode, DflWindow* pWindow);
+void dflWindowChangeMode(int mode, DflWindow hWindow);
 
-void dflWindowRename(const char* name, DflWindow* pWindow);
+void dflWindowRename(const char* name, DflWindow hWindow);
 /**
 * @brief Change the window's icon.
 *
 * Note: This function keeps the old icon if the new one is invalid.
 * @param icon: the new icon's path.
 */
-void dflWindowChangeIcon(DflImage icon, DflWindow* pWindow);
+void dflWindowChangeIcon(DflImage icon, DflWindow hWindow);
 
 /* -------------------- *
  *   GET & SET          *
@@ -377,26 +421,26 @@ void dflWindowChangeIcon(DflImage icon, DflWindow* pWindow);
  *
  * @param type: DFL_DIMENSIONS for the dimensions, DFL_VIEWPORT for the viewport, and DFL_RESOLUTION for the resolution.
  */
-struct DflVec2D            dflWindowRectGet(int type, DflWindow window);
+struct DflVec2D            dflWindowRectGet(int type, DflWindow hWindow);
 
-struct DflVec2D            dflWindowPosGet(DflWindow window);
+struct DflVec2D            dflWindowPosGet(DflWindow hWindow);
 
 /**
 * @brief Check if the window should close.
 *
 * @deprecated This will probably be obsolete in the future, as rendering operations will handle such things and those will be handled by a thread.
 */
-extern inline bool         dflWindowShouldCloseGet(DflWindow window);
+extern inline bool         dflWindowShouldCloseGet(DflWindow hWindow);
 
 /**
  * @brief Get the session that is the parent of this window
 */
-extern inline DflSession   dflWindowSessionGet(DflWindow window);
+extern inline DflSession   dflWindowSessionGet(DflWindow hWindow);
 
 /*
 * @brief Get the window's error.
 */
-extern inline int          dflWindowErrorGet(DflWindow window);
+extern inline int          dflWindowErrorGet(DflWindow hWindow);
 
 /**
 * @brief Set the window's attributes - Windows only
@@ -404,7 +448,7 @@ extern inline int          dflWindowErrorGet(DflWindow window);
 * @param attrib: The attribute to change. Check the `DFL_WINDOW_WIN32_` macros.
 * @param value: The value to set the attribute to. Depends on what the attribute is.
 */
-void                       dflWindowWin32AttributeSet(int attrib, int value, DflWindow* pWindow);
+void                       dflWindowWin32AttributeSet(int attrib, int value, DflWindow hWindow);
 
 /* -------------------- *
  *   CALLBACK SETTERS   *
@@ -413,32 +457,57 @@ void                       dflWindowWin32AttributeSet(int attrib, int value, Dfl
 	They consist of the callback's name + `Set`. They take the callback and the window as parameters.
 */
 
-extern inline void dflWindowReshapeCLBKSet(DflWindowReshapeCLBK clbk, DflWindow* pWindow);
-extern inline void dflWindowRepositionCLBKSet(DflWindowRepositionCLBK clbk, DflWindow* pWindow);
-extern inline void dflWindowChangeModeCLBKSet(DflWindowChangeModeCLBK clbk, DflWindow* pWindow);
-extern inline void dflWindowRenameCLBKSet(DflWindowRenameCLBK clbk, DflWindow* pWindow);
-extern inline void dflWindowChangeIconCLBKSet(DflWindowChangeIconCLBK clbk, DflWindow* pWindow);
+extern inline void dflWindowReshapeCLBKSet(DflWindowReshapeCLBK clbk, DflWindow hWindow);
+extern inline void dflWindowRepositionCLBKSet(DflWindowRepositionCLBK clbk, DflWindow hWindow);
+extern inline void dflWindowChangeModeCLBKSet(DflWindowChangeModeCLBK clbk, DflWindow hWindow);
+extern inline void dflWindowRenameCLBKSet(DflWindowRenameCLBK clbk, DflWindow hWindow);
+extern inline void dflWindowChangeIconCLBKSet(DflWindowChangeIconCLBK clbk, DflWindow hWindow);
 
-extern inline void dflWindowDestroyCLBKSet(DflWindowCloseCLBK clbk, DflWindow* window);
+extern inline void dflWindowDestroyCLBKSet(DflWindowCloseCLBK clbk, DflWindow hWindow);
 
 /* -------------------- *
  *   DESTROY            *
  * -------------------- */
 
-void dflWindowTerminate(DflWindow* pWindow, DflSession* pSession);
+void dflWindowTerminate(DflWindow hWindow);
+
+void dflWindowUnbindFromDevice(DflWindow hWindow, DflDevice hDevice);
 
 /* ================================ *
  *             IMAGES               *
  * ================================ */
 
 /* -------------------- *
+ *   CHANGE             *
+ * -------------------- */
+
+/**
+* @breif Load an image's data. Needs an image that is referenced.
+*/
+void dflImageLoad(DflImage hImage);
+
+/* -------------------- *
  *   GET & SET          *
  * -------------------- */
 
 /**
-* @brief Get an image from a file.
+* @brief Get an image from a file. See stbi_load for supported formats.
 */
-DflImage dflImageFromFileGet(const char* path);
+DflImage dflImageFromFileGet(const char* file);
+
+/**
+* @brief Get an image with no data loaded (i.e. only path).
+*/
+DflImage dflImageReferenceFromFileGet(const char* file);
+
+/* -------------------- *
+ *   DESTROY            *
+ * -------------------- */
+
+/**
+* @brief Free the image's data. Also frees the handle.
+*/
+void dflImageDestroy(DflImage hImage);
 
 #ifdef __cplusplus
 }
