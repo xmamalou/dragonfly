@@ -22,6 +22,9 @@
     <Filter Include="Header Files\stb">
       <UniqueIdentifier>{1a900587-3514-4455-aa27-ea56eb04ec4d}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Source Files\Control">
+      <UniqueIdentifier>{a81f4c3d-89f9-496c-9efc-18baa5a83eb5}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Render\Window.c">
@@ -30,20 +33,23 @@
     <ClCompile Include="Render\Session.c">
       <Filter>Source Files\Render</Filter>
     </ClCompile>
+    <ClCompile Include="Render\Image.c">
+      <Filter>Source Files\Render</Filter>
+    </ClCompile>
+    <ClCompile Include="Render\Monitor.c">
+      <Filter>Source Files\Render</Filter>
+    </ClCompile>
     <ClCompile Include="Main.c">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="Control\Threads.c">
+      <Filter>Source Files\Control</Filter>
+    </ClCompile>
+    <ClCompile Include="Render\Device.c">
+      <Filter>Source Files\Render</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="Data.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="Render\Window.h">
-      <Filter>Header Files\Render</Filter>
-    </ClInclude>
-    <ClInclude Include="Render\Session.h">
-      <Filter>Header Files\Render</Filter>
-    </ClInclude>
     <ClInclude Include="stb\stb_image.h">
       <Filter>Header Files\stb</Filter>
     </ClInclude>
@@ -53,10 +59,16 @@
     <ClInclude Include="Dragonfly.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="Internal.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Image Include="Resources\charliefav.png">
       <Filter>Resource Files</Filter>
     </Image>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="CHANGELOG.md" />
   </ItemGroup>
 </Project>

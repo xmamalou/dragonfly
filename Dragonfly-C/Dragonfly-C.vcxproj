@@ -105,14 +105,15 @@
       <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <CompileAs>CompileAsC</CompileAs>
-      <AdditionalIncludeDirectories>C:\glfw-3.3.8\include;C:\VulkanSDK\1.3.224.1\Include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>C:\VulkanSDK\1.3.224.1\Include;C:\glfw-3.3.8\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <LanguageStandard_C>stdc17</LanguageStandard_C>
+      <Optimization>Custom</Optimization>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalLibraryDirectories>C:\glfw-3.3.8\lib-vc2022;C:\VulkanSDK\1.3.224.1\Lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>glfw3dll.lib;vulkan-1.lib;user32.lib;gdi32.lib;Shell32.lib</AdditionalDependencies>
+      <AdditionalLibraryDirectories>C:\VulkanSDK\1.3.224.1\Lib;C:\glfw-3.3.8\lib-vc2022;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>glfw3.lib;vulkan-1.lib</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -123,7 +124,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>C:\glfw-3.3.8\include;C:\VulkanSDK\1.3.224.1\Include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>C:\VulkanSDK\1.3.224.1\Include;C:\glfw-3.3.8\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <LanguageStandard_C>stdc17</LanguageStandard_C>
     </ClCompile>
     <Link>
@@ -131,27 +132,32 @@
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalLibraryDirectories>C:\glfw-3.3.8\lib-vc2022;C:\VulkanSDK\1.3.224.1\Lib;</AdditionalLibraryDirectories>
-      <AdditionalDependencies>glfw3dll.lib;vulkan-1.lib;user32.lib;gdi32.lib;Shell32.lib</AdditionalDependencies>
+      <AdditionalLibraryDirectories>C:\VulkanSDK\1.3.224.1\Lib;C:\glfw-3.3.8\lib-vc2022;</AdditionalLibraryDirectories>
+      <AdditionalDependencies>glfw3.lib;vulkan-1.lib</AdditionalDependencies>
       <Version>
       </Version>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="Control\Threads.c" />
+    <ClCompile Include="Render\Device.c" />
+    <ClCompile Include="Render\Image.c" />
     <ClCompile Include="Main.c" />
+    <ClCompile Include="Render\Monitor.c" />
     <ClCompile Include="Render\Window.c" />
     <ClCompile Include="Render\Session.c" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="Data.h" />
     <ClInclude Include="Dragonfly.h" />
-    <ClInclude Include="Render\Window.h" />
-    <ClInclude Include="Render\Session.h" />
+    <ClInclude Include="Internal.h" />
     <ClInclude Include="StbDummy.h" />
     <ClInclude Include="stb\stb_image.h" />
   </ItemGroup>
   <ItemGroup>
     <Image Include="Resources\charliefav.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="CHANGELOG.md" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
