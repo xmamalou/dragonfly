@@ -16,66 +16,19 @@
 #include "../Internal.h"
 
 #include <stdlib.h>
-#include <stdio.h>
 #include <string.h>
+
+#ifdef _DEBUG
+#include <stdio.h> // Dragonfly assumes IO is available only for debug builds
+#endif
 
 /* -------------------- *
  *   INTERNAL           *
  * -------------------- */
 
-static float* _dflDeviceQueuePrioritiesSet(int count);
-static float* _dflDeviceQueuePrioritiesSet(int count) {
-    float* priorities = calloc(count, sizeof(float));
-    if (priorities == NULL)
-        return NULL;
-    for (int i = 0; i < count; i++) { // exponential dropoff
-        priorities[i] = 1.0f/((float)i + 1.0f);
-    }
-    return priorities;
-}
-
-static VkDeviceQueueCreateInfo* _dflDeviceQueueCreateInfoSet(struct DflDevice_T* pDevice);
-static VkDeviceQueueCreateInfo* _dflDeviceQueueCreateInfoSet(struct DflDevice_T* pDevice) 
-{
-    VkDeviceQueueCreateInfo* infos = calloc(pDevice->queueFamilyCount, sizeof(VkDeviceQueueCreateInfo));
-    if (infos == NULL) {
-        return NULL;
-    }
-    
-    int count = 0;
-    vkGetPhysicalDeviceQueueFamilyProperties(pDevice->physDevice, &count, NULL);
-    if (count == 0) {
-        pDevice->error = DFL_VULKAN_QUEUES_NO_PROPERTIES_ERROR;
-        return NULL;
-    }
-    VkQueueFamilyProperties* props = calloc(count, sizeof(VkQueueFamilyProperties));
-    if (props == NULL)
-    {
-        pDevice->error = DFL_GENERIC_OOM_ERROR;
-        return NULL;
-    }
-    vkGetPhysicalDeviceQueueFamilyProperties(pDevice->physDevice, &count, props);
-
-    for (int i = 0; i < pDevice->queueFamilyCount; i++) {
-        infos[i].sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
-        infos[i].pNext = NULL;
-        infos[i].flags = 0;
-        infos[i].queueFamilyIndex = i;
-        infos[i].queueCount = props[i].queueCount;
-        infos[i].pQueuePriorities = _dflDeviceQueuePrioritiesSet(props[i].queueCount);
-    }
-
-    return infos;
-}
-
 inline static struct DflSession_T* _dflSessionAlloc();
 inline static struct DflSession_T* _dflSessionAlloc() {
     return calloc(1, sizeof(struct DflSession_T));
-}
-
-inline static struct DflDevice_T* _dflDeviceAlloc();
-inline static struct DflDevice_T* _dflDeviceAlloc() {
-    return calloc(1, sizeof(struct DflDevice_T));
 }
 
 static VKAPI_ATTR VkBool32 VKAPI_CALL _dflDebugCLBK(VkDebugUtilsMessageSeverityFlagBitsEXT severity, VkDebugUtilsMessageTypeFlagsEXT type, const VkDebugUtilsMessengerCallbackDataEXT* data, void* userData);
@@ -83,17 +36,23 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL _dflDebugCLBK(VkDebugUtilsMessageSeverityF
 {
     if (severity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT)
     {
+#if _DEBUG // we'll use IO only for debug builds
         printf("VULKAN ENCOUNTERED AN ERROR: %s\n", data->pMessage);
+#endif
         return VK_FALSE;
     }
     if (severity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT)
     {
+#if _DEBUG // we'll use IO only for debug builds
         printf("VULKAN WARNS: %s\n", data->pMessage);
+#endif
         return VK_FALSE;
     }
     if (severity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT)
     {
+#if _DEBUG // we'll use IO only for debug builds
         printf("VULKAN INFORMS: %s\n", data->pMessage);
+#endif
         return VK_FALSE;
     }
 
@@ -162,8 +121,6 @@ static int _dflSessionVulkanInstanceInit(struct DflSessionInfo* info, VkInstance
 
         if (layers == NULL)
         {
-            if (info->sessionCriteria & DFL_SESSION_CRITERIA_DO_DEBUG)
-                printf("DRAGONFLY ERROR: Couldn't find any layers! Aborting session creation");
             return DFL_VULKAN_LAYER_ERROR;
         }
 
@@ -217,120 +174,6 @@ static int _dflSessionVulkanInstanceInit(struct DflSessionInfo* info, VkInstance
     return DFL_SUCCESS;
 }
 
-// just a helper function that fills GPU specific information in DflSession_T. When ranking devices,
-// Dragonfly will always sort each checked device using this function, unless the previous device
-// was already ranked higher. This will help avoid calling this function too many times.
-static int _dflDeviceOrganiseData(struct DflDevice_T* device);
-static int _dflDeviceOrganiseData(struct DflDevice_T* device)
-{
-    VkDeviceCreateInfo deviceInfo = {
-            .sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
-            .pNext = NULL,
-            .flags = NULL
-    };
-    VkPhysicalDeviceProperties props;
-    vkGetPhysicalDeviceProperties(device->physDevice, &props);
-    VkPhysicalDeviceMemoryProperties memProps;
-    vkGetPhysicalDeviceMemoryProperties(device->physDevice, &memProps);
-    VkPhysicalDeviceFeatures feats;
-    vkGetPhysicalDeviceFeatures(device->physDevice, &feats);
-
-    strcpy_s(&device->name, VK_MAX_PHYSICAL_DEVICE_NAME_SIZE, &props.deviceName);
-
-    for (int i = 0; i < memProps.memoryHeapCount; i++)
-    {
-        if (memProps.memoryHeaps[i].flags & VK_MEMORY_HEAP_DEVICE_LOCAL_BIT)
-        {
-            device->localHeaps++;
-            void* dummy = realloc(device->localMem, device->localHeaps * sizeof(struct DflLocalMem_T));
-            if (dummy == NULL)
-                return DFL_GENERIC_OOM_ERROR;
-            device->localMem = dummy;
-            device->localMem->size = memProps.memoryHeaps[i].size;
-            device->localMem->heapIndex = memProps.memoryTypes[i].heapIndex;
-        }
-    }
-
-    device->maxDim1D = props.limits.maxImageDimension1D;
-    device->maxDim2D = props.limits.maxImageDimension2D;
-    device->maxDim3D = props.limits.maxImageDimension3D;
-
-    device->canDoGeomShade = feats.geometryShader;
-    device->canDoTessShade = feats.tessellationShader;
-
-    return DFL_SUCCESS;
-}
-
-static int _dflSessionDeviceQueuesGet(VkSurfaceKHR* surface, struct DflDevice_T* pDevice);
-static int _dflSessionDeviceQueuesGet(VkSurfaceKHR* surface, struct DflDevice_T* pDevice)
-{
-    for(int i = 0; i <= 3; i++)
-        pDevice->queues.handles[i] = NULL;
-
-    VkQueueFamilyProperties* queueProps = NULL;
-    uint32_t queueCount = 0;
-    vkGetPhysicalDeviceQueueFamilyProperties(pDevice->physDevice, &queueCount, NULL);
-    if (queueCount == 0)
-        return DFL_VULKAN_QUEUE_ERROR;
-    queueProps = calloc(queueCount, sizeof(VkQueueFamilyProperties));
-    if (queueProps == NULL)
-        return DFL_GENERIC_OOM_ERROR;
-    vkGetPhysicalDeviceQueueFamilyProperties(pDevice->physDevice, &queueCount, queueProps);
-
-    pDevice->queueFamilyCount = queueCount;
-
-    pDevice->queues.count[DFL_QUEUE_TYPE_PRESENTATION] = 0;
-    pDevice->queues.count[DFL_QUEUE_TYPE_GRAPHICS] = 0;
-    pDevice->queues.count[DFL_QUEUE_TYPE_COMPUTE] = 0;
-    pDevice->queues.count[DFL_QUEUE_TYPE_TRANSFER] = 0;
-
-    for (int i = 0; i < queueCount; i++)
-    {
-        if (surface != NULL)
-        {
-            vkGetPhysicalDeviceSurfaceSupportKHR(pDevice->physDevice, i, *surface, &pDevice->canPresent);
-            if (pDevice->canPresent)
-            {
-                pDevice->queues.index[DFL_QUEUE_TYPE_PRESENTATION] = i;
-                pDevice->queues.count[DFL_QUEUE_TYPE_PRESENTATION] = queueProps[i].queueCount;
-            }
-        }
-
-        if (queueProps[i].queueFlags & VK_QUEUE_GRAPHICS_BIT)
-        {
-            pDevice->queues.index[DFL_QUEUE_TYPE_GRAPHICS] = i;
-            pDevice->queues.count[DFL_QUEUE_TYPE_GRAPHICS] = queueProps[i].queueCount;
-        }
-        if (queueProps[i].queueFlags & VK_QUEUE_COMPUTE_BIT)
-        {
-            pDevice->queues.index[DFL_QUEUE_TYPE_COMPUTE] = i;
-            pDevice->queues.count[DFL_QUEUE_TYPE_COMPUTE] = queueProps[i].queueCount;
-        }
-        if (queueProps[i].queueFlags & VK_QUEUE_TRANSFER_BIT)
-        {
-            pDevice->queues.index[DFL_QUEUE_TYPE_TRANSFER] = i;
-            pDevice->queues.count[DFL_QUEUE_TYPE_TRANSFER] = queueProps[i].queueCount;
-        }
-    }
-
-    if(pDevice->queues.count[DFL_QUEUE_TYPE_PRESENTATION] <= 0 || pDevice->queues.count[DFL_QUEUE_TYPE_GRAPHICS] <= 0 || pDevice->queues.count[DFL_QUEUE_TYPE_COMPUTE] <= 0 || pDevice->queues.count[DFL_QUEUE_TYPE_TRANSFER] <= 0)
-        return DFL_VULKAN_QUEUE_ERROR;
-
-    return DFL_SUCCESS;
-} 
-
-static int _dflWindowBindToSession(DflWindow* pWindow, DflSession* pSession);
-static int _dflWindowBindToSession(DflWindow* pWindow, DflSession* pSession)
-{
-    VkSurfaceKHR surface;
-    if (glfwCreateWindowSurface(DFL_HANDLE(Session)->instance, DFL_HANDLE(Window)->handle, NULL, &surface) != VK_SUCCESS)
-        return DFL_VULKAN_SURFACE_ERROR;
-    DFL_HANDLE(Session)->surface = surface; // This exists simply for the sake of the _dflSessionDeviceQueuesGet function.
-    DFL_HANDLE(Window)->surface = surface;
-
-    return DFL_SUCCESS;
-}
-
 /* -------------------- *
  *   INITIALIZE         *
  * -------------------- */
@@ -357,105 +200,26 @@ DflSession dflSessionCreate(struct DflSessionInfo* pInfo)
     return (DflSession)session;
 }
 
-DflWindow dflWindowInit(DflWindowInfo* pWindowInfo, DflSession* pSession)
-{
-    DflWindow window = _dflWindowCreate(pWindowInfo);
-
-    ((struct DflWindow_T*)window)->session = *pSession;
-
-    if (((struct DflWindow_T*)window)->error == DFL_SUCCESS)
-    {
-        ((struct DflWindow_T*)window)->error = _dflWindowBindToSession(&window, pSession);
-    }
-    
-    return window;
-}
-
-DflDevice dflDeviceInit(int GPUCriteria, int choice, DflDevice* pDevices, DflSession* pSession)
-{
-    struct DflDevice_T* device = _dflDeviceAlloc();
-
-    // device creation
-    if ((choice < 0) || (choice >= DFL_HANDLE(Session)->deviceCount)) // TODO: Negative numbers tell Dragonfly to choose the device based on a rating system (which will also depend on the criteria).
-    {
-        device->error = DFL_GENERIC_OUT_OF_BOUNDS_ERROR;
-        return (DflDevice)device;
-    }
-
-    device = DFL_HANDLE_ARRAY(Device, choice);
-    VkDeviceCreateInfo deviceInfo = {
-        .sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
-        .pNext = NULL,
-        .flags = 0,
-        .queueCreateInfoCount = DFL_HANDLE_ARRAY(Device, choice)->queueFamilyCount,
-        .pQueueCreateInfos = _dflDeviceQueueCreateInfoSet(DFL_HANDLE_ARRAY(Device, choice)),
-        .enabledExtensionCount = 0,
-        .ppEnabledExtensionNames = NULL,
-    };
-
-    if(vkCreateDevice(((struct DflDevice_T*)device)->physDevice, &deviceInfo, NULL, &((struct DflDevice_T*)device)->device) != VK_SUCCESS)
-    {
-        device->error = DFL_VULKAN_DEVICE_ERROR;
-        return (DflDevice)device;
-    }
-
-    device->session = *pSession;
-
-    return (DflDevice)device;
-}
-
 /* -------------------- *
  *   GET & SET          *
  * -------------------- */
 
-DflDevice* dflSessionDevicesGet(int* pCount, DflSession* pSession)
-{
-    VkPhysicalDevice* physDevices = NULL;
-    *pCount = 0;
-    vkEnumeratePhysicalDevices(DFL_HANDLE(Session)->instance, pCount, NULL);
-    physDevices = calloc(*pCount, sizeof(VkPhysicalDevice));
-    if (physDevices == NULL)
-        return NULL;
-    vkEnumeratePhysicalDevices(DFL_HANDLE(Session)->instance, pCount, physDevices);
-    if(physDevices == NULL)
-        return NULL;
-
-    struct DflDevice_T** devices = calloc(*pCount, sizeof(struct DflDevice_T*));
-    DFL_HANDLE(Session)->deviceCount = *pCount;
-    if (devices == NULL)
-        return NULL;
-
-    for (int i = 0; i < *pCount; i++)
-    {
-        devices[i] = calloc(1, sizeof(struct DflDevice_T));
-        if (devices[i] == NULL)
-            return NULL;
-        devices[i]->physDevice = physDevices[i];
-        if (_dflDeviceOrganiseData(devices[i]) != DFL_SUCCESS)
-            return NULL;
-        if (_dflSessionDeviceQueuesGet(&(DFL_HANDLE(Session)->surface), devices[i]) != DFL_SUCCESS)
-            return NULL;
-    }
-
-    return (DflDevice*)devices;
-}
-
-int dflSessionErrorGet(DflSession* pSession)
+int dflSessionErrorGet(DflSession hSession)
 {
     return DFL_HANDLE(Session)->error;
 }
 
-bool dflDeviceCanPresentGet(DflDevice* pDevice)
+bool dflDeviceCanPresentGet(DflDevice hDevice)
 {
     return DFL_HANDLE(Device)->canPresent;
 }
 
-const char* dflDeviceNameGet(DflDevice* pDevice)
+const char* dflDeviceNameGet(DflDevice hDevice)
 {
     return DFL_HANDLE(Device)->name;
 }
 
-int dflDeviceErrorGet(DflDevice* pDevice)
+int dflDeviceErrorGet(DflDevice hDevice)
 {
     return DFL_HANDLE(Device)->error;
 }
@@ -464,7 +228,7 @@ int dflDeviceErrorGet(DflDevice* pDevice)
  *   DESTROY            *
  * -------------------- */
 
-void dflSessionDestroy(DflSession* pSession)
+void dflSessionDestroy(DflSession hSession)
 {
     if (DFL_HANDLE(Session)->messenger != NULL) // that means debugging was enabled.
     {
@@ -473,24 +237,5 @@ void dflSessionDestroy(DflSession* pSession)
             destroyDebug(DFL_HANDLE(Session)->instance, DFL_HANDLE(Session)->messenger, NULL);
     }
     vkDestroyInstance(DFL_HANDLE(Session)->instance, NULL);
-    free(*pSession);
-}
-
-void dflDeviceTerminate(DflDevice* pDevice, DflSession* pSession)
-{
-    if(*pSession != DFL_HANDLE(Device)->session) // the device doesn't belong to the session and cannot be destroyed by it.
-        return;
-
-    if (DFL_HANDLE(Device)->device == NULL)
-        return; // since devices in Dragonfly *can* be uninitialized, it's prudent, I think, to check for that.
-
-    vkDestroyDevice(DFL_HANDLE(Device)->device, NULL);
-}
-
-void dflWindowTerminate(DflWindow* pWindow, DflSession* pSession)
-{
-    if(*pSession != DFL_HANDLE(Window)->session) // the window doesn't belong to the session and cannot be destroyed by it.
-        return;
-
-    _dflWindowDestroy(pWindow);
+    free(hSession);
 }

@@ -1,6 +1,5 @@
 #include "../Dragonfly.h"
-
-#include <GLFW/glfw3.h>
+#include "../Internal.h"
 
 #include <stdlib.h>
 #include <string.h>
@@ -29,6 +28,12 @@ struct DflMonitorInfo* dflMonitorsGet(int* pCount)
         infos[i].res.y = mode->height;
 
         infos[i].rate = mode->refreshRate;
+
+        infos[i].colorDepthPerPixel.x = mode->redBits;
+        infos[i].colorDepthPerPixel.y = mode->greenBits;
+        infos[i].colorDepthPerPixel.z = mode->blueBits;
+
+        infos[i].colorDepth = mode->redBits + mode->greenBits + mode->blueBits;
     }
 
     return infos;
