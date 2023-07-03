@@ -15,4 +15,4 @@ Dragonfly uses 3 libraries, one of which ([stb](https://github.com/nothings/stb)
 - [GLFW](https://github.com/glfw/glfw)
 - [Vulkan](https://vulkan.lunarg.com/)
 
-Both are dynamically linked
+GLFW is *statically* linked.
