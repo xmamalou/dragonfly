@@ -22,7 +22,7 @@
 
 struct DflMonitorInfo* dflMonitorsGet(int* pCount, DflSession hSession)
 {
-    if (DFL_SESSION->monitorCount == 0)
+    if ((DFL_SESSION == NULL) || (DFL_SESSION->monitorCount == 0))
     {
         if (!glfwInit())
             return NULL;
@@ -55,7 +55,6 @@ struct DflMonitorInfo* dflMonitorsGet(int* pCount, DflSession hSession)
         }
 
         DFL_SESSION->monitorCount = *pCount;
-        printf("%d\n\n", DFL_SESSION->monitorCount);
         for(int i = 0; i < *pCount; i++) // cache them to the session
         {
             DFL_SESSION->monitors[i] = infos[i];

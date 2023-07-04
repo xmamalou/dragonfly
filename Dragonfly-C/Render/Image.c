@@ -22,14 +22,14 @@
 
 void dflImageLoad(DflImage hImage)
 {
-    if(DFL_HANDLE(Image)->data != NULL) // no need to load an already loaded image
+    if(DFL_IMAGE->data != NULL) // no need to load an already loaded image (granted, there's no way to know if this is the actual image or garbage data, but it's rather safer to assume it's the actual image)
         return;
 
-    DFL_HANDLE(Image)->data = stbi_load(DFL_HANDLE(Image)->path, &DFL_HANDLE(Image)->size.x, &DFL_HANDLE(Image)->size.y, 0, 4); //rgba channels
+    DFL_IMAGE->data = stbi_load(DFL_IMAGE->path, &DFL_IMAGE->size.x, &DFL_IMAGE->size.y, 0, 4); //rgba channels
 
-    if (DFL_HANDLE(Image)->data == NULL)
+    if (DFL_IMAGE->data == NULL)
     {
-        free(DFL_HANDLE(Image));
+        free(DFL_IMAGE);
         return;
     }
 }
@@ -65,8 +65,8 @@ DflImage dflImageReferenceFromFileGet(const char* file)
 
 void dflImageDestroy(DflImage hImage)
 {
-   if(DFL_HANDLE(Image)->data != NULL)
-        stbi_image_free(DFL_HANDLE(Image)->data);
+   if(DFL_IMAGE->data != NULL)
+        stbi_image_free(DFL_IMAGE->data);
 
-    free(DFL_HANDLE(Image));
+    free(DFL_IMAGE);
 }
