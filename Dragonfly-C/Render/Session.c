@@ -71,7 +71,7 @@ static int _dflSessionVulkanInstanceInit(struct DflSessionInfo* info, VkInstance
     VkApplicationInfo appInfo = {
         .sType = VK_STRUCTURE_TYPE_APPLICATION_INFO,
         .pNext = NULL,
-        .pApplicationName = info->appName,
+        .pApplicationName = info->pAppName,
         .applicationVersion = info->appVersion,
         .pEngineName = "Dragonfly",
         .engineVersion = VK_MAKE_API_VERSION(0, 0, 1, 0),
@@ -186,7 +186,7 @@ DflSession dflSessionCreate(struct DflSessionInfo* pInfo)
     {
         struct DflSessionInfo info =
         {
-            .appName = "Dragonfly-App",
+            .pAppName = "Dragonfly-App",
             .appVersion = VK_MAKE_VERSION(1, 0, 0),
             .sessionCriteria = NULL
         };
@@ -206,22 +206,7 @@ DflSession dflSessionCreate(struct DflSessionInfo* pInfo)
 
 int dflSessionErrorGet(DflSession hSession)
 {
-    return DFL_HANDLE(Session)->error;
-}
-
-bool dflDeviceCanPresentGet(DflDevice hDevice)
-{
-    return DFL_HANDLE(Device)->canPresent;
-}
-
-const char* dflDeviceNameGet(DflDevice hDevice)
-{
-    return DFL_HANDLE(Device)->name;
-}
-
-int dflDeviceErrorGet(DflDevice hDevice)
-{
-    return DFL_HANDLE(Device)->error;
+    return DFL_SESSION->error;
 }
 
 /* -------------------- *
@@ -230,12 +215,12 @@ int dflDeviceErrorGet(DflDevice hDevice)
 
 void dflSessionDestroy(DflSession hSession)
 {
-    if (DFL_HANDLE(Session)->messenger != NULL) // that means debugging was enabled.
+    if (DFL_SESSION->messenger != NULL) // that means debugging was enabled.
     {
-        PFN_vkDestroyDebugUtilsMessengerEXT destroyDebug = (PFN_vkCreateDebugUtilsMessengerEXT)vkGetInstanceProcAddr(DFL_HANDLE(Session)->instance, "vkDestroyDebugUtilsMessengerEXT");
+        PFN_vkDestroyDebugUtilsMessengerEXT destroyDebug = (PFN_vkCreateDebugUtilsMessengerEXT)vkGetInstanceProcAddr(DFL_SESSION->instance, "vkDestroyDebugUtilsMessengerEXT");
         if (destroyDebug != NULL)
-            destroyDebug(DFL_HANDLE(Session)->instance, DFL_HANDLE(Session)->messenger, NULL);
+            destroyDebug(DFL_SESSION->instance, DFL_SESSION->messenger, NULL);
     }
-    vkDestroyInstance(DFL_HANDLE(Session)->instance, NULL);
+    vkDestroyInstance(DFL_SESSION->instance, NULL);
     free(hSession);
 }

@@ -68,25 +68,6 @@ extern "C" {
 #define DFL_MAX_CHAR_COUNT 256 // the maximum number of characters that can be used in a string
 #define DFL_MAX_ITEM_COUNT 64 // the maximum number of items that can be used in a list
 
-/* -------------------- *
- *  GLOBAL TYPES        *
- * -------------------- */
-
-// a 2-tuple of integers
-struct DflVec2D
-{
-	int x;
-	int y;
-};
-
-// a triple of integers
-struct DflVec3D
-{
-    int x;
-    int y;
-    int z;
-};
-
 // colours
 #define DFL_COLOR_RGB(r, g, b) (((unsigned int)r) | ((unsigned int)g << 8) | (unsigned int)b << 16)
 
@@ -116,6 +97,25 @@ DFL_MAKE_HANDLE(DflWindow);
 // opaque handle for a DflImage_T object. (not the same as a Vulkan image)
 DFL_MAKE_HANDLE(DflImage);
 
+/* -------------------- *
+ *  GLOBAL TYPES        *
+ * -------------------- */
+
+ // a 2-tuple of integers
+struct DflVec2D
+{
+	int x;
+	int y;
+};
+
+// a triple of integers
+struct DflVec3D
+{
+	int x;
+	int y;
+	int z;
+};
+
 /* ================================ *
  *             SESSIONS             *
  * ================================ */
@@ -130,7 +130,7 @@ DFL_MAKE_HANDLE(DflImage);
 
 struct DflSessionInfo
 {
-    const char* appName;
+    const char* pAppName;
     uint32_t    appVersion;
     uint32_t    sessionCriteria;
 };
@@ -269,7 +269,7 @@ struct DflMonitorInfo {
 * 
 * @param pCount: A pointer to an integer that will be set to the number of monitors connected to the system.
 */
-struct DflMonitorInfo*     dflMonitorsGet(int* pCount);
+struct DflMonitorInfo*     dflMonitorsGet(int* pCount, DflSession hSession);
 
 /* ================================ *
  *             WINDOWS              *
@@ -337,8 +337,8 @@ typedef struct DflWindowInfo {
 	*/
 	struct DflVec2D view;
 
-	char name[DFL_MAX_CHAR_COUNT];
-	DflImage icon;
+	char			name[DFL_MAX_CHAR_COUNT];
+	DflImage		hIcon;
 
 	int				mode : 2; // DFL_WINDOWED, DFL_FULLSCREEN, DFL_BORDERLESS
 

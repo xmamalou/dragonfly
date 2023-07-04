@@ -47,7 +47,7 @@ int MAIN()
 		.view = {1820, 1080},
 		.vsync = true,
 		.name = "Dragonfly", 
-		.icon = dflImageReferenceFromFileGet("Resources/bugs.png"), 
+		.hIcon = dflImageReferenceFromFileGet("Resources/bugs.png"), 
 		.mode = DFL_WINDOWED, 
 		.rate = 165, 
 		.pos = {200, 200},
@@ -62,7 +62,7 @@ int MAIN()
 	if (dflWindowErrorGet(window) < DFL_SUCCESS)
 		return 1;
 
-	dflImageDestroy(winfo.icon);
+	dflImageDestroy(winfo.hIcon);
 
 #ifdef _WIN32
 	dflWindowWin32AttributeSet(DFL_WINDOW_WIN32_BORDER_COLOUR, DFL_COLOR_GRAY, window);
@@ -84,9 +84,12 @@ int MAIN()
 	if(dflWindowErrorGet(window) < DFL_SUCCESS)
 		return 1;
 
-	struct DflVec2D newDim = { 2560, 1440 };
+	int count = 0;
+	struct DflMonitorInfo* monitors = dflMonitorsGet(&count, session);
+	printf("Monitors: %s\n", monitors[0].name);
+
+	struct DflVec2D newDim = { 800, 600 };
 	dflWindowReshape(DFL_DIMENSIONS, newDim, window);
-	dflWindowChangeMode(DFL_FULLSCREEN, window);
 
 	while ((dflWindowShouldCloseGet(window) == false))
 	{

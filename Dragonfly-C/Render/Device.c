@@ -263,16 +263,16 @@ DflDevice* dflSessionDevicesGet(int* pCount, DflSession hSession)
 {
     VkPhysicalDevice* physDevices = NULL;
     *pCount = 0;
-    vkEnumeratePhysicalDevices(DFL_HANDLE(Session)->instance, pCount, NULL);
+    vkEnumeratePhysicalDevices(DFL_SESSION->instance, pCount, NULL);
     physDevices = calloc(*pCount, sizeof(VkPhysicalDevice));
     if (physDevices == NULL)
         return NULL;
-    vkEnumeratePhysicalDevices(DFL_HANDLE(Session)->instance, pCount, physDevices);
+    vkEnumeratePhysicalDevices(DFL_SESSION->instance, pCount, physDevices);
     if (physDevices == NULL)
         return NULL;
 
     struct DflDevice_T** devices = calloc(*pCount, sizeof(struct DflDevice_T*));
-    DFL_HANDLE(Session)->deviceCount = *pCount;
+    DFL_SESSION->deviceCount = *pCount;
     if (devices == NULL)
         return NULL;
 
@@ -284,11 +284,26 @@ DflDevice* dflSessionDevicesGet(int* pCount, DflSession hSession)
         devices[i]->physDevice = physDevices[i];
         if (_dflDeviceOrganiseData(devices[i]) != DFL_SUCCESS)
             return NULL;
-        if (_dflDeviceQueuesGet(&(DFL_HANDLE(Session)->surface), devices[i]) != DFL_SUCCESS)
+        if (_dflDeviceQueuesGet(&(DFL_SESSION->surface), devices[i]) != DFL_SUCCESS)
             return NULL;
     }
 
     return (DflDevice*)devices;
+}
+
+bool dflDeviceCanPresentGet(DflDevice hDevice)
+{
+    return DFL_DEVICE->canPresent;
+}
+
+const char* dflDeviceNameGet(DflDevice hDevice)
+{
+    return DFL_DEVICE->name;
+}
+
+int dflDeviceErrorGet(DflDevice hDevice)
+{
+    return DFL_DEVICE->error;
 }
 
 /* -------------------- *
@@ -298,12 +313,12 @@ DflDevice* dflSessionDevicesGet(int* pCount, DflSession hSession)
 void dflDeviceTerminate(DflDevice hDevice)
 {
     for(int i = 0; i < 4; i++) // destroy command pools
-        vkDestroyCommandPool(DFL_HANDLE(Device)->device, DFL_HANDLE(Device)->queues.comPool[i], NULL);
+        vkDestroyCommandPool(DFL_DEVICE->device, DFL_DEVICE->queues.comPool[i], NULL);
 
-    if (DFL_HANDLE(Device)->device == NULL)
+    if (DFL_DEVICE->device == NULL)
         return; // since devices in Dragonfly *can* be uninitialized, it's prudent, I think, to check for that.
 
-    ((struct DflSession_T*)DFL_HANDLE(Device)->session)->devices[DFL_HANDLE(Device)->index] = NULL;
+    ((struct DflSession_T*)DFL_DEVICE->session)->devices[DFL_DEVICE->index] = NULL;
 
-    vkDestroyDevice(DFL_HANDLE(Device)->device, NULL);
+    vkDestroyDevice(DFL_DEVICE->device, NULL);
 }

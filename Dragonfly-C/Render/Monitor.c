@@ -4,37 +4,52 @@
 #include <stdlib.h>
 #include <string.h>
 
-struct DflMonitorInfo* dflMonitorsGet(int* pCount)
+struct DflMonitorInfo* dflMonitorsGet(int* pCount, DflSession hSession)
 {
-    if (!glfwInit())
-        return NULL;
-
-    GLFWmonitor** monitors = glfwGetMonitors(pCount);
-
-    if (!monitors)
-        return NULL;
-
-    struct DflMonitorInfo* infos = malloc(sizeof(struct DflMonitorInfo) * *pCount);
-    if(infos == NULL)
-        return NULL;
-
-    for (int i = 0; i < *pCount; i++)
+    if (DFL_SESSION->monitorCount == 0)
     {
-        GLFWvidmode* mode = glfwGetVideoMode(monitors[i]);
+        if (!glfwInit())
+            return NULL;
 
-        strcpy_s(infos[i].name, DFL_MAX_CHAR_COUNT, glfwGetMonitorName(monitors[i]));
+        GLFWmonitor** monitors = glfwGetMonitors(pCount);
 
-        infos[i].res.x = mode->width;
-        infos[i].res.y = mode->height;
+        if (!monitors)
+            return NULL;
 
-        infos[i].rate = mode->refreshRate;
+        struct DflMonitorInfo* infos = malloc(sizeof(struct DflMonitorInfo) * *pCount);
+        if (infos == NULL)
+            return NULL;
 
-        infos[i].colorDepthPerPixel.x = mode->redBits;
-        infos[i].colorDepthPerPixel.y = mode->greenBits;
-        infos[i].colorDepthPerPixel.z = mode->blueBits;
+        for (int i = 0; i < *pCount; i++)
+        {
+            GLFWvidmode* mode = glfwGetVideoMode(monitors[i]);
 
-        infos[i].colorDepth = mode->redBits + mode->greenBits + mode->blueBits;
+            strcpy_s(infos[i].name, DFL_MAX_CHAR_COUNT, glfwGetMonitorName(monitors[i]));
+
+            infos[i].res.x = mode->width;
+            infos[i].res.y = mode->height;
+
+            infos[i].rate = mode->refreshRate;
+
+            infos[i].colorDepthPerPixel.x = mode->redBits;
+            infos[i].colorDepthPerPixel.y = mode->greenBits;
+            infos[i].colorDepthPerPixel.z = mode->blueBits;
+
+            infos[i].colorDepth = mode->redBits + mode->greenBits + mode->blueBits;
+        }
+
+        DFL_SESSION->monitorCount = *pCount;
+        printf("%d\n\n", DFL_SESSION->monitorCount);
+        for(int i = 0; i < *pCount; i++) // cache them to the session
+        {
+            DFL_SESSION->monitors[i] = infos[i];
+        }
+
+        return infos;
     }
-
-    return infos;
+    else // if we already have them cached
+    {
+        *pCount = DFL_SESSION->monitorCount;
+        return &DFL_SESSION->monitors;
+    }
 }

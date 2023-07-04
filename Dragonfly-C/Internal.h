@@ -13,6 +13,11 @@
 #define DFL_HANDLE(type) ((struct Dfl##type##_T*)h##type) // a shorthand for casting a handle to its type (will be used when `type` refers to a function argument in the form `ptype` (pointer to handle))
 #define DFL_HANDLE_ARRAY(type, pos) ((struct Dfl##type##_T*)*(p##type##s + pos)) // a shorthand for casting a handle to its type (will be used when `type` refers to a function argument in the form `ptype` (pointer to handle))
 
+#define DFL_SESSION DFL_HANDLE(Session)
+#define DFL_WINDOW  DFL_HANDLE(Window)
+#define DFL_DEVICE  DFL_HANDLE(Device)
+#define DFL_IMAGE   DFL_HANDLE(Image)
+
 /* ================================ *
  *             SESSION              *
  * ================================ */
@@ -27,6 +32,9 @@ struct DflSession_T { // A Dragonfly session
     int                         processorSpeed;
 
     int                         deviceCount;
+
+    int                         monitorCount;
+    struct DflMonitorInfo       monitors[DFL_MAX_ITEM_COUNT];
 
     VkSurfaceKHR  surface; // this exists purely to make device creation work, because it requires to check a surface for presentation support.
 
@@ -158,7 +166,7 @@ struct DflWindow_T { // A Dragonfly window
  /*
 * @brief Xreate a window. Not bound to a session or surface.
 */
-DflWindow _dflWindowCreate(DflWindowInfo* pInfo);
+DflWindow _dflWindowCreate(DflWindowInfo* pInfo, DflSession hSession);
 
 /* -------------------- *
  *   DESTROY            *

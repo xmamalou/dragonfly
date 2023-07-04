@@ -143,35 +143,35 @@ static void _dflWindowSwapchainRecreate(DflWindow hWindow);
 void _dflWindowSwapchainRecreate(DflWindow hWindow)
 {
     VkSurfaceCapabilitiesKHR surfaceCaps;
-    vkGetPhysicalDeviceSurfaceCapabilitiesKHR(((struct DflDevice_T*)DFL_HANDLE(Window)->device)->physDevice, DFL_HANDLE(Window)->surface, &surfaceCaps);
+    vkGetPhysicalDeviceSurfaceCapabilitiesKHR(((struct DflDevice_T*)DFL_WINDOW->device)->physDevice, DFL_WINDOW->surface, &surfaceCaps);
 
-    DFL_HANDLE(Window)->minRes.x = surfaceCaps.minImageExtent.width;
-    DFL_HANDLE(Window)->minRes.y = surfaceCaps.minImageExtent.height;
+    DFL_WINDOW->minRes.x = surfaceCaps.minImageExtent.width;
+    DFL_WINDOW->minRes.y = surfaceCaps.minImageExtent.height;
 
-    DFL_HANDLE(Window)->maxRes.x = surfaceCaps.maxImageExtent.width;
-    DFL_HANDLE(Window)->maxRes.y = surfaceCaps.maxImageExtent.height;
+    DFL_WINDOW->maxRes.x = surfaceCaps.maxImageExtent.width;
+    DFL_WINDOW->maxRes.y = surfaceCaps.maxImageExtent.height;
 
     // the below make sure that the resolution is within the bounds that are supported
-    if ((DFL_HANDLE(Window)->minRes.x > DFL_HANDLE(Window)->info.dim.x) || (DFL_HANDLE(Window)->info.dim.x == NULL))
-        DFL_HANDLE(Window)->info.dim.x = DFL_HANDLE(Window)->minRes.x;
-    if ((DFL_HANDLE(Window)->minRes.y > DFL_HANDLE(Window)->info.dim.y) || (DFL_HANDLE(Window)->info.dim.y == NULL))
-        DFL_HANDLE(Window)->info.dim.y = DFL_HANDLE(Window)->minRes.y;
+    if ((DFL_WINDOW->minRes.x > DFL_WINDOW->info.dim.x) || (DFL_WINDOW->info.dim.x == NULL))
+        DFL_WINDOW->info.dim.x = DFL_WINDOW->minRes.x;
+    if ((DFL_WINDOW->minRes.y > DFL_WINDOW->info.dim.y) || (DFL_WINDOW->info.dim.y == NULL))
+        DFL_WINDOW->info.dim.y = DFL_WINDOW->minRes.y;
 
-    if ((DFL_HANDLE(Window)->maxRes.x < DFL_HANDLE(Window)->info.dim.x) || (DFL_HANDLE(Window)->info.dim.x == NULL))
-        DFL_HANDLE(Window)->info.dim.x = DFL_HANDLE(Window)->maxRes.x;
-    if ((DFL_HANDLE(Window)->maxRes.y < DFL_HANDLE(Window)->info.dim.y) || (DFL_HANDLE(Window)->info.dim.y == NULL))
-        DFL_HANDLE(Window)->info.dim.y = DFL_HANDLE(Window)->maxRes.y;
+    if ((DFL_WINDOW->maxRes.x < DFL_WINDOW->info.dim.x) || (DFL_WINDOW->info.dim.x == NULL))
+        DFL_WINDOW->info.dim.x = DFL_WINDOW->maxRes.x;
+    if ((DFL_WINDOW->maxRes.y < DFL_WINDOW->info.dim.y) || (DFL_WINDOW->info.dim.y == NULL))
+        DFL_WINDOW->info.dim.y = DFL_WINDOW->maxRes.y;
 
-    VkSwapchainCreateInfoKHR swapInfo = _dflWindowSwapchainCreateInfoGet(hWindow, DFL_HANDLE(Window)->device);
+    VkSwapchainCreateInfoKHR swapInfo = _dflWindowSwapchainCreateInfoGet(hWindow, DFL_WINDOW->device);
     VkSwapchainKHR dummy = NULL;
-    vkCreateSwapchainKHR(((struct DflDevice_T*)DFL_HANDLE(Window)->device)->device, &swapInfo, NULL, &dummy);
+    vkCreateSwapchainKHR(((struct DflDevice_T*)DFL_WINDOW->device)->device, &swapInfo, NULL, &dummy);
     if (dummy == NULL)
     {
-        DFL_HANDLE(Window)->error = DFL_VULKAN_SURFACE_NO_SWAPCHAIN_ERROR;
+        DFL_WINDOW->error = DFL_VULKAN_SURFACE_NO_SWAPCHAIN_ERROR;
         return;
     }
-    vkDestroySwapchainKHR(((struct DflDevice_T*)DFL_HANDLE(Window)->device)->device, DFL_HANDLE(Window)->swapchain, NULL);
-    DFL_HANDLE(Window)->swapchain = dummy;
+    vkDestroySwapchainKHR(((struct DflDevice_T*)DFL_WINDOW->device)->device, DFL_WINDOW->swapchain, NULL);
+    DFL_WINDOW->swapchain = dummy;
 }
 
 // this exists just as a shorthand
@@ -185,14 +185,14 @@ static struct DflWindow_T* _dflWindowAlloc()
  *   INITIALIZE         *
  * -------------------- */
 
-DflWindow _dflWindowCreate(DflWindowInfo* pInfo)
+DflWindow _dflWindowCreate(DflWindowInfo* pInfo, DflSession hSession)
 {
     struct DflWindow_T* window = _dflWindowAlloc();
 
     if (pInfo == NULL)
     {
         int count = 0;
-        struct DflMonitorInfo *monitors = dflMonitorsGet(&count);
+        struct DflMonitorInfo *monitors = dflMonitorsGet(&count, hSession);
 
 
         DflWindowInfo info = {
@@ -223,13 +223,13 @@ DflWindow _dflWindowCreate(DflWindowInfo* pInfo)
         return (DflWindow)window;
     }
 
-    if (window->info.icon != NULL)
+    if (window->info.hIcon != NULL)
     {
         GLFWimage image;
-        dflImageLoad((struct DflImage_T*)window->info.icon);
-        image.pixels = ((unsigned char*)((struct DflImage_T*)window->info.icon)->data);
-        image.height = ((struct DflImage_T*)window->info.icon)->size.y;
-        image.width = ((struct DflImage_T*)window->info.icon)->size.x;
+        dflImageLoad((struct DflImage_T*)window->info.hIcon);
+        image.pixels = ((unsigned char*)((struct DflImage_T*)window->info.hIcon)->data);
+        image.height = ((struct DflImage_T*)window->info.hIcon)->size.y;
+        image.width = ((struct DflImage_T*)window->info.hIcon)->size.x;
         glfwSetWindowIcon(window->handle, 1, &image);
     }
 
@@ -241,7 +241,7 @@ DflWindow _dflWindowCreate(DflWindowInfo* pInfo)
 
 DflWindow dflWindowInit(DflWindowInfo* pWindowInfo, DflSession hSession)
 {
-    DflWindow hWindow = _dflWindowCreate(pWindowInfo);
+    DflWindow hWindow = _dflWindowCreate(pWindowInfo, hSession);
 
     if (DFL_HANDLE(Window)->error == DFL_SUCCESS)
     {
@@ -266,66 +266,66 @@ DflWindow dflWindowInit(DflWindowInfo* pWindowInfo, DflSession hSession)
 void dflWindowBindToDevice(DflWindow hWindow, DflDevice hDevice)
 {
     VkSurfaceCapabilitiesKHR surfaceCaps;
-    vkGetPhysicalDeviceSurfaceCapabilitiesKHR(DFL_HANDLE(Device)->physDevice, DFL_HANDLE(Window)->surface, &surfaceCaps);
+    vkGetPhysicalDeviceSurfaceCapabilitiesKHR(DFL_DEVICE->physDevice, DFL_WINDOW->surface, &surfaceCaps);
 
     int formatCount;
-    vkGetPhysicalDeviceSurfaceFormatsKHR(DFL_HANDLE(Device)->physDevice, DFL_HANDLE(Window)->surface, &formatCount, NULL);
+    vkGetPhysicalDeviceSurfaceFormatsKHR(DFL_DEVICE->physDevice, DFL_WINDOW->surface, &formatCount, NULL);
     if(formatCount == 0)
     {
-        DFL_HANDLE(Window)->error = DFL_VULKAN_SURFACE_NO_FORMATS_ERROR;
+        DFL_WINDOW->error = DFL_VULKAN_SURFACE_NO_FORMATS_ERROR;
         return;
     }
     VkSurfaceFormatKHR* formats = malloc(formatCount * sizeof(VkSurfaceFormatKHR));
     if(formats == NULL)
     {
-        DFL_HANDLE(Window)->error = DFL_GENERIC_OOM_ERROR;
+        DFL_WINDOW->error = DFL_GENERIC_OOM_ERROR;
         return;
     }
-    vkGetPhysicalDeviceSurfaceFormatsKHR(DFL_HANDLE(Device)->physDevice, DFL_HANDLE(Window)->surface, &formatCount, formats);
+    vkGetPhysicalDeviceSurfaceFormatsKHR(DFL_DEVICE->physDevice, DFL_WINDOW->surface, &formatCount, formats);
 
     for (int i = 0; i < formatCount; i++)
     {
-        if (DFL_HANDLE(Window)->info.colorFormat == formats[i].format)
+        if (DFL_WINDOW->info.colorFormat == formats[i].format)
         {
-            DFL_HANDLE(Window)->colorSpace = formats[i].colorSpace;
+            DFL_WINDOW->colorSpace = formats[i].colorSpace;
             break;
         }
         else // else just prefer the first format
         {
-            DFL_HANDLE(Window)->colorSpace = formats[0].colorSpace;
-            DFL_HANDLE(Window)->info.colorFormat = formats[0].format;
+            DFL_WINDOW->colorSpace = formats[0].colorSpace;
+            DFL_WINDOW->info.colorFormat = formats[0].format;
         }
     }
 
-    DFL_HANDLE(Window)->minRes.x = surfaceCaps.minImageExtent.width;
-    DFL_HANDLE(Window)->minRes.y = surfaceCaps.minImageExtent.height;
-    
-    DFL_HANDLE(Window)->maxRes.x = surfaceCaps.maxImageExtent.width;
-    DFL_HANDLE(Window)->maxRes.y = surfaceCaps.maxImageExtent.height;
+    DFL_WINDOW->minRes.x = surfaceCaps.minImageExtent.width;
+    DFL_WINDOW->minRes.y = surfaceCaps.minImageExtent.height;
+
+    DFL_WINDOW->maxRes.x = surfaceCaps.maxImageExtent.width;
+    DFL_WINDOW->maxRes.y = surfaceCaps.maxImageExtent.height;
     
     // the below make sure that the resolution is within the bounds that are supported
-    if ((DFL_HANDLE(Window)->minRes.x > DFL_HANDLE(Window)->info.dim.x) || (DFL_HANDLE(Window)->info.dim.x == NULL))
-        DFL_HANDLE(Window)->info.dim.x = DFL_HANDLE(Window)->minRes.x;
-    if ((DFL_HANDLE(Window)->minRes.y > DFL_HANDLE(Window)->info.dim.y) || (DFL_HANDLE(Window)->info.dim.y == NULL))
-        DFL_HANDLE(Window)->info.dim.y = DFL_HANDLE(Window)->minRes.y;
+    if ((DFL_WINDOW->minRes.x > DFL_WINDOW->info.dim.x) || (DFL_WINDOW->info.dim.x == NULL))
+        DFL_WINDOW->info.dim.x = DFL_WINDOW->minRes.x;
+    if ((DFL_WINDOW->minRes.y > DFL_WINDOW->info.dim.y) || (DFL_WINDOW->info.dim.y == NULL))
+        DFL_WINDOW->info.dim.y = DFL_WINDOW->minRes.y;
 
-    if ((DFL_HANDLE(Window)->maxRes.x < DFL_HANDLE(Window)->info.dim.x) || (DFL_HANDLE(Window)->info.dim.x == NULL))
-        DFL_HANDLE(Window)->info.dim.x = DFL_HANDLE(Window)->maxRes.x;
-    if ((DFL_HANDLE(Window)->maxRes.y < DFL_HANDLE(Window)->info.dim.y) || (DFL_HANDLE(Window)->info.dim.y == NULL))
-        DFL_HANDLE(Window)->info.dim.y = DFL_HANDLE(Window)->maxRes.y;
+    if ((DFL_WINDOW->maxRes.x < DFL_WINDOW->info.dim.x) || (DFL_WINDOW->info.dim.x == NULL))
+        DFL_WINDOW->info.dim.x = DFL_WINDOW->maxRes.x;
+    if ((DFL_WINDOW->maxRes.y < DFL_WINDOW->info.dim.y) || (DFL_WINDOW->info.dim.y == NULL))
+        DFL_WINDOW->info.dim.y = DFL_WINDOW->maxRes.y;
 
-    DFL_HANDLE(Window)->imageCount = surfaceCaps.minImageCount + 1;
+    DFL_WINDOW->imageCount = surfaceCaps.minImageCount + 1;
 
     VkSwapchainCreateInfoKHR swapInfo = _dflWindowSwapchainCreateInfoGet(hWindow, hDevice);
 
-    vkCreateSwapchainKHR(DFL_HANDLE(Device)->device, &swapInfo, NULL, &DFL_HANDLE(Window)->swapchain);
-    if(DFL_HANDLE(Window)->swapchain == NULL)
+    vkCreateSwapchainKHR(DFL_DEVICE->device, &swapInfo, NULL, &DFL_WINDOW->swapchain);
+    if(DFL_WINDOW->swapchain == NULL)
     {
-        DFL_HANDLE(Window)->error = DFL_VULKAN_SURFACE_NO_SWAPCHAIN_ERROR;
+        DFL_WINDOW->error = DFL_VULKAN_SURFACE_NO_SWAPCHAIN_ERROR;
         return;
     }
 
-    DFL_HANDLE(Window)->device = hDevice;
+    DFL_WINDOW->device = hDevice;
 }
 
 /* -------------------- *
@@ -336,65 +336,65 @@ void dflWindowReshape(int type, struct DflVec2D rect, DflWindow hWindow)
 {
     switch (type) {
     case DFL_DIMENSIONS:
-        DFL_HANDLE(Window)->info.dim = rect;
-        glfwSetWindowSize(DFL_HANDLE(Window)->handle, rect.x, rect.y);
+        DFL_WINDOW->info.dim = rect;
+        glfwSetWindowSize(DFL_WINDOW->handle, rect.x, rect.y);
         break;
     default:
-        DFL_HANDLE(Window)->info.view = rect;
+        DFL_WINDOW->info.view = rect;
         break;
     }
 
-    if (DFL_HANDLE(Window)->swapchain != NULL)
+    if (DFL_WINDOW->swapchain != NULL)
         _dflWindowSwapchainRecreate(hWindow);
 
-    if (DFL_HANDLE(Window)->reshapeCLBK != NULL)
-        DFL_HANDLE(Window)->reshapeCLBK(rect, type, hWindow);
+    if (DFL_WINDOW->reshapeCLBK != NULL)
+        DFL_WINDOW->reshapeCLBK(rect, type, hWindow);
 }
 
 void dflWindowReposition(struct DflVec2D pos, DflWindow hWindow)
 {
-    DFL_HANDLE(Window)->info.pos = pos;
+    DFL_WINDOW->info.pos = pos;
     glfwSetWindowPos(DFL_HANDLE(Window)->handle, pos.x, pos.y);
 
-    if (DFL_HANDLE(Window)->repositionCLBK != NULL)
-        DFL_HANDLE(Window)->repositionCLBK(pos, hWindow);
+    if (DFL_WINDOW->repositionCLBK != NULL)
+        DFL_WINDOW->repositionCLBK(pos, hWindow);
 }
 
 void dflWindowChangeMode(int mode, DflWindow hWindow)
 {
-    DFL_HANDLE(Window)->info.mode = mode;
+    DFL_WINDOW->info.mode = mode;
     switch (mode) {
     case DFL_WINDOWED:
-        glfwSetWindowAttrib(DFL_HANDLE(Window)->handle, GLFW_DECORATED, GLFW_TRUE);
-        glfwSetWindowMonitor(DFL_HANDLE(Window)->handle, NULL, DFL_HANDLE(Window)->info.pos.x, DFL_HANDLE(Window)->info.pos.y, DFL_HANDLE(Window)->info.dim.x, DFL_HANDLE(Window)->info.dim.y, GLFW_DONT_CARE);
+        glfwSetWindowAttrib(DFL_WINDOW->handle, GLFW_DECORATED, GLFW_TRUE);
+        glfwSetWindowMonitor(DFL_WINDOW->handle, NULL, DFL_WINDOW->info.pos.x, DFL_WINDOW->info.pos.y, DFL_WINDOW->info.dim.x, DFL_WINDOW->info.dim.y, GLFW_DONT_CARE);
         break;
     case DFL_FULLSCREEN:
-        glfwSetWindowMonitor(DFL_HANDLE(Window)->handle, glfwGetPrimaryMonitor(), 0, 0, DFL_HANDLE(Window)->info.dim.x, DFL_HANDLE(Window)->info.dim.y, GLFW_DONT_CARE);
+        glfwSetWindowMonitor(DFL_WINDOW->handle, glfwGetPrimaryMonitor(), 0, 0, DFL_WINDOW->info.dim.x, DFL_WINDOW->info.dim.y, GLFW_DONT_CARE);
         break;
     case DFL_BORDERLESS:
-        glfwSetWindowAttrib(DFL_HANDLE(Window)->handle, GLFW_DECORATED, GLFW_FALSE);
-        glfwSetWindowMonitor(DFL_HANDLE(Window)->handle, NULL, DFL_HANDLE(Window)->info.pos.x, DFL_HANDLE(Window)->info.pos.y, DFL_HANDLE(Window)->info.dim.x, DFL_HANDLE(Window)->info.dim.y, GLFW_DONT_CARE);
+        glfwSetWindowAttrib(DFL_WINDOW->handle, GLFW_DECORATED, GLFW_FALSE);
+        glfwSetWindowMonitor(DFL_WINDOW->handle, NULL, DFL_WINDOW->info.pos.x, DFL_WINDOW->info.pos.y, DFL_WINDOW->info.dim.x, DFL_WINDOW->info.dim.y, GLFW_DONT_CARE);
         break;
     default:
-        glfwSetWindowAttrib(DFL_HANDLE(Window)->handle, GLFW_DECORATED, GLFW_TRUE);
-        glfwSetWindowMonitor(DFL_HANDLE(Window)->handle, NULL, DFL_HANDLE(Window)->info.pos.x, DFL_HANDLE(Window)->info.pos.y, DFL_HANDLE(Window)->info.dim.x, DFL_HANDLE(Window)->info.dim.y, GLFW_DONT_CARE);
+        glfwSetWindowAttrib(DFL_WINDOW->handle, GLFW_DECORATED, GLFW_TRUE);
+        glfwSetWindowMonitor(DFL_WINDOW->handle, NULL, DFL_WINDOW->info.pos.x, DFL_WINDOW->info.pos.y, DFL_WINDOW->info.dim.x, DFL_WINDOW->info.dim.y, GLFW_DONT_CARE);
         break;
     }
 
-    if(DFL_HANDLE(Window)->swapchain != NULL)
+    if(DFL_WINDOW->swapchain != NULL)
         _dflWindowSwapchainRecreate(hWindow);
 
-    if (DFL_HANDLE(Window)->modeCLBK != NULL)
-        DFL_HANDLE(Window)->modeCLBK(mode, hWindow);
+    if (DFL_WINDOW->modeCLBK != NULL)
+        DFL_WINDOW->modeCLBK(mode, hWindow);
 }
 
 void dflWindowRename(const char* name, DflWindow hWindow)
 {
-    strcpy_s(&DFL_HANDLE(Window)->info.name, DFL_MAX_CHAR_COUNT, name);
-    glfwSetWindowTitle(DFL_HANDLE(Window)->handle, name);
+    strcpy_s(&DFL_WINDOW->info.name, DFL_MAX_CHAR_COUNT, name);
+    glfwSetWindowTitle(DFL_WINDOW->handle, name);
 
-    if (DFL_HANDLE(Window)->renameCLBK != NULL)
-        DFL_HANDLE(Window)->renameCLBK(name, hWindow);
+    if (DFL_WINDOW->renameCLBK != NULL)
+        DFL_WINDOW->renameCLBK(name, hWindow);
 }
 
 void dflWindowChangeIcon(DflImage icon, DflWindow hWindow)
@@ -403,11 +403,11 @@ void dflWindowChangeIcon(DflImage icon, DflWindow hWindow)
     dflImageLoad(&icon);
     image.pixels = ((struct DflImage_T*)icon)->data;
 
-    glfwSetWindowIcon(DFL_HANDLE(Window)->handle, 1, &image);
-    DFL_HANDLE(Window)->info.icon = icon;
+    glfwSetWindowIcon(DFL_WINDOW->handle, 1, &image);
+    DFL_WINDOW->info.hIcon = icon;
 
-    if (DFL_HANDLE(Window)->iconCLBK != NULL)
-        DFL_HANDLE(Window)->iconCLBK(icon, hWindow);
+    if (DFL_WINDOW->iconCLBK != NULL)
+        DFL_WINDOW->iconCLBK(icon, hWindow);
 }
 
 /* -------------------- *
@@ -418,9 +418,9 @@ struct DflVec2D dflWindowRectGet(int type, DflWindow hWindow)
 {
     switch (type) {
     case DFL_DIMENSIONS:
-        return DFL_HANDLE(Window)->info.dim;
+        return DFL_WINDOW->info.dim;
     default:
-        return DFL_HANDLE(Window)->info.view;
+        return DFL_WINDOW->info.view;
     }
 }
 
@@ -428,29 +428,29 @@ struct DflVec2D dflWindowPosGet(DflWindow hWindow)
 {
     struct DflVec2D pos = { .x = 0, .y = 0 };
 
-    glfwGetWindowPos(DFL_HANDLE(Window)->handle, &pos.x, &pos.y);
+    glfwGetWindowPos(DFL_WINDOW->handle, &pos.x, &pos.y);
     return pos;
 }
 
 DflSession dflWindowSessionGet(DflWindow hWindow)
 {
-    return (DFL_HANDLE(Window)->session);
+    return (DFL_WINDOW->session);
 }
 
 bool dflWindowShouldCloseGet(DflWindow hWindow)
 {
-    return glfwWindowShouldClose(DFL_HANDLE(Window)->handle);
+    return glfwWindowShouldClose(DFL_WINDOW->handle);
 }
 
 int dflWindowErrorGet(DflWindow hWindow)
 {
-    return DFL_HANDLE(Window)->error;
+    return DFL_WINDOW->error;
 }
 
 void dflWindowWin32AttributeSet(int attrib, int value, DflWindow hWindow)
 {
 #ifdef _WIN32
-    HWND hwnd = glfwGetWin32Window(DFL_HANDLE(Window)->handle);
+    HWND hwnd = glfwGetWin32Window(DFL_WINDOW->handle);
     HRESULT hr = S_OK;
 
     if (attrib > 0)
@@ -496,7 +496,7 @@ void dflWindowWin32AttributeSet(int attrib, int value, DflWindow hWindow)
         }
     }
 
-    DFL_HANDLE(Window)->error = hr;
+    DFL_WINDOW->error = hr;
 #endif
 
     return;
@@ -504,13 +504,13 @@ void dflWindowWin32AttributeSet(int attrib, int value, DflWindow hWindow)
 
 void _dflWindowErrorSet(int error, DflWindow hWindow)
 {
-    DFL_HANDLE(Window)->error = error;
+    DFL_WINDOW->error = error;
 }
 
 void _dflWindowSessionSet(VkSurfaceKHR surface, DflSession session, DflWindow hWindow)
 {
-    DFL_HANDLE(Window)->session = session;
-    DFL_HANDLE(Window)->surface = surface;
+    DFL_WINDOW->session = session;
+    DFL_WINDOW->surface = surface;
 }
 
 /* -------------------- *
@@ -519,30 +519,30 @@ void _dflWindowSessionSet(VkSurfaceKHR surface, DflSession session, DflWindow hW
 
 void _dflWindowDestroy(DflWindow hWindow)
 {
-    if (DFL_HANDLE(Window)->destroyCLBK != NULL)
-        DFL_HANDLE(Window)->destroyCLBK(hWindow);
+    if (DFL_WINDOW->destroyCLBK != NULL)
+        DFL_WINDOW->destroyCLBK(hWindow);
 
-    glfwDestroyWindow(DFL_HANDLE(Window)->handle);
+    glfwDestroyWindow(DFL_WINDOW->handle);
 
     free(hWindow);
 }
 
 void dflWindowTerminate(DflWindow hWindow)
 {
-    ((struct DflSession_T*)DFL_HANDLE(Window)->session)->windows[DFL_HANDLE(Window)->index] = NULL;
+    ((struct DflSession_T*)DFL_WINDOW->session)->windows[DFL_HANDLE(Window)->index] = NULL;
 
-    vkDestroySurfaceKHR(((struct DflSession_T*)DFL_HANDLE(Window)->session)->instance, DFL_HANDLE(Window)->surface, NULL);
-    ((struct DflSession_T*)DFL_HANDLE(Window)->session)->windows[DFL_HANDLE(Window)->index] = NULL;
+    vkDestroySurfaceKHR(((struct DflSession_T*)DFL_WINDOW->session)->instance, DFL_WINDOW->surface, NULL);
+    ((struct DflSession_T*)DFL_WINDOW->session)->windows[DFL_WINDOW->index] = NULL;
 
     _dflWindowDestroy(hWindow);
 }
 
 void dflWindowUnbindFromDevice(DflWindow hWindow, DflDevice hDevice)
 {
-    if (DFL_HANDLE(Window)->swapchain == NULL)
+    if (DFL_WINDOW->swapchain == NULL)
         return;
 
-    vkDestroySwapchainKHR(((struct DflDevice_T*)hDevice)->device, DFL_HANDLE(Window)->swapchain, NULL);
+    vkDestroySwapchainKHR(((struct DflDevice_T*)hDevice)->device, DFL_WINDOW->swapchain, NULL);
 }
 
 /* -------------------- *
@@ -552,31 +552,31 @@ void dflWindowUnbindFromDevice(DflWindow hWindow, DflDevice hDevice)
 void dflWindowReshapeCLBKSet(DflWindowReshapeCLBK clbk, DflWindow hWindow)
 {
     // TODO: add a way to set the GLFW callback as well
-    DFL_HANDLE(Window)->reshapeCLBK = clbk;
+    DFL_WINDOW->reshapeCLBK = clbk;
 }
 
 void dflWindowRepositionCLBKSet(DflWindowRepositionCLBK clbk, DflWindow hWindow)
 {
     // TODO: add a way to set the GLFW callback as well
-    DFL_HANDLE(Window)->repositionCLBK = clbk;
+    DFL_WINDOW->repositionCLBK = clbk;
 }
 
 void dflWindowChangeModeCLBKSet(DflWindowChangeModeCLBK clbk, DflWindow hWindow)
 {
-    DFL_HANDLE(Window)->modeCLBK = clbk;
+    DFL_WINDOW->modeCLBK = clbk;
 }
 
 void dflWindowRenameCLBKSet(DflWindowRenameCLBK clbk, DflWindow hWindow)
 {
-    DFL_HANDLE(Window)->renameCLBK = clbk;
+    DFL_WINDOW->renameCLBK = clbk;
 }
 
 void dflWindowChangeIconCLBKSet(DflWindowChangeIconCLBK clbk, DflWindow hWindow)
 {
-    DFL_HANDLE(Window)->iconCLBK = clbk;
+    DFL_WINDOW->iconCLBK = clbk;
 }
 
 void dflWindowDestroyCLBKSet(DflWindowCloseCLBK clbk, DflWindow hWindow)
 {
-    DFL_HANDLE(Window)->destroyCLBK = clbk;
+    DFL_WINDOW->destroyCLBK = clbk;
 }
