@@ -6,7 +6,7 @@
 #include <pthread.h>
 #endif
 
-DflThread dflThreadInit(DflThreadProc pFuncProc, void* pParams, DflSession* pSession)
+DflThread dflThreadInit(DflThreadProc pFuncProc, void* pParams, DflSession hSession)
 {
     struct DflThread_T* thread = 1;
 
