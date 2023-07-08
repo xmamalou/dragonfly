@@ -79,8 +79,8 @@ inline static struct DflDevice_T* _dflDeviceAlloc() {
 // just a helper function that fills GPU specific information in DflSession_T. When ranking devices,
 // Dragonfly will always sort each checked device using this function, unless the previous device
 // was already ranked higher. This will help avoid calling this function too many times.
-static int _dflDeviceOrganiseData(struct DflDevice_T* device);
-static int _dflDeviceOrganiseData(struct DflDevice_T* device)
+static int _dflDeviceOrganiseData(struct DflDevice_T* pDevice);
+static int _dflDeviceOrganiseData(struct DflDevice_T* pDevice)
 {
     VkDeviceCreateInfo deviceInfo = {
             .sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
@@ -88,34 +88,34 @@ static int _dflDeviceOrganiseData(struct DflDevice_T* device)
             .flags = NULL
     };
     VkPhysicalDeviceProperties props;
-    vkGetPhysicalDeviceProperties(device->physDevice, &props);
+    vkGetPhysicalDeviceProperties(pDevice->physDevice, &props);
     VkPhysicalDeviceMemoryProperties memProps;
-    vkGetPhysicalDeviceMemoryProperties(device->physDevice, &memProps);
+    vkGetPhysicalDeviceMemoryProperties(pDevice->physDevice, &memProps);
     VkPhysicalDeviceFeatures feats;
-    vkGetPhysicalDeviceFeatures(device->physDevice, &feats);
+    vkGetPhysicalDeviceFeatures(pDevice->physDevice, &feats);
 
-    strcpy_s(&device->name, VK_MAX_PHYSICAL_DEVICE_NAME_SIZE, &props.deviceName);
+    strcpy_s(&pDevice->name, VK_MAX_PHYSICAL_DEVICE_NAME_SIZE, &props.deviceName);
 
     for (int i = 0; i < memProps.memoryHeapCount; i++)
     {
         if (memProps.memoryHeaps[i].flags & VK_MEMORY_HEAP_DEVICE_LOCAL_BIT)
         {
-            device->localHeaps++;
-            void* dummy = realloc(device->localMem, device->localHeaps * sizeof(struct DflLocalMem_T));
+            pDevice->localHeaps++;
+            void* dummy = realloc(pDevice->localMem, pDevice->localHeaps * sizeof(struct DflLocalMem_T));
             if (dummy == NULL)
                 return DFL_GENERIC_OOM_ERROR;
-            device->localMem = dummy;
-            device->localMem->size = memProps.memoryHeaps[i].size;
-            device->localMem->heapIndex = memProps.memoryTypes[i].heapIndex;
+            pDevice->localMem = dummy;
+            pDevice->localMem->size = memProps.memoryHeaps[i].size;
+            pDevice->localMem->heapIndex = memProps.memoryTypes[i].heapIndex;
         }
     }
 
-    device->maxDim1D = props.limits.maxImageDimension1D;
-    device->maxDim2D = props.limits.maxImageDimension2D;
-    device->maxDim3D = props.limits.maxImageDimension3D;
+    pDevice->maxDim1D = props.limits.maxImageDimension1D;
+    pDevice->maxDim2D = props.limits.maxImageDimension2D;
+    pDevice->maxDim3D = props.limits.maxImageDimension3D;
 
-    device->canDoGeomShade = feats.geometryShader;
-    device->canDoTessShade = feats.tessellationShader;
+    pDevice->canDoGeomShade = feats.geometryShader;
+    pDevice->canDoTessShade = feats.tessellationShader;
 
     return DFL_SUCCESS;
 }
@@ -326,8 +326,13 @@ int dflDeviceErrorGet(DflDevice hDevice)
  *   DESTROY            *
  * -------------------- */
 
-void dflDeviceTerminate(DflDevice hDevice)
+// Similarly to dflWindowTerminate, the existence of hSession in the arguments is purely to remind the user to call 
+// dflDeviceTerminate before dflSessionDestroy.
+void dflDeviceTerminate(DflDevice hDevice, DflSession hSession)
 {
+    if (hSession != DFL_DEVICE->session)
+        return; // but it's also good to not allow accidental mixups between sessions and their devices.
+
     for(int i = 0; i < 4; i++) // destroy command pools
         vkDestroyCommandPool(DFL_DEVICE->device, DFL_DEVICE->queues.comPool[i], NULL);
 
