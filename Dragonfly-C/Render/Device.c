@@ -317,6 +317,11 @@ const char* dflDeviceNameGet(DflDevice hDevice)
     return DFL_DEVICE->name;
 }
 
+inline DflSession dflDeviceSessionGet(DflDevice hDevice)
+{
+    return DFL_DEVICE->session;
+}
+
 int dflDeviceErrorGet(DflDevice hDevice)
 {
     return DFL_DEVICE->error;
