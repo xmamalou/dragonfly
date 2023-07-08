@@ -25,7 +25,10 @@ struct DflMonitorInfo* dflMonitorsGet(int* pCount, DflSession hSession)
     if ((DFL_SESSION == NULL) || (DFL_SESSION->monitorCount == 0))
     {
         if (!glfwInit())
+        {
+            *pCount = 0;
             return NULL;
+        }
 
         GLFWmonitor** monitors = glfwGetMonitors(pCount);
 

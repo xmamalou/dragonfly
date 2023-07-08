@@ -17,9 +17,12 @@
 
 #include <stdlib.h>
 #include <string.h>
+#include <stdio.h>
 
-#ifdef _DEBUG
-#include <stdio.h> // Dragonfly assumes IO is available only for debug builds
+
+#ifdef _WIN32
+#include <Windows.h>
+#pragma comment(lib, "user32.lib")
 #endif
 
 /* -------------------- *
@@ -36,23 +39,17 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL _dflDebugCLBK(VkDebugUtilsMessageSeverityF
 {
     if (severity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT)
     {
-#if _DEBUG // we'll use IO only for debug builds
-        printf("VULKAN ENCOUNTERED AN ERROR: %s\n", data->pMessage);
-#endif
+        printf("\n\x1b[31mVULKAN ENCOUNTERED AN ERROR\n===ERROR===\x1b[0m\n%s\n", data->pMessage);
         return VK_FALSE;
     }
     if (severity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT)
     {
-#if _DEBUG // we'll use IO only for debug builds
-        printf("VULKAN WARNS: %s\n", data->pMessage);
-#endif
+        printf("\n\x1b[33mVULKAN WARNS\n===WARNING===\x1b[0m\n%s\n", data->pMessage);
         return VK_FALSE;
     }
     if (severity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT)
     {
-#if _DEBUG // we'll use IO only for debug builds
-        printf("VULKAN INFORMS: %s\n", data->pMessage);
-#endif
+        printf("\n\x1b[35mVULKAN INFORMS\n===MESSAGE===\x1b[0m\n%s\n", data->pMessage);
         return VK_FALSE;
     }
 
@@ -98,6 +95,7 @@ static int _dflSessionVulkanInstanceInit(struct DflSessionInfo* info, VkInstance
 #endif
     }
 
+    int desiredLayerCount = 1;
     const char* desiredLayers[] = {
             "VK_LAYER_KHRONOS_validation" };
 
@@ -111,33 +109,27 @@ static int _dflSessionVulkanInstanceInit(struct DflSessionInfo* info, VkInstance
         extensions[extensionCount - 1] = VK_EXT_DEBUG_UTILS_EXTENSION_NAME;
 
         uint32_t layerCount = 0;
+        VkLayerProperties* layers = NULL;
         vkEnumerateInstanceLayerProperties(&layerCount, NULL);
-        if (!layerCount)
-        {
+        if (!layerCount) 
             return DFL_VULKAN_LAYER_ERROR;
-        }
-        VkLayerProperties* layers = calloc(layerCount, sizeof(VkLayerProperties));
+        layers = calloc(layerCount, sizeof(VkLayerProperties));
+        if (layers == NULL)
+            return DFL_GENERIC_OOM_ERROR;
         vkEnumerateInstanceLayerProperties(&layerCount, layers);
 
-        if (layers == NULL)
-        {
-            return DFL_VULKAN_LAYER_ERROR;
-        }
-
-        for (int j = 0; j < 1; j++)
+        for (int j = 0; j < desiredLayerCount; j++)
         {
             for (int i = 0; i < layerCount; i++)
             {
                 if (strcmp(layers[i].layerName, desiredLayers[j]) == 0)
                     break;
                 if (i == layerCount - 1)
-                {
                     return DFL_VULKAN_LAYER_ERROR;
-                }
             }
         }
     }
-    instInfo.enabledLayerCount = !(flags & DFL_SESSION_CRITERIA_DO_DEBUG) ? 0 : 1;
+    instInfo.enabledLayerCount = !(flags & DFL_SESSION_CRITERIA_DO_DEBUG) ? 0 : desiredLayerCount;
     instInfo.ppEnabledLayerNames = !(flags & DFL_SESSION_CRITERIA_DO_DEBUG) ?  NULL : (const char**)desiredLayers;
 
     instInfo.enabledExtensionCount = extensionCount;
@@ -148,7 +140,7 @@ static int _dflSessionVulkanInstanceInit(struct DflSessionInfo* info, VkInstance
         return DFL_VULKAN_INSTANCE_ERROR;
     }
 
-    if (flags & DFL_SESSION_CRITERIA_DO_DEBUG) // if debug is enabled, create a debug messenger (enables all severity messages, except verbose)
+    if (flags & DFL_SESSION_CRITERIA_DO_DEBUG)
     {
         VkDebugUtilsMessengerCreateInfoEXT debugInfo = {
            .sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT,
@@ -195,7 +187,24 @@ DflSession dflSessionCreate(struct DflSessionInfo* pInfo)
     else
         session->info = *pInfo;
 
+    
     session->error = _dflSessionVulkanInstanceInit(&(session->info), &(session->instance), &(session->messenger), session->info.sessionCriteria);
+
+//gather system info
+#ifdef _WIN32
+    SYSTEM_INFO sysInfo;
+    GetSystemInfo(&sysInfo);
+
+    session->processorCount = (sysInfo.dwNumberOfProcessors)/2; // usually, the number of physical cores is half the number of logical cores.
+    session->threadCount = sysInfo.dwNumberOfProcessors;
+
+    MEMORYSTATUSEX memInfo;
+    memInfo.dwLength = sizeof(MEMORYSTATUSEX);
+    GlobalMemoryStatusEx(&memInfo);
+    session->memorySize = memInfo.ullTotalPhys;
+#else
+    // TODO: Implement for POSIX platforms.
+#endif
 
     return (DflSession)session;
 }

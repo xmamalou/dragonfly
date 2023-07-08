@@ -126,8 +126,81 @@ static VkSwapchainCreateInfoKHR _dflWindowSwapchainCreateInfoGet(DflWindow hWind
     return swapInfo;
 }
 
+static void _dflWindowSwapchainImagesGet(DflWindow hWindow);
+void        _dflWindowSwapchainImagesGet(DflWindow hWindow)
+{
+    vkGetSwapchainImagesKHR(((struct DflDevice_T*)DFL_WINDOW->device)->device, DFL_WINDOW->swapchain, &DFL_WINDOW->imageCount, NULL);
+    if(DFL_WINDOW->images == NULL)
+        DFL_WINDOW->images = malloc(sizeof(VkImage) * DFL_WINDOW->imageCount);
+    else
+    {
+        void* tmp = realloc(DFL_WINDOW->images, sizeof(VkImage) * DFL_WINDOW->imageCount);
+        DFL_WINDOW->images = (VkImage*)tmp;
+    }
+
+    if (DFL_WINDOW->images == NULL)
+    {
+        DFL_WINDOW->error = DFL_GENERIC_OOM_ERROR;
+        return;
+    }
+    vkGetSwapchainImagesKHR(((struct DflDevice_T*)DFL_WINDOW->device)->device, DFL_WINDOW->swapchain, &DFL_WINDOW->imageCount, DFL_WINDOW->images);
+
+    if (DFL_WINDOW->imageViews == NULL)
+        DFL_WINDOW->imageViews = calloc(DFL_WINDOW->imageCount, sizeof(VkImageView));
+    if (DFL_WINDOW->imageViews == NULL)
+    {
+        DFL_WINDOW->error = DFL_GENERIC_OOM_ERROR;
+        return;
+    }
+}
+
+static void _dflWindowSwapchainImageViewsCreate(DflWindow hWindow);
+void        _dflWindowSwapchainImageViewsCreate(DflWindow hWindow)
+{
+    for (int i = 0; i < DFL_WINDOW->imageCount; i++)
+    {
+        VkImageViewCreateInfo imageViewInfo = {
+            .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
+            .image = DFL_WINDOW->images[i],
+            .viewType = VK_IMAGE_VIEW_TYPE_2D,
+            .format = DFL_WINDOW->info.colorFormat,
+            .components = {
+                /*
+                * the swizzling component in the window's info is a bitfield
+                * whose first bit says whether the red channel is used, the 
+                * second whether the green channel is used, the third whether
+                * the blue channel is used, and the fourth whether the alpha
+                * channel is used. 
+                * 
+                * If the bit is set (= 1), then (1 & 1) = 1, so the channel is used. 
+                * If the bit is not set (= 0), then (0 & 1) = 0, so the channel is not used.
+                * 
+                * Since, however, Vulkan uses the opposite convention, we need to use conditionals to swap the values.
+                */
+                .r = (DFL_WINDOW->info.swizzling & VK_COMPONENT_SWIZZLE_ZERO) ? VK_COMPONENT_SWIZZLE_IDENTITY : VK_COMPONENT_SWIZZLE_ZERO,
+                .g = ((DFL_WINDOW->info.swizzling >> 1) & VK_COMPONENT_SWIZZLE_ZERO) ? VK_COMPONENT_SWIZZLE_IDENTITY : VK_COMPONENT_SWIZZLE_ZERO,
+                .b = ((DFL_WINDOW->info.swizzling >> 2) & VK_COMPONENT_SWIZZLE_ZERO) ? VK_COMPONENT_SWIZZLE_IDENTITY : VK_COMPONENT_SWIZZLE_ZERO,
+                .a = ((DFL_WINDOW->info.swizzling >> 3) & VK_COMPONENT_SWIZZLE_ZERO) ? VK_COMPONENT_SWIZZLE_IDENTITY : VK_COMPONENT_SWIZZLE_ZERO,
+            },
+            .subresourceRange = {
+                .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+                .baseMipLevel = 0,
+                .levelCount = 1,
+                .layerCount = DFL_WINDOW->info.layers,
+                .baseArrayLayer = 0,
+            }
+        };
+
+        if (vkCreateImageView(((struct DflDevice_T*)DFL_WINDOW->device)->device, &imageViewInfo, NULL, &DFL_WINDOW->imageViews[i]) != VK_SUCCESS)
+        {
+            DFL_WINDOW->error = DFL_VULKAN_SURFACE_NO_VIEWS_ERROR;
+            return;
+        }
+    }
+}
+
 static void _dflWindowSwapchainRecreate(DflWindow hWindow);
-void _dflWindowSwapchainRecreate(DflWindow hWindow)
+void        _dflWindowSwapchainRecreate(DflWindow hWindow)
 {
     VkSurfaceCapabilitiesKHR surfaceCaps;
     vkGetPhysicalDeviceSurfaceCapabilitiesKHR(((struct DflDevice_T*)DFL_WINDOW->device)->physDevice, DFL_WINDOW->surface, &surfaceCaps);
@@ -149,6 +222,8 @@ void _dflWindowSwapchainRecreate(DflWindow hWindow)
     if ((DFL_WINDOW->maxRes.y < DFL_WINDOW->info.dim.y) || (DFL_WINDOW->info.dim.y == NULL))
         DFL_WINDOW->info.dim.y = DFL_WINDOW->maxRes.y;
 
+    DFL_WINDOW->imageCount = surfaceCaps.minImageCount + 1;
+
     VkSwapchainCreateInfoKHR swapInfo = _dflWindowSwapchainCreateInfoGet(hWindow, DFL_WINDOW->device);
     VkSwapchainKHR dummy = NULL;
     vkCreateSwapchainKHR(((struct DflDevice_T*)DFL_WINDOW->device)->device, &swapInfo, NULL, &dummy);
@@ -157,13 +232,24 @@ void _dflWindowSwapchainRecreate(DflWindow hWindow)
         DFL_WINDOW->error = DFL_VULKAN_SURFACE_NO_SWAPCHAIN_ERROR;
         return;
     }
-    vkDestroySwapchainKHR(((struct DflDevice_T*)DFL_WINDOW->device)->device, DFL_WINDOW->swapchain, NULL);
+    vkDeviceWaitIdle(((struct DflDevice_T*)DFL_WINDOW->device)->device);
+    if(DFL_WINDOW->swapchain != NULL)
+        vkDestroySwapchainKHR(((struct DflDevice_T*)DFL_WINDOW->device)->device, DFL_WINDOW->swapchain, NULL);
     DFL_WINDOW->swapchain = dummy;
+
+    _dflWindowSwapchainImagesGet(hWindow);
+    // we want to destroy the old image views before creating new ones
+    for (int i = 0; i < DFL_WINDOW->imageCount; i++)
+    {
+        if(DFL_WINDOW->imageViews[i] != NULL)
+            vkDestroyImageView(((struct DflDevice_T*)DFL_WINDOW->device)->device, DFL_WINDOW->imageViews[i], NULL);
+    }
+    _dflWindowSwapchainImageViewsCreate(hWindow);
 }
 
 // this exists just as a shorthand
 inline static struct DflWindow_T* _dflWindowAlloc();
-static struct DflWindow_T* _dflWindowAlloc()
+struct DflWindow_T*               _dflWindowAlloc()
 {
     return calloc(1, sizeof(struct DflWindow_T));
 }
@@ -175,6 +261,8 @@ static struct DflWindow_T* _dflWindowAlloc()
 DflWindow _dflWindowCreate(DflWindowInfo* pInfo, DflSession hSession)
 {
     struct DflWindow_T* window = _dflWindowAlloc();
+    if(window == NULL)
+        return NULL;
 
     if (pInfo == NULL)
     {
@@ -252,9 +340,6 @@ DflWindow dflWindowInit(DflWindowInfo* pWindowInfo, DflSession hSession)
 
 void dflWindowBindToDevice(DflWindow hWindow, DflDevice hDevice)
 {
-    VkSurfaceCapabilitiesKHR surfaceCaps;
-    vkGetPhysicalDeviceSurfaceCapabilitiesKHR(DFL_DEVICE->physDevice, DFL_WINDOW->surface, &surfaceCaps);
-
     int formatCount;
     vkGetPhysicalDeviceSurfaceFormatsKHR(DFL_DEVICE->physDevice, DFL_WINDOW->surface, &formatCount, NULL);
     if(formatCount == 0)
@@ -270,49 +355,17 @@ void dflWindowBindToDevice(DflWindow hWindow, DflDevice hDevice)
     }
     vkGetPhysicalDeviceSurfaceFormatsKHR(DFL_DEVICE->physDevice, DFL_WINDOW->surface, &formatCount, formats);
 
+    int choice = 0;
     for (int i = 0; i < formatCount; i++)
     {
         if (DFL_WINDOW->info.colorFormat == formats[i].format)
-        {
-            DFL_WINDOW->colorSpace = formats[i].colorSpace;
-            break;
-        }
-        else // else just prefer the first format
-        {
-            DFL_WINDOW->colorSpace = formats[0].colorSpace;
-            DFL_WINDOW->info.colorFormat = formats[0].format;
-        }
+            choice = i;
     }
-
-    DFL_WINDOW->minRes.x = surfaceCaps.minImageExtent.width;
-    DFL_WINDOW->minRes.y = surfaceCaps.minImageExtent.height;
-
-    DFL_WINDOW->maxRes.x = surfaceCaps.maxImageExtent.width;
-    DFL_WINDOW->maxRes.y = surfaceCaps.maxImageExtent.height;
-    
-    // the below make sure that the resolution is within the bounds that are supported
-    if ((DFL_WINDOW->minRes.x > DFL_WINDOW->info.dim.x) || (DFL_WINDOW->info.dim.x == NULL))
-        DFL_WINDOW->info.dim.x = DFL_WINDOW->minRes.x;
-    if ((DFL_WINDOW->minRes.y > DFL_WINDOW->info.dim.y) || (DFL_WINDOW->info.dim.y == NULL))
-        DFL_WINDOW->info.dim.y = DFL_WINDOW->minRes.y;
-
-    if ((DFL_WINDOW->maxRes.x < DFL_WINDOW->info.dim.x) || (DFL_WINDOW->info.dim.x == NULL))
-        DFL_WINDOW->info.dim.x = DFL_WINDOW->maxRes.x;
-    if ((DFL_WINDOW->maxRes.y < DFL_WINDOW->info.dim.y) || (DFL_WINDOW->info.dim.y == NULL))
-        DFL_WINDOW->info.dim.y = DFL_WINDOW->maxRes.y;
-
-    DFL_WINDOW->imageCount = surfaceCaps.minImageCount + 1;
-
-    VkSwapchainCreateInfoKHR swapInfo = _dflWindowSwapchainCreateInfoGet(hWindow, hDevice);
-
-    vkCreateSwapchainKHR(DFL_DEVICE->device, &swapInfo, NULL, &DFL_WINDOW->swapchain);
-    if(DFL_WINDOW->swapchain == NULL)
-    {
-        DFL_WINDOW->error = DFL_VULKAN_SURFACE_NO_SWAPCHAIN_ERROR;
-        return;
-    }
+    DFL_WINDOW->info.colorFormat = formats[choice].format;
+    DFL_WINDOW->colorSpace = formats[choice].colorSpace;
 
     DFL_WINDOW->device = hDevice;
+    _dflWindowSwapchainRecreate(hWindow);
 }
 
 /* -------------------- *
@@ -333,18 +386,12 @@ void dflWindowReshape(int type, struct DflVec2D rect, DflWindow hWindow)
 
     if (DFL_WINDOW->swapchain != NULL)
         _dflWindowSwapchainRecreate(hWindow);
-
-    if (DFL_WINDOW->reshapeCLBK != NULL)
-        DFL_WINDOW->reshapeCLBK(rect, type, hWindow);
 }
 
 void dflWindowReposition(struct DflVec2D pos, DflWindow hWindow)
 {
     DFL_WINDOW->info.pos = pos;
     glfwSetWindowPos(DFL_HANDLE(Window)->handle, pos.x, pos.y);
-
-    if (DFL_WINDOW->repositionCLBK != NULL)
-        DFL_WINDOW->repositionCLBK(pos, hWindow);
 }
 
 void dflWindowChangeMode(int mode, DflWindow hWindow)
@@ -370,18 +417,12 @@ void dflWindowChangeMode(int mode, DflWindow hWindow)
 
     if(DFL_WINDOW->swapchain != NULL)
         _dflWindowSwapchainRecreate(hWindow);
-
-    if (DFL_WINDOW->modeCLBK != NULL)
-        DFL_WINDOW->modeCLBK(mode, hWindow);
 }
 
 void dflWindowRename(const char* name, DflWindow hWindow)
 {
     strcpy_s(&DFL_WINDOW->info.name, DFL_MAX_CHAR_COUNT, name);
     glfwSetWindowTitle(DFL_WINDOW->handle, name);
-
-    if (DFL_WINDOW->renameCLBK != NULL)
-        DFL_WINDOW->renameCLBK(name, hWindow);
 }
 
 void dflWindowChangeIcon(DflImage icon, DflWindow hWindow)
@@ -392,9 +433,6 @@ void dflWindowChangeIcon(DflImage icon, DflWindow hWindow)
 
     glfwSetWindowIcon(DFL_WINDOW->handle, 1, &image);
     DFL_WINDOW->info.hIcon = icon;
-
-    if (DFL_WINDOW->iconCLBK != NULL)
-        DFL_WINDOW->iconCLBK(icon, hWindow);
 }
 
 /* -------------------- *
@@ -469,7 +507,7 @@ void dflWindowWin32AttributeSet(int attrib, int value, DflWindow hWindow)
             MARGINS margins = {
                 .cxLeftWidth = 0, 
                 .cxRightWidth = 0, 
-                .cyTopHeight = -50,
+                .cyTopHeight = -1,
                 .cyBottomHeight = 0 
             };
             hr = DwmExtendFrameIntoClientArea(hwnd, &margins);
@@ -489,33 +527,23 @@ void dflWindowWin32AttributeSet(int attrib, int value, DflWindow hWindow)
     return;
 }
 
-void _dflWindowErrorSet(int error, DflWindow hWindow)
-{
-    DFL_WINDOW->error = error;
-}
-
-void _dflWindowSessionSet(VkSurfaceKHR surface, DflSession session, DflWindow hWindow)
-{
-    DFL_WINDOW->session = session;
-    DFL_WINDOW->surface = surface;
-}
-
 /* -------------------- *
  *   DESTROY            *
  * -------------------- */
 
 void _dflWindowDestroy(DflWindow hWindow)
 {
-    if (DFL_WINDOW->destroyCLBK != NULL)
-        DFL_WINDOW->destroyCLBK(hWindow);
-
     glfwDestroyWindow(DFL_WINDOW->handle);
 
     free(hWindow);
 }
 
-void dflWindowTerminate(DflWindow hWindow)
+// the existence of hSession in the arguments is purely as a reminder that this function is to be called BEFORE the session is destroyed.
+void dflWindowTerminate(DflWindow hWindow, DflSession hSession) 
 {
+    if (hSession != DFL_WINDOW->session) // however, we still don't want mixups between sessions
+        return;
+
     ((struct DflSession_T*)DFL_WINDOW->session)->windows[DFL_HANDLE(Window)->index] = NULL;
 
     vkDestroySurfaceKHR(((struct DflSession_T*)DFL_WINDOW->session)->instance, DFL_WINDOW->surface, NULL);
@@ -529,41 +557,11 @@ void dflWindowUnbindFromDevice(DflWindow hWindow, DflDevice hDevice)
     if (DFL_WINDOW->swapchain == NULL)
         return;
 
-    vkDestroySwapchainKHR(((struct DflDevice_T*)hDevice)->device, DFL_WINDOW->swapchain, NULL);
-}
+    if (DFL_WINDOW->device != hDevice)
+        return; // this ensures that the user hasn't accidentally passed in the wrong device (thus a crash is avoided)
 
-/* -------------------- *
- *   CALLBACK SETTERS   *
- * -------------------- */
+    for(int i = 0; i < DFL_WINDOW->imageCount; i++)
+        vkDestroyImageView(DFL_DEVICE->device, DFL_WINDOW->imageViews[i], NULL);
 
-void dflWindowReshapeCLBKSet(DflWindowReshapeCLBK clbk, DflWindow hWindow)
-{
-    // TODO: add a way to set the GLFW callback as well
-    DFL_WINDOW->reshapeCLBK = clbk;
-}
-
-void dflWindowRepositionCLBKSet(DflWindowRepositionCLBK clbk, DflWindow hWindow)
-{
-    // TODO: add a way to set the GLFW callback as well
-    DFL_WINDOW->repositionCLBK = clbk;
-}
-
-void dflWindowChangeModeCLBKSet(DflWindowChangeModeCLBK clbk, DflWindow hWindow)
-{
-    DFL_WINDOW->modeCLBK = clbk;
-}
-
-void dflWindowRenameCLBKSet(DflWindowRenameCLBK clbk, DflWindow hWindow)
-{
-    DFL_WINDOW->renameCLBK = clbk;
-}
-
-void dflWindowChangeIconCLBKSet(DflWindowChangeIconCLBK clbk, DflWindow hWindow)
-{
-    DFL_WINDOW->iconCLBK = clbk;
-}
-
-void dflWindowDestroyCLBKSet(DflWindowCloseCLBK clbk, DflWindow hWindow)
-{
-    DFL_WINDOW->destroyCLBK = clbk;
+    vkDestroySwapchainKHR(DFL_DEVICE->device, DFL_WINDOW->swapchain, NULL);
 }
