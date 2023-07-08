@@ -4,7 +4,6 @@
 * WHEN THAT HAPPENS, DRAGONFLY WILL BE SET TO COMPILE AS A DYNAMIC LIBRARY!
 */
 
-
 #include <stdio.h>
 #include <stdint.h>
 
@@ -30,11 +29,6 @@
 #include "Dragonfly.h"
 #include <GLFW/glfw3.h>
 
-void func()
-{
-
-}
-
 int MAIN()
 {
 	DflWindow	window = NULL;
@@ -51,7 +45,8 @@ int MAIN()
 		.mode = DFL_WINDOWED, 
 		.rate = 165, 
 		.pos = {200, 200},
-	    .colorFormat = DFL_WINDOW_FORMAT_R8G8B8A8_SRGB
+	    .colorFormat = DFL_WINDOW_FORMAT_R8G8B8A8_SRGB,
+		.swizzling = DFL_WINDOW_SWIZZLING_NORMAL
 	};
 
 	session = dflSessionCreate(&info);
@@ -69,7 +64,6 @@ int MAIN()
 	dflWindowWin32AttributeSet(DFL_WINDOW_WIN32_TITLE_TEXT_COLOUR, DFL_COLOR_WHITE, window);
 	dflWindowWin32AttributeSet(DFL_WINDOW_WIN32_DARK_MODE, true, window);
 #endif
-
 	int choice = 0;
 	DflDevice* devices = dflSessionDevicesGet(&choice, session);
 	if (devices == NULL)
@@ -84,12 +78,18 @@ int MAIN()
 	if(dflWindowErrorGet(window) < DFL_SUCCESS)
 		return 1;
 
-	int count = 0;
-	struct DflMonitorInfo* monitors = dflMonitorsGet(&count, session);
-	printf("Monitors: %s\n", monitors[0].name);
-
 	struct DflVec2D newDim = { 800, 600 };
 	dflWindowReshape(DFL_DIMENSIONS, newDim, window);
+
+#ifdef _WIN32
+	dflWindowWin32AttributeSet(DFL_WINDOW_WIN32_FULL_WINDOW_AVAILABLE, true, window);
+#endif
+
+	DflMemoryPool pool = dflMemoryPoolCreate(16); // 16 ints size
+	if (dflMemoryPoolErrorGet(pool) < DFL_SUCCESS)
+        return 1;
+
+	printf("MEMORY POOL SIZE: %d\n", dflMemoryPoolSizeGet(pool));
 
 	while ((dflWindowShouldCloseGet(window) == false))
 	{
@@ -100,8 +100,8 @@ int MAIN()
 
 	dflWindowUnbindFromDevice(window, device);
 
-	dflWindowTerminate(window);
-	dflDeviceTerminate(device);
+	dflWindowTerminate(window, session);
+	dflDeviceTerminate(device, session);
 	dflSessionDestroy(session);
 
 	glfwTerminate();
