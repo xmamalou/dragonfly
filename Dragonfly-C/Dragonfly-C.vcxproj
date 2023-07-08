@@ -140,6 +140,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="Control\Threads.c" />
+    <ClCompile Include="Control\Memory.c" />
     <ClCompile Include="Render\Device.c" />
     <ClCompile Include="Render\Image.c" />
     <ClCompile Include="Main.c" />

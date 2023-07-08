@@ -16,9 +16,6 @@
     <Filter Include="Source Files\Render">
       <UniqueIdentifier>{22174ae8-18ce-4b56-8d28-3238e8e77a11}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Header Files\Render">
-      <UniqueIdentifier>{0450b842-839d-45eb-83c3-aa56280c5ab9}</UniqueIdentifier>
-    </Filter>
     <Filter Include="Header Files\stb">
       <UniqueIdentifier>{1a900587-3514-4455-aa27-ea56eb04ec4d}</UniqueIdentifier>
     </Filter>
@@ -47,6 +44,9 @@
     </ClCompile>
     <ClCompile Include="Render\Device.c">
       <Filter>Source Files\Render</Filter>
+    </ClCompile>
+    <ClCompile Include="Control\Memory.c">
+      <Filter>Source Files\Control</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
