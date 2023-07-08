@@ -63,3 +63,7 @@ int dflMemoryPoolErrorGet(DflMemoryPool hMemoryPool)
 {
     return DFL_MEMORY_POOL->error;
 }
+
+void dflMemoryPoolDestroy(DflMemoryPool hMemoryPool)
+{
+}

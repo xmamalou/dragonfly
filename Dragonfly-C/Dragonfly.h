@@ -208,7 +208,7 @@ extern inline int dflMemoryPoolErrorGet(DflMemoryPool hMemoryPool);
  *   DESTROY            *
  * -------------------- */
 
-DflMemoryPool dflMemoryPoolDestroy(DflMemoryPool hMemoryPool);
+void dflMemoryPoolDestroy(DflMemoryPool hMemoryPool);
 
 /* ================================ *
  *             THREADS              *
