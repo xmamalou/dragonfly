@@ -59,6 +59,7 @@ extern "C" {
 #define DFL_VULKAN_SURFACE_ERROR -0x3601 // vulkan surface creation error
 #define DFL_VULKAN_SURFACE_NO_FORMATS_ERROR -0x3602 // vulkan surface has no formats
 #define DFL_VULKAN_SURFACE_NO_SWAPCHAIN_ERROR -0x3603 // vulkan swapchain couldn't be created
+#define DFL_VULKAN_SURFACE_NO_VIEWS_ERROR -0x3604 // vulkan surface couldn't have its swapchain image views created
 #define DFL_VULKAN_QUEUE_ERROR -0x3701 // vulkan queue creation error
 #define DFL_VULKAN_QUEUES_NO_PROPERTIES_ERROR -0x3702 // queues have no properties
 #define DFL_VULKAN_QUEUES_COMPOOL_ALLOC_ERROR -0x3703 // failed to allocate command pool
@@ -87,6 +88,8 @@ extern "C" {
 
 // opaque handle for a DflSession_T object.
 DFL_MAKE_HANDLE(DflSession);
+// opaque handle for a DflMemoryPool_T object.
+DFL_MAKE_HANDLE(DflMemoryPool);
 // opaque handle for a DflDevice_T object.
 DFL_MAKE_HANDLE(DflDevice);
 // opaque handle for a DflWindow_T object.
@@ -170,6 +173,44 @@ extern inline int dflSessionErrorGet(DflSession hSession);
 void dflSessionDestroy(DflSession hSession);
 
 /* ================================ *
+ *             MEMORY               *
+ * ================================ */
+
+/* -------------------- *
+ *   INITIALIZE         *
+ * -------------------- */
+
+/*
+* @brief Initialize a memory pool.
+* 
+* @param size: The size of the memory pool, in 4-byte words.
+*/
+DflMemoryPool dflMemoryPoolCreate(int size);
+
+/* -------------------- *
+ *   CHANGE             *
+ * -------------------- */
+
+void dflMemoryPoolExpand(int size, DflMemoryPool hMemoryPool);
+
+/* -------------------- *
+ *   GET & SET          *
+ * -------------------- */
+
+/*
+* @brief Get the size of a memory pool in BYTES.
+*/
+extern inline int dflMemoryPoolSizeGet(DflMemoryPool hMemoryPool);
+
+extern inline int dflMemoryPoolErrorGet(DflMemoryPool hMemoryPool);
+
+/* -------------------- *
+ *   DESTROY            *
+ * -------------------- */
+
+DflMemoryPool dflMemoryPoolDestroy(DflMemoryPool hMemoryPool);
+
+/* ================================ *
  *             THREADS              *
  * ================================ */
 
@@ -231,13 +272,15 @@ extern inline bool        dflDeviceCanPresentGet(DflDevice hDevice);
 
 extern inline const char* dflDeviceNameGet(DflDevice hDevice);
 
+extern inline DflSession  dflDeviceSessionGet(DflDevice hDevice);
+
 extern inline int         dflDeviceErrorGet(DflDevice hDevice);
 
 /* -------------------- *
  *   DESTROY            *
  * -------------------- */
 
-void dflDeviceTerminate(DflDevice hDevice);
+void dflDeviceTerminate(DflDevice hDevice, DflSession hSession);
 
 /* ================================ *
  *             MONITORS             *
@@ -311,7 +354,17 @@ struct DflMonitorInfo*     dflMonitorsGet(int* pCount, DflSession hSession);
 #define DFL_WINDOW_FORMAT_R8G8B8A8_UNORM 44
 #define DFL_WINDOW_FORMAT_R8G8B8A8_SRGB 50
 #define DFL_WINDOW_FORMAT_R16G16B16A16_UNORM 88
-#define DFL_WINDOW_FOMRAT_R16G16B16A16_SFLOAT 97
+#define DFL_WINDOW_FORMAT_R16G16B16A16_SFLOAT 97
+
+// swizzling modes
+
+#define DFL_WINDOW_SWIZZLING_NONE 0
+#define DFL_WINDOW_SWIZZLING_RED 1 // this means "use the red channel"
+#define DFL_WINDOW_SWIZZLING_GREEN 2 // this means "use the green channel"
+#define DFL_WINDOW_SWIZZLING_BLUE 4 // this means "use the blue channel"
+#define DFL_WINDOW_SWIZZLING_ALPHA 8 // this means "use the alpha channel"
+#define DFL_WINDOW_SWIZZLING_NORMAL (DFL_WINDOW_SWIZZLING_RED | DFL_WINDOW_SWIZZLING_GREEN | DFL_WINDOW_SWIZZLING_BLUE | DFL_WINDOW_SWIZZLING_ALPHA)
+
 
 /**
 * @brief Constructor info for a window.
@@ -348,23 +401,9 @@ typedef struct DflWindowInfo {
 	struct DflVec2D pos; // the position of the window in SCREEN COORDINATES
 
 	int             colorFormat; // the image format of the window. Set 0 for default. If not supported, the default will be used.
-	int				layers; // how many layers the images for the window will have. Useful for VR.
+	unsigned int    swizzling;
+	int				layers; // how many layers the images for the window will have. Useful for VR. Set to 1 for normal windows.
 } DflWindowInfo;
-
-/* -------------------- *
- *   CALLBACKS          *
- * -------------------- */
-/*
-	Most of the time, callbacks take the same parameters as the functions they are called from.
-*/
-
-typedef void (*DflWindowReshapeCLBK)(struct DflVec2D rect, int type, DflWindow hWindow); // Called when a window is reshaped.
-typedef void (*DflWindowRepositionCLBK)(struct DflVec2D pos, DflWindow hWindow); // Called when a window is repositioned.
-typedef void (*DflWindowChangeModeCLBK)(int mode, DflWindow hWindow); // Called when a window's mode changes.
-typedef void (*DflWindowRenameCLBK)(const char* name, DflWindow hWindow); // Called when a window changes name.
-typedef void (*DflWindowChangeIconCLBK)(const char* icon, DflWindow hWindow); // Called when a window changes its icon.
-
-typedef void (*DflWindowCloseCLBK)(DflWindow* pWindow); // Called RIGHT BEFORE a window is closed.
 
 /* -------------------- *
 *   INITIALIZE         *
@@ -451,25 +490,10 @@ extern inline int          dflWindowErrorGet(DflWindow hWindow);
 void                       dflWindowWin32AttributeSet(int attrib, int value, DflWindow hWindow);
 
 /* -------------------- *
- *   CALLBACK SETTERS   *
- * -------------------- */
-/*
-	They consist of the callback's name + `Set`. They take the callback and the window as parameters.
-*/
-
-extern inline void dflWindowReshapeCLBKSet(DflWindowReshapeCLBK clbk, DflWindow hWindow);
-extern inline void dflWindowRepositionCLBKSet(DflWindowRepositionCLBK clbk, DflWindow hWindow);
-extern inline void dflWindowChangeModeCLBKSet(DflWindowChangeModeCLBK clbk, DflWindow hWindow);
-extern inline void dflWindowRenameCLBKSet(DflWindowRenameCLBK clbk, DflWindow hWindow);
-extern inline void dflWindowChangeIconCLBKSet(DflWindowChangeIconCLBK clbk, DflWindow hWindow);
-
-extern inline void dflWindowDestroyCLBKSet(DflWindowCloseCLBK clbk, DflWindow hWindow);
-
-/* -------------------- *
  *   DESTROY            *
  * -------------------- */
 
-void dflWindowTerminate(DflWindow hWindow);
+void dflWindowTerminate(DflWindow hWindow, DflSession hSession);
 
 void dflWindowUnbindFromDevice(DflWindow hWindow, DflDevice hDevice);
 

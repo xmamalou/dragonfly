@@ -29,10 +29,11 @@
 #define DFL_HANDLE(type) ((struct Dfl##type##_T*)h##type) // a shorthand for casting a handle to its type (will be used when `type` refers to a function argument in the form `ptype` (pointer to handle))
 #define DFL_HANDLE_ARRAY(type, pos) ((struct Dfl##type##_T*)*(p##type##s + pos)) // a shorthand for casting a handle to its type (will be used when `type` refers to a function argument in the form `ptype` (pointer to handle))
 
-#define DFL_SESSION DFL_HANDLE(Session)
-#define DFL_WINDOW  DFL_HANDLE(Window)
-#define DFL_DEVICE  DFL_HANDLE(Device)
-#define DFL_IMAGE   DFL_HANDLE(Image)
+#define DFL_SESSION     DFL_HANDLE(Session)
+#define DFL_MEMORY_POOL DFL_HANDLE(MemoryPool)
+#define DFL_WINDOW      DFL_HANDLE(Window)
+#define DFL_DEVICE      DFL_HANDLE(Device)
+#define DFL_IMAGE       DFL_HANDLE(Image)
 
 /* ================================ *
  *             SESSION              *
@@ -43,9 +44,11 @@ struct DflSession_T { // A Dragonfly session
     VkInstance                  instance;
     VkDebugUtilsMessengerEXT    messenger;
 
-    const char                  processorName[DFL_MAX_CHAR_COUNT];
     int                         processorCount;
-    int                         processorSpeed;
+    unsigned long long          processorSpeed;
+    int                         threadCount;
+
+    unsigned long long          memorySize;
 
     int                         deviceCount;
 
@@ -59,9 +62,26 @@ struct DflSession_T { // A Dragonfly session
 
     int flags;
 
-    int error;
+    int                error;
+    unsigned long long warning;
 
     //TODO: Add memory blocks for shared memory between threads.
+};
+
+/* ================================ *
+ *             MEMORY               *
+ * ================================ */
+
+struct DflMemoryPool_T
+{
+    int size; // in BYTES, not in 4-byte words like in dflMemoryPoolInit
+    int used; // in BYTES, not in 4-byte words like in dflMemoryPoolInit
+
+    void* startingAddress;
+    
+    struct DflMemoryPool_T* next; // the next memory pool
+
+    int error;
 };
 
 /* ================================ *
@@ -157,19 +177,13 @@ struct DflWindow_T { // A Dragonfly window
 
     VkSurfaceKHR surface; // The surface of the window. If NULL, then the window doesn't have a surface.
     VkSwapchainKHR swapchain; // The swapchain is included here so it can change when the window is resized.
-    int imageCount;
-    int colorSpace;
+    int          imageCount;
+    VkImage*     images;
+    VkImageView* imageViews;
+    int      colorSpace;
 
     struct DflVec2D minRes;
     struct DflVec2D maxRes;
-
-    DflWindowReshapeCLBK    reshapeCLBK;
-    DflWindowRepositionCLBK repositionCLBK;
-    DflWindowChangeModeCLBK modeCLBK;
-    DflWindowRenameCLBK     renameCLBK;
-    DflWindowChangeIconCLBK iconCLBK;
-
-    DflWindowCloseCLBK      destroyCLBK;
 
     int error;
     int index; // the index of the window in the session's window array
@@ -191,7 +205,7 @@ DflWindow _dflWindowCreate(DflWindowInfo* pInfo, DflSession hSession);
 /*
 * @brief Destroy a window. Also frees the memory allocated for it.
 */
-void _dflWindowDestroy(DflWindow hWindow);
+extern inline void _dflWindowDestroy(DflWindow hWindow);
 
 /* ================================ *
  *             IMAGES               *
