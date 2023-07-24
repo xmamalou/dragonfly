@@ -48,26 +48,31 @@ extern "C" {
 #define DFL_GENERIC_OUT_OF_BOUNDS_ERROR -0x1003 // attempted to create more items than the maximum allowed
 #define DFL_GENERIC_ALREADY_INITIALIZED_ERROR -0x1004 // the item is already initialized
 
-#define DFL_GLFW_API_INIT_ERROR -0x2101 // glfw initialization error
-#define DFL_GLFW_WINDOW_INIT_ERROR -0x2201 // glfw window creation error
+#define DFL_CORE_MEMORY_UNAVAILABLE_BLOCKS_ERROR -0x2101 // no more memory blocks available
+#define DFL_CORE_MEMORY_OOM_ERROR -0x2102 // no more memory available from pool
 
-#define DFL_VULKAN_INSTANCE_ERROR -0x3101 // vulkan instance creation error
-#define DFL_VULKAN_DEVICE_ERROR -0x3201 // vulkan device creation error
-#define DFL_VULKAN_LAYER_ERROR -0x3301 // vulkan layer creation error
-#define DFL_VULKAN_DEBUG_ERROR -0x3401 // vulkan debug creation error
-#define DFL_VULKAN_EXTENSION_ERROR -0x3501 // vulkan extension creation error
-#define DFL_VULKAN_SURFACE_ERROR -0x3601 // vulkan surface creation error
-#define DFL_VULKAN_SURFACE_NO_FORMATS_ERROR -0x3602 // vulkan surface has no formats
-#define DFL_VULKAN_SURFACE_NO_SWAPCHAIN_ERROR -0x3603 // vulkan swapchain couldn't be created
-#define DFL_VULKAN_SURFACE_NO_VIEWS_ERROR -0x3604 // vulkan surface couldn't have its swapchain image views created
-#define DFL_VULKAN_QUEUE_ERROR -0x3701 // vulkan queue creation error
-#define DFL_VULKAN_QUEUES_NO_PROPERTIES_ERROR -0x3702 // queues have no properties
-#define DFL_VULKAN_QUEUES_COMPOOL_ALLOC_ERROR -0x3703 // failed to allocate command pool
+#define DFL_GLFW_API_INIT_ERROR -0x3101 // glfw initialization error
+#define DFL_GLFW_WINDOW_INIT_ERROR -0x3201 // glfw window creation error
+
+#define DFL_VULKAN_INSTANCE_ERROR -0x4101 // vulkan instance creation error
+#define DFL_VULKAN_DEVICE_ERROR -0x4201 // vulkan device creation error
+#define DFL_VULKAN_DEVICE_NO_MEMORY_ERROR -0x4202 // vulkan device has no memory available for allocation
+#define DFL_VULKAN_DEVICE_UNMAPPABLE_MEMORY_ERROR -0x4203 // vulkan device couldn't map memory to host.
+#define DFL_VULKAN_LAYER_ERROR -0x4301 // vulkan layer creation error
+#define DFL_VULKAN_DEBUG_ERROR -0x4401 // vulkan debug creation error
+#define DFL_VULKAN_EXTENSION_ERROR -0x4501 // vulkan extension creation error
+#define DFL_VULKAN_SURFACE_ERROR -0x4601 // vulkan surface creation error
+#define DFL_VULKAN_SURFACE_NO_FORMATS_ERROR -0x4602 // vulkan surface has no formats
+#define DFL_VULKAN_SURFACE_NO_SWAPCHAIN_ERROR -0x4603 // vulkan swapchain couldn't be created
+#define DFL_VULKAN_SURFACE_NO_VIEWS_ERROR -0x4604 // vulkan surface couldn't have its swapchain image views created
+#define DFL_VULKAN_QUEUE_ERROR -0x4701 // vulkan queue creation error
+#define DFL_VULKAN_QUEUES_NO_PROPERTIES_ERROR -0x4702 // queues have no properties
+#define DFL_VULKAN_QUEUES_COMPOOL_ALLOC_ERROR -0x4703 // failed to allocate command pool
 
 // other definitions
 
 #define DFL_MAX_CHAR_COUNT 256 // the maximum number of characters that can be used in a string
-#define DFL_MAX_ITEM_COUNT 64 // the maximum number of items that can be used in a list
+#define DFL_MAX_ITEM_COUNT 64 // the maximum number of items that can be used in an array (it's a safe amount for objects that are likely to not be numerous in an application)
 
 // colours
 #define DFL_COLOR_RGB(r, g, b) (((unsigned int)r) | ((unsigned int)g << 8) | (unsigned int)b << 16)
@@ -88,8 +93,12 @@ extern "C" {
 
 // opaque handle for a DflSession_T object.
 DFL_MAKE_HANDLE(DflSession);
+
 // opaque handle for a DflMemoryPool_T object.
 DFL_MAKE_HANDLE(DflMemoryPool);
+// opaque handle for a DflBuffer_T object.
+DFL_MAKE_HANDLE(DflBuffer);
+
 // opaque handle for a DflDevice_T object.
 DFL_MAKE_HANDLE(DflDevice);
 // opaque handle for a DflWindow_T object.
@@ -184,14 +193,42 @@ void dflSessionDestroy(DflSession hSession);
 * @brief Initialize a memory pool.
 * 
 * @param size: The size of the memory pool, in 4-byte words.
+* @param hDevice: If set to NULL, the memory pool will reserve the block from the host. Otherwise, it will reserve it from the device.
 */
-DflMemoryPool dflMemoryPoolCreate(int size);
+DflMemoryPool dflMemoryPoolCreate(int size, bool useShared, DflDevice hDevice);
 
 /* -------------------- *
  *   CHANGE             *
  * -------------------- */
 
-void dflMemoryPoolExpand(int size, DflMemoryPool hMemoryPool);
+/*
+* @brief Expand a memory pool.
+* 
+* @param size: The size of the memory pool, in 4-byte words.
+* @param hDevice: If set to NULL, the memory pool will reserve the block from the host. Otherwise, it will reserve it from the device.
+*/
+void dflMemoryPoolExpand(int size, DflMemoryPool hMemoryPool, bool useShared, DflDevice hDevice);
+
+/*
+* @brief Allocate memory from a pool for a buffer.
+* 
+* @param size: The size of the buffer, in 4-byte words
+*/
+DflBuffer dflAllocate(int size, DflMemoryPool hMemoryPool);
+
+/*
+* @brief Reallocate memory from a pool for a buffer.
+* 
+* @param size: The size of the buffer, in 4-byte words
+* @param hBuffer: The buffer to reallocate memory for.
+*/
+void dflReallocate(int size, DflBuffer hBuffer, DflMemoryPool hMemoryPool);
+
+/*
+* @brief Free the memory of a buffer.
+* 
+*/
+void dflFree(DflBuffer hBuffer, DflMemoryPool hMemoryPool);
 
 /* -------------------- *
  *   GET & SET          *
@@ -202,12 +239,24 @@ void dflMemoryPoolExpand(int size, DflMemoryPool hMemoryPool);
 */
 extern inline int dflMemoryPoolSizeGet(DflMemoryPool hMemoryPool);
 
+/*
+* @brief Get the amount of blocks in a memory pool.
+*/
+extern inline int dflMemoryPoolBlockCountGet(DflMemoryPool hMemoryPool);
+
 extern inline int dflMemoryPoolErrorGet(DflMemoryPool hMemoryPool);
 
 /* -------------------- *
  *   DESTROY            *
  * -------------------- */
 
+/*
+* @brief Destroy a memory pool. Also frees the memory allocated for it.
+* BEWARE! If the memory pool has been expanded using a Vulkan device, you must destroy the pool BEFORE destroying the device.
+* Doing otherwise WILL result in a crash.
+* 
+* @param hMemoryPool: The memory pool to destroy.
+*/
 void dflMemoryPoolDestroy(DflMemoryPool hMemoryPool);
 
 /* ================================ *
@@ -312,7 +361,7 @@ struct DflMonitorInfo {
 * 
 * @param pCount: A pointer to an integer that will be set to the number of monitors connected to the system.
 */
-struct DflMonitorInfo*     dflMonitorsGet(int* pCount, DflSession hSession);
+struct DflMonitorInfo*     dflMonitorsGet(int* pCount);
 
 /* ================================ *
  *             WINDOWS              *
