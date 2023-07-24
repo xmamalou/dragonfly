@@ -206,6 +206,9 @@ DflSession dflSessionCreate(struct DflSessionInfo* pInfo)
     // TODO: Implement for POSIX platforms.
 #endif
 
+    if (!(pInfo->sessionCriteria & DFL_SESSION_CRITERIA_ONLY_OFFSCREEN))
+        session->monitors = dflMonitorsGet(&session->monitorCount);
+
     return (DflSession)session;
 }
 
