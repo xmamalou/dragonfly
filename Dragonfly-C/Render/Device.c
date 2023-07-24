@@ -101,12 +101,35 @@ static int _dflDeviceOrganiseData(struct DflDevice_T* pDevice)
         if (memProps.memoryHeaps[i].flags & VK_MEMORY_HEAP_DEVICE_LOCAL_BIT)
         {
             pDevice->localHeaps++;
-            void* dummy = realloc(pDevice->localMem, pDevice->localHeaps * sizeof(struct DflLocalMem_T));
-            if (dummy == NULL)
-                return DFL_GENERIC_OOM_ERROR;
-            pDevice->localMem = dummy;
-            pDevice->localMem->size = memProps.memoryHeaps[i].size;
-            pDevice->localMem->heapIndex = memProps.memoryTypes[i].heapIndex;
+            if (pDevice->localHeaps > DFL_MAX_ITEM_COUNT)
+            {
+                pDevice->localHeaps--;
+                continue;
+            }
+            pDevice->localMem[pDevice->localHeaps - 1].size = memProps.memoryHeaps[i].size;
+            pDevice->localMem[pDevice->localHeaps - 1].heapIndex = memProps.memoryTypes[i].heapIndex;
+
+            if (memProps.memoryTypes[i].propertyFlags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT)
+                pDevice->localMem[pDevice->localHeaps - 1].isHostVisible = true;
+            else
+                pDevice->localMem[pDevice->localHeaps - 1].isHostVisible = false;
+        }
+        else
+        {
+            pDevice->nonLocalHeaps++;
+            if (pDevice->nonLocalHeaps > DFL_MAX_ITEM_COUNT)
+            {
+                pDevice->nonLocalHeaps--;
+                continue;
+            }
+            pDevice->nonLocalMem[pDevice->nonLocalHeaps - 1].size = memProps.memoryHeaps[i].size;
+            pDevice->nonLocalMem[pDevice->nonLocalHeaps - 1].heapIndex = memProps.memoryTypes[i].heapIndex;
+
+            if (memProps.memoryTypes[i].propertyFlags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT)
+                pDevice->nonLocalMem[pDevice->nonLocalHeaps - 1].isHostVisible = true;
+            else
+                pDevice->nonLocalMem[pDevice->nonLocalHeaps - 1].isHostVisible = false;
+
         }
     }
 

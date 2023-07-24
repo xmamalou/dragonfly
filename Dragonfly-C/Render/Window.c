@@ -205,22 +205,16 @@ void        _dflWindowSwapchainRecreate(DflWindow hWindow)
     VkSurfaceCapabilitiesKHR surfaceCaps;
     vkGetPhysicalDeviceSurfaceCapabilitiesKHR(((struct DflDevice_T*)DFL_WINDOW->device)->physDevice, DFL_WINDOW->surface, &surfaceCaps);
 
-    DFL_WINDOW->minRes.x = surfaceCaps.minImageExtent.width;
-    DFL_WINDOW->minRes.y = surfaceCaps.minImageExtent.height;
-
-    DFL_WINDOW->maxRes.x = surfaceCaps.maxImageExtent.width;
-    DFL_WINDOW->maxRes.y = surfaceCaps.maxImageExtent.height;
-
     // the below make sure that the resolution is within the bounds that are supported
-    if ((DFL_WINDOW->minRes.x > DFL_WINDOW->info.dim.x) || (DFL_WINDOW->info.dim.x == NULL))
-        DFL_WINDOW->info.dim.x = DFL_WINDOW->minRes.x;
-    if ((DFL_WINDOW->minRes.y > DFL_WINDOW->info.dim.y) || (DFL_WINDOW->info.dim.y == NULL))
-        DFL_WINDOW->info.dim.y = DFL_WINDOW->minRes.y;
+    if ((DFL_WINDOW->info.dim.x > surfaceCaps.minImageExtent.width) || (DFL_WINDOW->info.dim.x == NULL))
+        DFL_WINDOW->info.dim.x = surfaceCaps.minImageExtent.width;
+    if ((DFL_WINDOW->info.dim.y > surfaceCaps.minImageExtent.height) || (DFL_WINDOW->info.dim.y == NULL))
+        DFL_WINDOW->info.dim.y = surfaceCaps.minImageExtent.height;
 
-    if ((DFL_WINDOW->maxRes.x < DFL_WINDOW->info.dim.x) || (DFL_WINDOW->info.dim.x == NULL))
-        DFL_WINDOW->info.dim.x = DFL_WINDOW->maxRes.x;
-    if ((DFL_WINDOW->maxRes.y < DFL_WINDOW->info.dim.y) || (DFL_WINDOW->info.dim.y == NULL))
-        DFL_WINDOW->info.dim.y = DFL_WINDOW->maxRes.y;
+    if ((DFL_WINDOW->info.dim.x < surfaceCaps.maxImageExtent.width) || (DFL_WINDOW->info.dim.x == NULL))
+        DFL_WINDOW->info.dim.x = surfaceCaps.maxImageExtent.width;
+    if ((DFL_WINDOW->info.dim.y < surfaceCaps.maxImageExtent.height) || (DFL_WINDOW->info.dim.y == NULL))
+        DFL_WINDOW->info.dim.y = surfaceCaps.maxImageExtent.height;
 
     DFL_WINDOW->imageCount = surfaceCaps.minImageCount + 1;
 
@@ -240,10 +234,9 @@ void        _dflWindowSwapchainRecreate(DflWindow hWindow)
     _dflWindowSwapchainImagesGet(hWindow);
     // we want to destroy the old image views before creating new ones
     for (int i = 0; i < DFL_WINDOW->imageCount; i++)
-    {
         if(DFL_WINDOW->imageViews[i] != NULL)
             vkDestroyImageView(((struct DflDevice_T*)DFL_WINDOW->device)->device, DFL_WINDOW->imageViews[i], NULL);
-    }
+ 
     _dflWindowSwapchainImageViewsCreate(hWindow);
 }
 
@@ -266,10 +259,6 @@ DflWindow _dflWindowCreate(DflWindowInfo* pInfo, DflSession hSession)
 
     if (pInfo == NULL)
     {
-        int count = 0;
-        struct DflMonitorInfo *monitors = dflMonitorsGet(&count, hSession);
-
-
         DflWindowInfo info = {
             .dim = (struct DflVec2D){ 1920, 1080 },
             .view = (struct DflVec2D){ 1920, 1080 },
@@ -278,8 +267,6 @@ DflWindow _dflWindowCreate(DflWindowInfo* pInfo, DflSession hSession)
             .mode = DFL_WINDOWED
         };
         window->info = info;
-        
-        free(monitors);
     }
     else
         window->info = *pInfo;
@@ -318,19 +305,20 @@ DflWindow dflWindowInit(DflWindowInfo* pWindowInfo, DflSession hSession)
 {
     DflWindow hWindow = _dflWindowCreate(pWindowInfo, hSession);
 
-    if (DFL_HANDLE(Window)->error == DFL_SUCCESS)
-    {
-        DFL_HANDLE(Window)->error = _dflWindowBindToSession(hWindow, hSession);
-    }
+    if(hWindow == NULL)
+        return NULL;
+
+    if (DFL_WINDOW->error == DFL_SUCCESS)
+        DFL_WINDOW->error = _dflWindowBindToSession(hWindow, hSession);
 
     DFL_HANDLE(Window)->session = hSession;
 
     for (int i = 0; i < DFL_MAX_ITEM_COUNT; i++)
     {
-        if (DFL_HANDLE(Session)->windows[i] == NULL) // Dragonfly searches for the first available slot to store the window handle.
+        if (DFL_SESSION->windows[i] == NULL) // Dragonfly searches for the first available slot to store the window handle.
         {
-            DFL_HANDLE(Session)->windows[i] = hWindow;
-            DFL_HANDLE(Window)->index = i;
+            DFL_SESSION->windows[i] = hWindow;
+            DFL_WINDOW->index = i;
             break;
         }
     }
