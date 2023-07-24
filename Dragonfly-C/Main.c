@@ -41,7 +41,7 @@ int MAIN()
 		.view = {1820, 1080},
 		.vsync = true,
 		.name = "Dragonfly", 
-		.hIcon = dflImageReferenceFromFileGet("Resources/bugs.png"), 
+		//.hIcon = dflImageReferenceFromFileGet("Resources/bugs.png"), 
 		.mode = DFL_WINDOWED, 
 		.rate = 165, 
 		.pos = {200, 200},
@@ -57,7 +57,7 @@ int MAIN()
 	if (dflWindowErrorGet(window) < DFL_SUCCESS)
 		return 1;
 
-	dflImageDestroy(winfo.hIcon);
+	//dflImageDestroy(winfo.hIcon);
 
 #ifdef _WIN32
 	dflWindowWin32AttributeSet(DFL_WINDOW_WIN32_BORDER_COLOUR, DFL_COLOR_GRAY, window);
@@ -85,20 +85,23 @@ int MAIN()
 	dflWindowWin32AttributeSet(DFL_WINDOW_WIN32_FULL_WINDOW_AVAILABLE, true, window);
 #endif
 
-	DflMemoryPool pool = dflMemoryPoolCreate(16); // 16 ints size
+	DflMemoryPool pool = dflMemoryPoolCreate(16, true, device); // 16 ints size (hence 16 * 4 bytes = 64 bytes)
 	if (dflMemoryPoolErrorGet(pool) < DFL_SUCCESS)
         return 1;
 
-	printf("MEMORY POOL SIZE: %d\n", dflMemoryPoolSizeGet(pool));
+	dflMemoryPoolExpand(16, pool, false, device); // 16 ints size (hence 16 * 4 bytes = 64 bytes) gotten from the GPU
+	if (dflMemoryPoolErrorGet(pool) < DFL_SUCCESS)
+		return 1;
+	printf("\nMEMORY POOL SIZE: %d\nMEMORY POOL BLOCK COUNT: %d\n", dflMemoryPoolSizeGet(pool), dflMemoryPoolBlockCountGet(pool));
 
 	while ((dflWindowShouldCloseGet(window) == false))
-	{
 		glfwPollEvents();
-	}
 
 	struct DflVec2D pos = { 0, 0 };
 
 	dflWindowUnbindFromDevice(window, device);
+
+	dflMemoryPoolDestroy(pool);
 
 	dflWindowTerminate(window, session);
 	dflDeviceTerminate(device, session);
