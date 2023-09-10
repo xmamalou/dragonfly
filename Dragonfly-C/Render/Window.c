@@ -46,7 +46,7 @@ static GLFWwindow* _dflWindowCall(struct DflVec2D dim, const char* name, int mod
     if (name == NULL)
         name = "Dragonfly-App";
 
-    if (dim.x == NULL || dim.y == NULL)
+    if (dim.x == 0 || dim.y == 0)
         dim = (struct DflVec2D){ 1920, 1080 };
 
     if (!glfwInit())
@@ -79,17 +79,17 @@ static GLFWwindow* _dflWindowCall(struct DflVec2D dim, const char* name, int mod
 static int _dflWindowBindToSession(DflWindow hWindow, DflSession hSession);
 static int _dflWindowBindToSession(DflWindow hWindow, DflSession hSession)
 {
-    VkSurfaceKHR surface;
-    if (glfwCreateWindowSurface(DFL_HANDLE(Session)->instance, DFL_HANDLE(Window)->handle, NULL, &surface) != VK_SUCCESS)
+    VkSurfaceKHR surface = NULL;
+    if (glfwCreateWindowSurface(DFL_SESSION->instance, DFL_WINDOW->handle, NULL, &surface) != VK_SUCCESS)
         return DFL_VULKAN_SURFACE_ERROR;
-    DFL_HANDLE(Session)->surface = surface; // This exists simply for the sake of the _dflSessionDeviceQueuesGet function.
-    DFL_HANDLE(Window)->surface = surface;
+
+    DFL_WINDOW->surface = surface;
 
     return DFL_SUCCESS;
 }
 
-static VkSwapchainCreateInfoKHR _dflWindowSwapchainCreateInfoGet(DflWindow hWindow, DflDevice hDevice);
-static VkSwapchainCreateInfoKHR _dflWindowSwapchainCreateInfoGet(DflWindow hWindow, DflDevice hDevice)
+static VkSwapchainCreateInfoKHR _dflWindowSwapchainCreateInfoGet(DflWindow hWindow, struct DflDevice_T device);
+static VkSwapchainCreateInfoKHR _dflWindowSwapchainCreateInfoGet(DflWindow hWindow, struct DflDevice_T device)
 {
     if(DFL_HANDLE(Window)->info.layers == NULL)
         DFL_HANDLE(Window)->info.layers = 1;
@@ -97,11 +97,11 @@ static VkSwapchainCreateInfoKHR _dflWindowSwapchainCreateInfoGet(DflWindow hWind
     VkSwapchainCreateInfoKHR swapInfo = {
         .sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR,
         .surface = DFL_HANDLE(Window)->surface,
-        .flags = NULL,
+        .flags = 0,
         .minImageCount = DFL_HANDLE(Window)->imageCount,
         .imageExtent = { DFL_HANDLE(Window)->info.dim.x, DFL_HANDLE(Window)->info.dim.y },
         .queueFamilyIndexCount = 1,
-        .pQueueFamilyIndices = &DFL_HANDLE(Device)->queues.index[DFL_QUEUE_TYPE_PRESENTATION],
+        .pQueueFamilyIndices = &device.queues.index[DFL_QUEUE_TYPE_PRESENTATION],
         .imageSharingMode = VK_SHARING_MODE_EXCLUSIVE,
         .oldSwapchain = DFL_HANDLE(Window)->swapchain,
         .imageFormat = DFL_HANDLE(Window)->info.colorFormat,
@@ -129,7 +129,7 @@ static VkSwapchainCreateInfoKHR _dflWindowSwapchainCreateInfoGet(DflWindow hWind
 static void _dflWindowSwapchainImagesGet(DflWindow hWindow);
 void        _dflWindowSwapchainImagesGet(DflWindow hWindow)
 {
-    vkGetSwapchainImagesKHR(((struct DflDevice_T*)DFL_WINDOW->device)->device, DFL_WINDOW->swapchain, &DFL_WINDOW->imageCount, NULL);
+    vkGetSwapchainImagesKHR(((struct DflSession_T*)DFL_WINDOW->session)->devices[DFL_WINDOW->deviceIndex].device, DFL_WINDOW->swapchain, &DFL_WINDOW->imageCount, NULL);
     if(DFL_WINDOW->images == NULL)
         DFL_WINDOW->images = malloc(sizeof(VkImage) * DFL_WINDOW->imageCount);
     else
@@ -143,7 +143,7 @@ void        _dflWindowSwapchainImagesGet(DflWindow hWindow)
         DFL_WINDOW->error = DFL_GENERIC_OOM_ERROR;
         return;
     }
-    vkGetSwapchainImagesKHR(((struct DflDevice_T*)DFL_WINDOW->device)->device, DFL_WINDOW->swapchain, &DFL_WINDOW->imageCount, DFL_WINDOW->images);
+    vkGetSwapchainImagesKHR(((struct DflSession_T*)DFL_WINDOW->session)->devices[DFL_WINDOW->deviceIndex].device, DFL_WINDOW->swapchain, &DFL_WINDOW->imageCount, DFL_WINDOW->images);
 
     if (DFL_WINDOW->imageViews == NULL)
         DFL_WINDOW->imageViews = calloc(DFL_WINDOW->imageCount, sizeof(VkImageView));
@@ -191,19 +191,21 @@ void        _dflWindowSwapchainImageViewsCreate(DflWindow hWindow)
             }
         };
 
-        if (vkCreateImageView(((struct DflDevice_T*)DFL_WINDOW->device)->device, &imageViewInfo, NULL, &DFL_WINDOW->imageViews[i]) != VK_SUCCESS)
+        if (vkCreateImageView(((struct DflSession_T*)DFL_WINDOW->session)->devices[DFL_WINDOW->deviceIndex].device, &imageViewInfo, NULL, &DFL_WINDOW->imageViews[i]) != VK_SUCCESS)
         {
             DFL_WINDOW->error = DFL_VULKAN_SURFACE_NO_VIEWS_ERROR;
             return;
         }
     }
+
+    DFL_WINDOW->error = DFL_SUCCESS;
 }
 
 static void _dflWindowSwapchainRecreate(DflWindow hWindow);
 void        _dflWindowSwapchainRecreate(DflWindow hWindow)
 {
     VkSurfaceCapabilitiesKHR surfaceCaps;
-    vkGetPhysicalDeviceSurfaceCapabilitiesKHR(((struct DflDevice_T*)DFL_WINDOW->device)->physDevice, DFL_WINDOW->surface, &surfaceCaps);
+    vkGetPhysicalDeviceSurfaceCapabilitiesKHR(((struct DflSession_T*)DFL_WINDOW->session)->devices[DFL_WINDOW->deviceIndex].physDevice, DFL_WINDOW->surface, &surfaceCaps);
 
     // the below make sure that the resolution is within the bounds that are supported
     if ((DFL_WINDOW->info.dim.x > surfaceCaps.minImageExtent.width) || (DFL_WINDOW->info.dim.x == NULL))
@@ -218,24 +220,24 @@ void        _dflWindowSwapchainRecreate(DflWindow hWindow)
 
     DFL_WINDOW->imageCount = surfaceCaps.minImageCount + 1;
 
-    VkSwapchainCreateInfoKHR swapInfo = _dflWindowSwapchainCreateInfoGet(hWindow, DFL_WINDOW->device);
+    VkSwapchainCreateInfoKHR swapInfo = _dflWindowSwapchainCreateInfoGet(hWindow, ((struct DflSession_T*)DFL_WINDOW->session)->devices[DFL_WINDOW->deviceIndex]);
     VkSwapchainKHR dummy = NULL;
-    vkCreateSwapchainKHR(((struct DflDevice_T*)DFL_WINDOW->device)->device, &swapInfo, NULL, &dummy);
+    vkCreateSwapchainKHR(((struct DflSession_T*)DFL_WINDOW->session)->devices[DFL_WINDOW->deviceIndex].device, &swapInfo, NULL, &dummy);
     if (dummy == NULL)
     {
         DFL_WINDOW->error = DFL_VULKAN_SURFACE_NO_SWAPCHAIN_ERROR;
         return;
     }
-    vkDeviceWaitIdle(((struct DflDevice_T*)DFL_WINDOW->device)->device);
+    vkDeviceWaitIdle(((struct DflSession_T*)DFL_WINDOW->session)->devices[DFL_WINDOW->deviceIndex].device);
     if(DFL_WINDOW->swapchain != NULL)
-        vkDestroySwapchainKHR(((struct DflDevice_T*)DFL_WINDOW->device)->device, DFL_WINDOW->swapchain, NULL);
+        vkDestroySwapchainKHR(((struct DflSession_T*)DFL_WINDOW->session)->devices[DFL_WINDOW->deviceIndex].device, DFL_WINDOW->swapchain, NULL);
     DFL_WINDOW->swapchain = dummy;
 
     _dflWindowSwapchainImagesGet(hWindow);
     // we want to destroy the old image views before creating new ones
     for (int i = 0; i < DFL_WINDOW->imageCount; i++)
         if(DFL_WINDOW->imageViews[i] != NULL)
-            vkDestroyImageView(((struct DflDevice_T*)DFL_WINDOW->device)->device, DFL_WINDOW->imageViews[i], NULL);
+            vkDestroyImageView(((struct DflSession_T*)DFL_WINDOW->session)->devices[DFL_WINDOW->deviceIndex].device, DFL_WINDOW->imageViews[i], NULL);
  
     _dflWindowSwapchainImageViewsCreate(hWindow);
 }
@@ -295,7 +297,7 @@ DflWindow _dflWindowCreate(DflWindowInfo* pInfo, DflSession hSession)
         glfwSetWindowIcon(window->handle, 1, &image);
     }
 
-    if(window->info.pos.x != NULL || window->info.pos.y != NULL)
+    if(window->info.pos.x != 0 || window->info.pos.y != 0)
         glfwSetWindowPos(window->handle, window->info.pos.x, window->info.pos.y);
 
     return (DflWindow)window;
@@ -326,10 +328,10 @@ DflWindow dflWindowInit(DflWindowInfo* pWindowInfo, DflSession hSession)
     return hWindow;
 }
 
-void dflWindowBindToDevice(DflWindow hWindow, DflDevice hDevice)
+void dflWindowBindToDevice(DflWindow hWindow, int deviceIndex, DflSession hSession)
 {
     int formatCount;
-    vkGetPhysicalDeviceSurfaceFormatsKHR(DFL_DEVICE->physDevice, DFL_WINDOW->surface, &formatCount, NULL);
+    vkGetPhysicalDeviceSurfaceFormatsKHR(DFL_SESSION->devices[deviceIndex].physDevice, DFL_WINDOW->surface, &formatCount, NULL);
     if(formatCount == 0)
     {
         DFL_WINDOW->error = DFL_VULKAN_SURFACE_NO_FORMATS_ERROR;
@@ -341,7 +343,7 @@ void dflWindowBindToDevice(DflWindow hWindow, DflDevice hDevice)
         DFL_WINDOW->error = DFL_GENERIC_OOM_ERROR;
         return;
     }
-    vkGetPhysicalDeviceSurfaceFormatsKHR(DFL_DEVICE->physDevice, DFL_WINDOW->surface, &formatCount, formats);
+    vkGetPhysicalDeviceSurfaceFormatsKHR(DFL_SESSION->devices[deviceIndex].physDevice, DFL_WINDOW->surface, &formatCount, formats);
 
     int choice = 0;
     for (int i = 0; i < formatCount; i++)
@@ -352,7 +354,7 @@ void dflWindowBindToDevice(DflWindow hWindow, DflDevice hDevice)
     DFL_WINDOW->info.colorFormat = formats[choice].format;
     DFL_WINDOW->colorSpace = formats[choice].colorSpace;
 
-    DFL_WINDOW->device = hDevice;
+    DFL_WINDOW->deviceIndex = deviceIndex;
     _dflWindowSwapchainRecreate(hWindow);
 }
 
@@ -409,7 +411,7 @@ void dflWindowChangeMode(int mode, DflWindow hWindow)
 
 void dflWindowRename(const char* name, DflWindow hWindow)
 {
-    strcpy_s(&DFL_WINDOW->info.name, DFL_MAX_CHAR_COUNT, name);
+    STRCPY(&DFL_WINDOW->info.name, DFL_MAX_CHAR_COUNT, name);
     glfwSetWindowTitle(DFL_WINDOW->handle, name);
 }
 
@@ -526,6 +528,17 @@ void _dflWindowDestroy(DflWindow hWindow)
     free(hWindow);
 }
 
+void dflWindowUnbindFromDevice(DflWindow hWindow)
+{
+    if (DFL_WINDOW->swapchain == NULL)
+        return;
+
+    for (int i = 0; i < DFL_WINDOW->imageCount; i++)
+        vkDestroyImageView(((struct DflSession_T*)DFL_WINDOW->session)->devices[DFL_WINDOW->deviceIndex].device, DFL_WINDOW->imageViews[i], NULL);
+
+    vkDestroySwapchainKHR(((struct DflSession_T*)DFL_WINDOW->session)->devices[DFL_WINDOW->deviceIndex].device, DFL_WINDOW->swapchain, NULL);
+}
+
 // the existence of hSession in the arguments is purely as a reminder that this function is to be called BEFORE the session is destroyed.
 void dflWindowTerminate(DflWindow hWindow, DflSession hSession) 
 {
@@ -538,18 +551,4 @@ void dflWindowTerminate(DflWindow hWindow, DflSession hSession)
     ((struct DflSession_T*)DFL_WINDOW->session)->windows[DFL_WINDOW->index] = NULL;
 
     _dflWindowDestroy(hWindow);
-}
-
-void dflWindowUnbindFromDevice(DflWindow hWindow, DflDevice hDevice)
-{
-    if (DFL_WINDOW->swapchain == NULL)
-        return;
-
-    if (DFL_WINDOW->device != hDevice)
-        return; // this ensures that the user hasn't accidentally passed in the wrong device (thus a crash is avoided)
-
-    for(int i = 0; i < DFL_WINDOW->imageCount; i++)
-        vkDestroyImageView(DFL_DEVICE->device, DFL_WINDOW->imageViews[i], NULL);
-
-    vkDestroySwapchainKHR(DFL_DEVICE->device, DFL_WINDOW->swapchain, NULL);
 }
