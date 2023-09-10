@@ -40,7 +40,7 @@ DflImage dflImageFromFileGet(const char* file)
     if(image == NULL)
         return NULL;
 
-    strcpy_s(image->path, DFL_MAX_CHAR_COUNT, file);
+    STRCPY(image->path, DFL_MAX_CHAR_COUNT, file);
     image->data = stbi_load(file, &image->size.x, &image->size.y, 0, 4); //rgba channels
 
     if(image->data == NULL)
@@ -58,7 +58,7 @@ DflImage dflImageReferenceFromFileGet(const char* file)
     if (image == NULL)
         return NULL;
 
-    strcpy_s(image->path, DFL_MAX_CHAR_COUNT, file);
+    STRCPY(image->path, DFL_MAX_CHAR_COUNT, file);
 
     return (DflImage)image;
 }
