@@ -346,7 +346,7 @@ static int _dflDeviceQueuesGet(VkSurfaceKHR* surface, struct DflDevice_T* pDevic
         }
     }
 
-    if (pDevice->queues.count[DFL_QUEUE_TYPE_PRESENTATION] <= 0 || pDevice->queues.count[DFL_QUEUE_TYPE_GRAPHICS] <= 0 || pDevice->queues.count[DFL_QUEUE_TYPE_COMPUTE] <= 0 || pDevice->queues.count[DFL_QUEUE_TYPE_TRANSFER] <= 0)
+    if (((pDevice->canPresent == true) && (pDevice->queues.count[DFL_QUEUE_TYPE_PRESENTATION] <= 0)) || pDevice->queues.count[DFL_QUEUE_TYPE_GRAPHICS] <= 0 || pDevice->queues.count[DFL_QUEUE_TYPE_COMPUTE] <= 0 || pDevice->queues.count[DFL_QUEUE_TYPE_TRANSFER] <= 0)
         return DFL_VULKAN_QUEUE_ERROR;
 
     return DFL_SUCCESS;
