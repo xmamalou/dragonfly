@@ -34,9 +34,9 @@ extern "C" {
 
 #define DFL_SUCCESS 0 // operation was successful
 
-// errors are < 0. Warnings are > 0.
+// errors are < 0.
 /*
-* Errors and warnings are a 2-byte integer, laid out in hex as follows:
+* Errors are a 2-byte integer, laid out in hex as follows:
 * 
 * The first digit (from the left) is the general category of the error. For example, 0x1XXX is a generic error, 0x2XXX is a GLFW error, etc.
 * The second digit is a more specified category of the error. For example, for Vulkan, there could be multiple errors concerning the instance, the device, the surface, etc.
@@ -48,9 +48,6 @@ extern "C" {
 #define DFL_GENERIC_OUT_OF_BOUNDS_ERROR -0x1003 // attempted to create more items than the maximum allowed
 #define DFL_GENERIC_ALREADY_INITIALIZED_ERROR -0x1004 // the item is already initialized
 
-#define DFL_CORE_MEMORY_UNAVAILABLE_BLOCKS_ERROR -0x2101 // no more memory blocks available
-#define DFL_CORE_MEMORY_OOM_ERROR -0x2102 // no more memory available from pool
-
 #define DFL_GLFW_API_INIT_ERROR -0x3101 // glfw initialization error
 #define DFL_GLFW_WINDOW_INIT_ERROR -0x3201 // glfw window creation error
 
@@ -58,6 +55,8 @@ extern "C" {
 #define DFL_VULKAN_DEVICE_ERROR -0x4201 // vulkan device creation error
 #define DFL_VULKAN_DEVICE_NO_MEMORY_ERROR -0x4202 // vulkan device has no memory available for allocation
 #define DFL_VULKAN_DEVICE_UNMAPPABLE_MEMORY_ERROR -0x4203 // vulkan device couldn't map memory to host.
+#define DFL_VULKAN_DEVICE_BUFFER_CREATION_ERROR -0x4204 // vulkan device couldn't create buffer
+#define DFL_VULKAN_DEVICE_COMMAND_CREATION_ERROR -0x4205 // vulkan device couldn't create command buffer
 #define DFL_VULKAN_LAYER_ERROR -0x4301 // vulkan layer creation error
 #define DFL_VULKAN_DEBUG_ERROR -0x4401 // vulkan debug creation error
 #define DFL_VULKAN_EXTENSION_ERROR -0x4501 // vulkan extension creation error
@@ -93,11 +92,6 @@ extern "C" {
 
 // opaque handle for a DflSession_T object.
 DFL_MAKE_HANDLE(DflSession);
-
-// opaque handle for a DflMemoryPool_T object.
-DFL_MAKE_HANDLE(DflMemoryPool);
-// opaque handle for a DflBuffer_T object.
-DFL_MAKE_HANDLE(DflBuffer);
 
 // opaque handle for a DflDevice_T object.
 DFL_MAKE_HANDLE(DflDevice);
@@ -136,9 +130,16 @@ struct DflVec3D
  *   TYPES              *
  * -------------------- */
 
+#define DFL_CHOOSE_ON_RANK -1 // choose the best GPU available
+
 #define DFL_SESSION_CRITERIA_NONE 0x00000000 // Dragonfly will operate as it sees fit. No extra criteria on how to manage the session.
 #define DFL_SESSION_CRITERIA_ONLY_OFFSCREEN 0x00000001 // Dragonfly implicitly assumes that on-screen rendering is desired. Use this flag to override that assumption.
 #define DFL_SESSION_CRITERIA_DO_DEBUG 0x00000002 // Dragonfly will enable validation layers and other debug features
+
+#define DFL_GPU_CRITERIA_NONE 0x00000000 // Dragonfly will choose the best GPU available - no extra criteria on how to use it. It will use it as it sees fit.
+#define DFL_GPU_CRITERIA_LOW_PERFORMANCE 0x00000001 // Dragonfly will try to use the least intensive GPU available
+#define DFL_GPU_CRITERIA_ABUSE_MEMORY 0x00000002 // Dragonfly will normally implicitly leave a little wiggle room for GPU memory - use this flag to override that assumption
+#define DFL_GPU_CRITERIA_ALL_QUEUES 0x00000004 // Dragonfly will reserve only one queue for each queue family - use this flag to override that assumption
 
 struct DflSessionInfo
 {
@@ -157,22 +158,39 @@ struct DflSessionInfo
 DflSession  dflSessionCreate(struct DflSessionInfo* pInfo);
 
 /* -------------------- *
+ *       CHANGE         *
+ * -------------------- */
+
+/*
+* @brief Load the devices that are available for the session, without initializing them.
+*/
+void dflSessionLoadDevices(DflSession hSession);
+
+/*
+* @brief Initialize a device from the ones available to the session.
+*/
+void dflSessionInitDevice(int GPUCriteria, int deviceIndex, DflSession hSession);
+
+/* -------------------- *
  *   GET & SET          *
  * -------------------- */
 
-/**
-* @brief Returns the number of devices that are available to the session, plus the devices themselves.
-* Note that they are all uninitialized at this state.
-*
-* @param pCount: A pointer to an integer that will be set to the number of devices available to the session.
-*/
-DflDevice*        dflSessionDevicesGet(int* pCount, DflSession hSession);
+extern inline uint32_t	  dflSessionDeviceCountGet(DflSession hSession);
 
-extern inline int dflSessionErrorGet(DflSession hSession);
+extern inline const char* dflSessionDeviceNameGet(int deviceIndex, DflSession hSession);
+
+extern inline uint32_t    dflSessionDeviceRankGet(int deviceIndex, DflSession hSession);
+
+extern inline int         dflSessionErrorGet(DflSession hSession);
 
 /* -------------------- *
  *   DESTROY            *
  * -------------------- */
+
+/*
+* @brief Terminate an initialized device. Has no effect on devices that are not initialized.
+*/
+void dflSessionTerminateDevice(uint32_t deviceIndex, DflSession hSession);
 
 /*
 * @brief Destroy a session. Also frees the memory allocated for it.
@@ -180,156 +198,6 @@ extern inline int dflSessionErrorGet(DflSession hSession);
 * Must be called after destroying any object that was created with this session.
 */
 void dflSessionDestroy(DflSession hSession);
-
-/* ================================ *
- *             MEMORY               *
- * ================================ */
-
-/* -------------------- *
- *   INITIALIZE         *
- * -------------------- */
-
-/*
-* @brief Initialize a memory pool.
-* 
-* @param size: The size of the memory pool, in 4-byte words.
-* @param hDevice: If set to NULL, the memory pool will reserve the block from the host. Otherwise, it will reserve it from the device.
-*/
-DflMemoryPool dflMemoryPoolCreate(int size, bool useShared, DflDevice hDevice);
-
-/* -------------------- *
- *   CHANGE             *
- * -------------------- */
-
-/*
-* @brief Expand a memory pool.
-* 
-* @param size: The size of the memory pool, in 4-byte words.
-* @param hDevice: If set to NULL, the memory pool will reserve the block from the host. Otherwise, it will reserve it from the device.
-*/
-void dflMemoryPoolExpand(int size, DflMemoryPool hMemoryPool, bool useShared, DflDevice hDevice);
-
-/*
-* @brief Allocate memory from a pool for a buffer.
-* 
-* @param size: The size of the buffer, in 4-byte words
-*/
-DflBuffer dflAllocate(int size, DflMemoryPool hMemoryPool);
-
-/*
-* @brief Reallocate memory from a pool for a buffer.
-* 
-* @param size: The size of the buffer, in 4-byte words
-* @param hBuffer: The buffer to reallocate memory for.
-*/
-void dflReallocate(int size, DflBuffer hBuffer, DflMemoryPool hMemoryPool);
-
-/*
-* @brief Free the memory of a buffer.
-* 
-*/
-void dflFree(DflBuffer hBuffer, DflMemoryPool hMemoryPool);
-
-/* -------------------- *
- *   GET & SET          *
- * -------------------- */
-
-/*
-* @brief Get the size of a memory pool in BYTES.
-*/
-extern inline int dflMemoryPoolSizeGet(DflMemoryPool hMemoryPool);
-
-/*
-* @brief Get the amount of blocks in a memory pool.
-*/
-extern inline int dflMemoryPoolBlockCountGet(DflMemoryPool hMemoryPool);
-
-extern inline int dflMemoryPoolErrorGet(DflMemoryPool hMemoryPool);
-
-/* -------------------- *
- *   DESTROY            *
- * -------------------- */
-
-/*
-* @brief Destroy a memory pool. Also frees the memory allocated for it.
-* BEWARE! If the memory pool has been expanded using a Vulkan device, you must destroy the pool BEFORE destroying the device.
-* Doing otherwise WILL result in a crash.
-* 
-* @param hMemoryPool: The memory pool to destroy.
-*/
-void dflMemoryPoolDestroy(DflMemoryPool hMemoryPool);
-
-/* ================================ *
- *             THREADS              *
- * ================================ */
-
-/* -------------------- *
- *   TYPES              *
- * -------------------- */
-
-DFL_MAKE_HANDLE(DflThread); // a thread handle
-
-typedef void (*DflThreadProc)(void* parameters); // a thread function
-
-/* -------------------- *
- *   INITIALIZE         *
- * -------------------- */
-
-/*
-* @brief Initializes a thread.
-* 
-* @param pFuncProc: A pointer to the function that will be executed by the thread.
-* @param pParams: A pointer to the parameters that will be passed to the thread function.
-* @param pSession: A pointer to the session that will be used to create the thread and where its shared memory wil be.
-*/
-DflThread dflThreadInit(DflThreadProc pFuncProc, void* pParams, DflSession hSession);
-
-/* ================================ *
- *             DEVICES              *
- * ================================ */
-
-/* -------------------- *
- *   TYPES              *
- * -------------------- */
-
-#define DFL_GPU_RANK_N_CHOOSE -1 // Dragonfly will rank and choose the GPU, instead of the programmer picking.
-
-#define DFL_GPU_CRITERIA_NONE 0x00000000 // Dragonfly will choose the best GPU available - no extra criteria on how to use it. It will use it as it sees fit.
-#define DFL_GPU_CRITERIA_ONLY_OFFSCREEN 0x00000001 // Dragonfly will implicitly assume that on-screen rendering is desired. Use this flag to override that assumption.
-#define DFL_GPU_CRITERIA_LOW_PERFORMANCE 0x00000002 // Dragonfly will try to use the least intensive GPU available
-#define DFL_GPU_CRITERIA_ABUSE_MEMORY 0x00000004 // Dragonfly will normally implicitly leave a little wiggle room for GPU memory - use this flag to override that assumption
-#define DFL_GPU_CRITERIA_ALL_QUEUES 0x00000008 // Dragonfly will reserve only one queue for each queue family - use this flag to override that assumption
-
-/* -------------------- *
- *   INITIALIZE         *
- * -------------------- */
-
-/*
-* @brief Initializes a Dragonfly device.
-* 
-* @param GPUCriteria: A bitfield of criteria that Dragonfly will use to choose the best GPU available.
-* @param choice: the choice of the GPU. If you want Dragonfly to decide for itself, pass `DFL_GPU_RANK_N_CHOOSE`.
-* @param pDevices: A pointer to an array of devices that are available to the session.
-*/
-DflDevice   dflDeviceInit(int GPUCriteria, int choice, DflDevice* pDevices, DflSession hSession);
-
-/* -------------------- *
- *   GET & SET          *
- * -------------------- */
-
-extern inline bool        dflDeviceCanPresentGet(DflDevice hDevice);
-
-extern inline const char* dflDeviceNameGet(DflDevice hDevice);
-
-extern inline DflSession  dflDeviceSessionGet(DflDevice hDevice);
-
-extern inline int         dflDeviceErrorGet(DflDevice hDevice);
-
-/* -------------------- *
- *   DESTROY            *
- * -------------------- */
-
-void dflDeviceTerminate(DflDevice hDevice, DflSession hSession);
 
 /* ================================ *
  *             MONITORS             *
@@ -464,12 +332,12 @@ typedef struct DflWindowInfo {
 DflWindow   dflWindowInit(struct DflWindowInfo* pWindowInfo, DflSession hSession);
 
 /*
-* @brief Bind a Window to a Device (i.e. make a swapchain for it).
+* @brief Bind a Window to a device of a session.
 * 
 * This function is used to bind a window to a device. You don't need to pass any parameters specifying the swapchain, as 
 * DflWindowInfo already contains all the information needed to create a swapchain. This function just uses that information.
 */
-void dflWindowBindToDevice(DflWindow hWindow, DflDevice hDevice);
+void dflWindowBindToDevice(DflWindow hWindow, int deviceIndex, DflSession hSession);
 
 /* -------------------- *
  *   CHANGE             *
@@ -542,9 +410,9 @@ void                       dflWindowWin32AttributeSet(int attrib, int value, Dfl
  *   DESTROY            *
  * -------------------- */
 
-void dflWindowTerminate(DflWindow hWindow, DflSession hSession);
+void dflWindowUnbindFromDevice(DflWindow hWindow);
 
-void dflWindowUnbindFromDevice(DflWindow hWindow, DflDevice hDevice);
+void dflWindowTerminate(DflWindow hWindow, DflSession hSession);
 
 /* ================================ *
  *             IMAGES               *
