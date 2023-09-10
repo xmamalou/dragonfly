@@ -484,12 +484,15 @@ void dflSessionInitDevice(int GPUCriteria, int deviceIndex, DflSession hSession)
         return;
     }
 
+    if (DFL_SESSION->devices[deviceIndex].device != NULL)
+        return;
+
     if (deviceIndex < 0)
     {
         uint32_t oldRank = 0;
         for(int i = 0; i < DFL_SESSION->deviceCount; i++)
         {
-            if (DFL_SESSION->devices[i].rank >= oldRank)
+            if ((DFL_SESSION->devices[i].rank >= oldRank) && (DFL_SESSION->devices[i].device == NULL)) // we don't want to choose a device that has already been initialized.
             {
                 deviceIndex = i;
                 oldRank = DFL_SESSION->devices[i].rank;
