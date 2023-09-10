@@ -361,10 +361,10 @@ static void _dflDeviceRank(struct DflDevice_T* pDevice);
        pDevice->rank += 1000;
 
     if (pDevice->canDoGeomShade)
-       pDevice->rank += 100;
+       pDevice->rank += 1000;
 
     if (pDevice->canDoTessShade)
-       pDevice->rank += 10;
+       pDevice->rank += 500;
 
     for(int i = 0; i < pDevice->localHeaps; i++)
        pDevice->rank += 2*(pDevice->localMem[i].size)/1000000; // 1MB = 1 point. With this, we make sure that memory doesn't overshadow other features. However, local memory is twice as important as non-local memory.
@@ -372,8 +372,8 @@ static void _dflDeviceRank(struct DflDevice_T* pDevice);
        pDevice->rank += (pDevice->nonLocalMem[i].size)/1000000; // 1MB = 1 point
 
     pDevice->rank += pDevice->maxDim1D/1000;
-    pDevice->rank += pDevice->maxDim2D/1000;
-    pDevice->rank += pDevice->maxDim3D/1000;
+    pDevice->rank += 2*pDevice->maxDim2D/1000;
+    pDevice->rank += 3*pDevice->maxDim3D/1000;
 }
 
 /* -------------------- *
@@ -489,7 +489,7 @@ void dflSessionInitDevice(int GPUCriteria, int deviceIndex, DflSession hSession)
         uint32_t oldRank = 0;
         for(int i = 0; i < DFL_SESSION->deviceCount; i++)
         {
-            if (DFL_SESSION->devices[i].rank > oldRank)
+            if (DFL_SESSION->devices[i].rank >= oldRank)
             {
                 deviceIndex = i;
                 oldRank = DFL_SESSION->devices[i].rank;
@@ -545,6 +545,11 @@ void dflSessionInitDevice(int GPUCriteria, int deviceIndex, DflSession hSession)
         else 
         {
             DFL_SESSION->devices[deviceIndex].queues.handles[i] = calloc(1, sizeof(VkQueue));
+            if (DFL_SESSION->devices[deviceIndex].queues.handles[i] == NULL)
+            {
+                DFL_SESSION->error = DFL_GENERIC_OOM_ERROR;
+                return;
+            }
             vkGetDeviceQueue(DFL_SESSION->devices[deviceIndex].device, DFL_SESSION->devices[deviceIndex].queues.index[i], 0, DFL_SESSION->devices[deviceIndex].queues.handles[i]);
         }
 
