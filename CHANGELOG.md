@@ -1,6 +1,6 @@
 # DRAGONFLY CHANGELOG
 
-## unversioned [master] -
+## unversioned [master] - 11/9/2023
 - ~~Fixed bug with memory pool creation and expansion, where Dragonfly would keep trying to allocate memory from device heaps even though allocation was already successful.~~
 - ~~Buffers are now created to span the memory of the block that is assigned to them, instead of being created when a Dragonfly buffer is allocated~~
 - NOTE: All memory management and thread management related functions will now be moved to a new project, called "Termite" as to keep the scope of Dragonfly focused and to make development of memory and thread management much more substantial.
