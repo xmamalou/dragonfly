@@ -485,7 +485,10 @@ void dflSessionInitDevice(int GPUCriteria, int deviceIndex, DflSession hSession)
     }
 
     if (DFL_SESSION->devices[deviceIndex].device != NULL)
+    {   
+        DFL_SESSION->error = DFL_GENERIC_ALREADY_INITIALIZED_ERROR;
         return;
+    }
 
     if (deviceIndex < 0)
     {
