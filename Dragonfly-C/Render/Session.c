@@ -231,8 +231,8 @@ static struct DflDevice_T* _dflDeviceAlloc() {
 // just a helper function that fills GPU specific information in DflSession_T. When ranking devices,
 // Dragonfly will always sort each checked device using this function, unless the previous device
 // was already ranked higher. This will help avoid calling this function too many times.
-static int _dflDeviceOrganiseData(struct DflDevice_T* pDevice);
-static int _dflDeviceOrganiseData(struct DflDevice_T* pDevice)
+static void _dflDeviceOrganiseData(struct DflDevice_T* pDevice);
+static void _dflDeviceOrganiseData(struct DflDevice_T* pDevice)
 {
     VkDeviceCreateInfo deviceInfo = {
             .sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
@@ -291,8 +291,6 @@ static int _dflDeviceOrganiseData(struct DflDevice_T* pDevice)
 
     pDevice->canDoGeomShade = feats.geometryShader;
     pDevice->canDoTessShade = feats.tessellationShader;
-
-    return DFL_SUCCESS;
 }
 
 static int _dflDeviceQueuesGet(VkSurfaceKHR* surface, struct DflDevice_T* pDevice);
@@ -469,9 +467,7 @@ void dflSessionLoadDevices(DflSession hSession)
     for (int i = 0; i < DFL_SESSION->deviceCount; i++)
     {
         DFL_SESSION->devices[i].physDevice = physDevices[i];
-        DFL_SESSION->error = _dflDeviceOrganiseData(&DFL_SESSION->devices[i]);
-        if (DFL_SESSION->error != DFL_SUCCESS)
-            return;
+        _dflDeviceOrganiseData(&DFL_SESSION->devices[i]);
         DFL_SESSION->error = _dflDeviceQueuesGet(&surface, &DFL_SESSION->devices[i]);
         if (DFL_SESSION->error != DFL_SUCCESS)
             return;
