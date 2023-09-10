@@ -41,7 +41,7 @@ struct DflMonitorInfo* dflMonitorsGet(int* pCount)
     {
         GLFWvidmode* mode = glfwGetVideoMode(monitors[i]);
 
-        strcpy_s(infos[i].name, DFL_MAX_CHAR_COUNT, glfwGetMonitorName(monitors[i]));
+        STRCPY(infos[i].name, DFL_MAX_CHAR_COUNT, glfwGetMonitorName(monitors[i]));
 
         infos[i].res.x = mode->width;
         infos[i].res.y = mode->height;
