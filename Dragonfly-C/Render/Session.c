@@ -179,7 +179,7 @@ static float* _dflDeviceQueuePrioritiesSet(int count) {
     float* priorities = calloc(count, sizeof(float));
     if (priorities == NULL)
         return NULL;
-    for (int i = 0; i < count; i++)
+    for (int32_t i = 0; i < count; i++)
     { // hyperbolic dropoff
         priorities[i] = 1.0f / ((float)i + 1.0f);
     }
@@ -416,7 +416,7 @@ DflSession dflSessionCreate(struct DflSessionInfo* pInfo)
     // TODO: Implement for POSIX platforms.
 #endif
 
-    if (!(pInfo->sessionCriteria & DFL_SESSION_CRITERIA_ONLY_OFFSCREEN))
+    if (!(session->info.sessionCriteria & DFL_SESSION_CRITERIA_ONLY_OFFSCREEN))
         session->monitors = dflMonitorsGet(&session->monitorCount);
 
     return (DflSession)session;
@@ -478,15 +478,15 @@ void dflSessionLoadDevices(DflSession hSession)
 void dflSessionInitDevice(int GPUCriteria, int deviceIndex, DflSession hSession)
 {
     // device creation
-    if (deviceIndex >= DFL_SESSION->deviceCount) // TODO: Negative numbers tell Dragonfly to choose the device based on a rating system (which will also depend on the criteria).
+    if (deviceIndex >= DFL_SESSION->deviceCount)
     {
         DFL_SESSION->error = DFL_GENERIC_OUT_OF_BOUNDS_ERROR;
         return;
     }
 
-    if (DFL_SESSION->devices[deviceIndex].device != NULL)
+    if ((deviceIndex >= 0) && (DFL_SESSION->devices[deviceIndex].device != NULL))
     {   
-        DFL_SESSION->error = DFL_GENERIC_ALREADY_INITIALIZED_ERROR;
+        DFL_SESSION->error = DFL_GENERIC_ALREADY_INITIALIZED_WARNING;
         return;
     }
 
@@ -517,11 +517,18 @@ void dflSessionInitDevice(int GPUCriteria, int deviceIndex, DflSession hSession)
         return;
     }
 
-    if (DFL_SESSION->devices[deviceIndex].canPresent == true)
+    if ((DFL_SESSION->devices[deviceIndex].canPresent == true) || (GPUCriteria & DFL_GPU_CRITERIA_ONLY_OFFSCREEN))
     {
-        const char* extensions[] = { VK_KHR_SWAPCHAIN_EXTENSION_NAME };
         deviceInfo.enabledExtensionCount = 1;
-        deviceInfo.ppEnabledExtensionNames = extensions;
+        DFL_SESSION->devices[deviceIndex].extensionNames = calloc(deviceInfo.enabledExtensionCount, sizeof(const char**));
+        DFL_SESSION->devices[deviceIndex].extensionNames[0] = calloc(VK_MAX_EXTENSION_NAME_SIZE, sizeof(char));
+        if(DFL_SESSION->devices[deviceIndex].extensionNames[0] == NULL)
+        {
+            DFL_SESSION->error = DFL_GENERIC_OOM_ERROR;
+            return;
+        }
+        STRCPY(DFL_SESSION->devices[deviceIndex].extensionNames[0], DFL_MAX_CHAR_COUNT, VK_KHR_SWAPCHAIN_EXTENSION_NAME);
+        deviceInfo.ppEnabledExtensionNames = DFL_SESSION->devices[deviceIndex].extensionNames;
     }
     else
     {
