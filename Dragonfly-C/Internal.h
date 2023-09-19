@@ -61,8 +61,6 @@ struct DflSession_T { // A Dragonfly session
     int                    monitorCount;
     struct DflMonitorInfo* monitors;
 
-    VkSurfaceKHR  surface; // this exists purely to make device creation work, because it requires to check a surface for presentation support.
-
     DflWindow    windows[DFL_MAX_ITEM_COUNT]; // the windows that are currently open in this session
 
     int flags;
@@ -127,6 +125,9 @@ struct DflDevice_T {
     bool doAbuseMemory;
 
     bool canPresent;
+
+    int extensionsCount;
+    char** extensionNames;
 
     uint32_t rank; // a number that represents how good the device is. The higher the better. It is calculated based on some of the above fields. (Not yet decided how)
 };

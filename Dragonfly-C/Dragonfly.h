@@ -46,7 +46,6 @@ extern "C" {
 #define DFL_GENERIC_OOM_ERROR -0x1001
 #define DFL_GENERIC_NO_SUCH_FILE_ERROR -0x1002
 #define DFL_GENERIC_OUT_OF_BOUNDS_ERROR -0x1003 // attempted to create more items than the maximum allowed
-#define DFL_GENERIC_ALREADY_INITIALIZED_ERROR -0x1004 // the item is already initialized
 
 #define DFL_GLFW_API_INIT_ERROR -0x3101 // glfw initialization error
 #define DFL_GLFW_WINDOW_INIT_ERROR -0x3201 // glfw window creation error
@@ -67,6 +66,10 @@ extern "C" {
 #define DFL_VULKAN_QUEUE_ERROR -0x4701 // vulkan queue creation error
 #define DFL_VULKAN_QUEUES_NO_PROPERTIES_ERROR -0x4702 // queues have no properties
 #define DFL_VULKAN_QUEUES_COMPOOL_ALLOC_ERROR -0x4703 // failed to allocate command pool
+
+// warnings are > 0. Same convention as errors.
+
+#define DFL_GENERIC_ALREADY_INITIALIZED_WARNING 0x1001 // the device is already initialized
 
 // other definitions
 
@@ -92,9 +95,6 @@ extern "C" {
 
 // opaque handle for a DflSession_T object.
 DFL_MAKE_HANDLE(DflSession);
-
-// opaque handle for a DflDevice_T object.
-DFL_MAKE_HANDLE(DflDevice);
 // opaque handle for a DflWindow_T object.
 DFL_MAKE_HANDLE(DflWindow);
 
@@ -133,13 +133,14 @@ struct DflVec3D
 #define DFL_CHOOSE_ON_RANK -1 // choose the best GPU available
 
 #define DFL_SESSION_CRITERIA_NONE 0x00000000 // Dragonfly will operate as it sees fit. No extra criteria on how to manage the session.
-#define DFL_SESSION_CRITERIA_ONLY_OFFSCREEN 0x00000001 // Dragonfly implicitly assumes that on-screen rendering is desired. Use this flag to override that assumption.
-#define DFL_SESSION_CRITERIA_DO_DEBUG 0x00000002 // Dragonfly will enable validation layers and other debug features
+#define DFL_SESSION_CRITERIA_DO_DEBUG 0x00000001 // Dragonfly will enable validation layers and other debug features
+#define DFL_SESSION_CRITERIA_ONLY_OFFSCREEN 0x00000002 // Dragonfly implicitly assumes that on-screen rendering is desired. Use this flag to override that assumption.
 
 #define DFL_GPU_CRITERIA_NONE 0x00000000 // Dragonfly will choose the best GPU available - no extra criteria on how to use it. It will use it as it sees fit.
 #define DFL_GPU_CRITERIA_LOW_PERFORMANCE 0x00000001 // Dragonfly will try to use the least intensive GPU available
 #define DFL_GPU_CRITERIA_ABUSE_MEMORY 0x00000002 // Dragonfly will normally implicitly leave a little wiggle room for GPU memory - use this flag to override that assumption
 #define DFL_GPU_CRITERIA_ALL_QUEUES 0x00000004 // Dragonfly will reserve only one queue for each queue family - use this flag to override that assumption
+#define DFL_GPU_CRITERIA_ONLY_OFFSCREEN 0x00000008 // Dragonfly implicitly assumes that on-screen rendering is desired. Use this flag to override that assumption.
 
 struct DflSessionInfo
 {
@@ -212,9 +213,9 @@ struct DflMonitorInfo {
 	struct DflVec2D pos; // the position in screen coordinates
 	struct DflVec2D workArea; // the work area in screen coordinates
 	
-	char name[DFL_MAX_CHAR_COUNT];
+	char            name[DFL_MAX_CHAR_COUNT];
 
-	int	rate;
+	uint32_t        rate;
 
 	int 			colorDepth;
 	struct DflVec3D colorDepthPerPixel; // x = red, y = green, z = blue
@@ -310,16 +311,16 @@ typedef struct DflWindowInfo {
 	char			name[DFL_MAX_CHAR_COUNT];
 	DflImage		hIcon;
 
-	int				mode : 2; // DFL_WINDOWED, DFL_FULLSCREEN, DFL_BORDERLESS
+	uint32_t		mode : 2; // DFL_WINDOWED, DFL_FULLSCREEN, DFL_BORDERLESS
 
-	int	            rate; // the refresh rate of the window. Set 0 for unlimited.
+	uint32_t	    rate; // the refresh rate of the window. Set 0 for unlimited.
 	bool            vsync; // overrides rate.
 
 	struct DflVec2D pos; // the position of the window in SCREEN COORDINATES
 
 	int             colorFormat; // the image format of the window. Set 0 for default. If not supported, the default will be used.
 	unsigned int    swizzling;
-	int				layers; // how many layers the images for the window will have. Useful for VR. Set to 1 for normal windows.
+	uint32_t	    layers; // how many layers the images for the window will have. Useful for VR. Set to 1 for normal windows.
 } DflWindowInfo;
 
 /* -------------------- *
@@ -331,17 +332,17 @@ typedef struct DflWindowInfo {
 */
 DflWindow   dflWindowInit(struct DflWindowInfo* pWindowInfo, DflSession hSession);
 
-/*
-* @brief Bind a Window to a device of a session.
-* 
-* This function is used to bind a window to a device. You don't need to pass any parameters specifying the swapchain, as 
-* DflWindowInfo already contains all the information needed to create a swapchain. This function just uses that information.
-*/
-void dflWindowBindToDevice(DflWindow hWindow, int deviceIndex, DflSession hSession);
-
 /* -------------------- *
  *   CHANGE             *
  * -------------------- */
+
+/*
+* @brief Bind a Window to a device of a session.
+*
+* This function is used to bind a window to a device. You don't need to pass any parameters specifying the swapchain, as
+* DflWindowInfo already contains all the information needed to create a swapchain. This function just uses that information.
+*/
+void dflWindowBindToDevice(DflWindow hWindow, int deviceIndex, DflSession hSession);
 
 /*
 * @brief Change the window's dimensions, viewport, or resolution.
