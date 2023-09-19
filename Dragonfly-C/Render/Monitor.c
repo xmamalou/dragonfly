@@ -33,13 +33,13 @@ struct DflMonitorInfo* dflMonitorsGet(int* pCount)
     if (!monitors)
         return NULL;
 
-    struct DflMonitorInfo* infos = malloc(sizeof(struct DflMonitorInfo) * *pCount);
+    struct DflMonitorInfo* infos = (struct DflMonitorInfo*)calloc(*pCount, sizeof(struct DflMonitorInfo));
     if (infos == NULL)
         return NULL;
 
     for (int i = 0; i < *pCount; i++)
     {
-        GLFWvidmode* mode = glfwGetVideoMode(monitors[i]);
+        const GLFWvidmode* mode = glfwGetVideoMode(monitors[i]);
 
         STRCPY(infos[i].name, DFL_MAX_CHAR_COUNT, glfwGetMonitorName(monitors[i]));
 

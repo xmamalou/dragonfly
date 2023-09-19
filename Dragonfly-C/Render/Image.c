@@ -36,7 +36,7 @@ void dflImageLoad(DflImage hImage)
 
 DflImage dflImageFromFileGet(const char* file)
 {
-    struct DflImage_T* image = calloc(1, sizeof(struct DflImage_T));
+    struct DflImage_T* image = (struct DflImage_T*)calloc(1, sizeof(struct DflImage_T));
     if(image == NULL)
         return NULL;
 
@@ -54,7 +54,7 @@ DflImage dflImageFromFileGet(const char* file)
 
 DflImage dflImageReferenceFromFileGet(const char* file)
 {
-    struct DflImage_T* image = calloc(1, sizeof(struct DflImage_T));
+    struct DflImage_T* image = (struct DflImage_T*)calloc(1, sizeof(struct DflImage_T));
     if (image == NULL)
         return NULL;
 
