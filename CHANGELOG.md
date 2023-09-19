@@ -1,5 +1,16 @@
 # DRAGONFLY CHANGELOG
 
+## unversioned [master] - 19/9/2023
+- Fixed issue [#1](https://github.com/xmamalou/dragonfly/issues/1), where Dragonfly was unable to create a Vulkan device due to malformed device extension names. The reason was that the passed variable was out of scope at the moment of the creation of the device.
+- Related to this is the addition of the fields `extensionsCount` and `extentionNames` in `struct DflDevice_T`.
+- Fixed type issues in queue priority setting, that would cause garbage values to be set as priorities for queues.
+- Made explicit type conversions when using `calloc` in places where said conversions were left implicit.
+- Changed error `DFL_GENERIC_ALREADY_INITIALIZED_ERROR` to `DFL_GENERIC_ALREADY_INITIALIZED_WARNING` (from value -0x1004 to value 0x1001).
+- Readded `DFL_GPU_CRITERIA_ONLY_OFFSCREEN` criterion.
+- Removed any reference to obsolete handles (`DflDevice`).
+- Removed `surface` field from `struct DflSession_T`, as presentation support checking now happens using the windows directly.
+- Changed certain `int` types to `uint32_t`, as the variables they concerned were never going to have negative values stored in them.
+
 ## unversioned [master] - 11/9/2023
 - ~~Fixed bug with memory pool creation and expansion, where Dragonfly would keep trying to allocate memory from device heaps even though allocation was already successful.~~
 - ~~Buffers are now created to span the memory of the block that is assigned to them, instead of being created when a Dragonfly buffer is allocated~~

@@ -109,9 +109,10 @@
       <CompileAs>CompileAsC</CompileAs>
       <AdditionalIncludeDirectories>C:\VulkanSDK\1.3.224.1\Include;C:\glfw-3.3.8\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <LanguageStandard_C>stdc17</LanguageStandard_C>
-      <Optimization>Custom</Optimization>
+      <Optimization>Disabled</Optimization>
       <SuppressStartupBanner>true</SuppressStartupBanner>
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
+      <SYCLOptimization>MaxSpeed</SYCLOptimization>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
