@@ -29,9 +29,8 @@ int main()
 
 	DflWindow	window = NULL;
 	DflSession	session = NULL;
-	DflDevice	device = NULL;
 	
-	struct DflSessionInfo info = { "Dragonfly", DFL_VERSION(0, 1, 0), DFL_SESSION_CRITERIA_NONE};
+	struct DflSessionInfo info = { "Dragonfly", DFL_VERSION(0, 1, 0), DFL_SESSION_CRITERIA_DO_DEBUG};
 	struct DflWindowInfo winfo = {
 		.dim = {1820, 1080},
 		.view = {1820, 1080},
@@ -49,7 +48,7 @@ int main()
 	error = dflSessionErrorGet(session);
 	if (error < DFL_SUCCESS)
 	{
-		printf("Error: %x\n", error);
+		printf("Error: %x\n", -error);
 		return 1;
 	}
 
@@ -57,7 +56,7 @@ int main()
 	error = dflWindowErrorGet(window);
 	if (error < DFL_SUCCESS)
 	{
-		printf("Error: %x\n", error);
+		printf("Error: %x\n", -error);
 		return 1;
 	}
 
@@ -68,16 +67,18 @@ int main()
 	dflWindowWin32AttributeSet(DFL_WINDOW_WIN32_TITLE_TEXT_COLOUR, DFL_COLOR_WHITE, window);
 	dflWindowWin32AttributeSet(DFL_WINDOW_WIN32_DARK_MODE, true, window);
 #endif
-	
+
 	dflSessionLoadDevices(session);
 	if (dflSessionDeviceCountGet(session) == NULL)
 		return 1;
+
+	printf("Device Count: %d\n", dflSessionDeviceCountGet(session));
 
 	dflSessionInitDevice(DFL_GPU_CRITERIA_NONE, DFL_CHOOSE_ON_RANK, session);
 	error = dflSessionErrorGet(session);
 	if (error < DFL_SUCCESS)
 	{
-		printf("Error: %x\n", error);
+		printf("Error: %x\n", -error);
 		return 1;
 	}
 
@@ -87,7 +88,7 @@ int main()
 	error = dflWindowErrorGet(window);
 	if (error < DFL_SUCCESS)
 	{
-		printf("Error: %x\n", error);
+		printf("Error: %x\n", -error);
 		return 1;
 	}
 
