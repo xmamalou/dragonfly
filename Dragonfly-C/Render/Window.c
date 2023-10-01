@@ -94,6 +94,16 @@ static VkSwapchainCreateInfoKHR _dflWindowSwapchainCreateInfoGet(DflWindow hWind
     if(DFL_HANDLE(Window)->info.layers == NULL)
         DFL_HANDLE(Window)->info.layers = 1;
 
+    int index = 0;
+    for (int i = 0; i < device.queueFamilyCount; i++)
+    {
+        if ((device.pQueueFamilies[i].isUsed == true) && (device.pQueueFamilies[i].queueType & VK_QUEUE_GRAPHICS_BIT))
+        {
+            index = i;
+            break;
+        }
+    }
+
     VkSwapchainCreateInfoKHR swapInfo = {
         .sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR,
         .surface = DFL_HANDLE(Window)->surface,
@@ -101,7 +111,7 @@ static VkSwapchainCreateInfoKHR _dflWindowSwapchainCreateInfoGet(DflWindow hWind
         .minImageCount = DFL_HANDLE(Window)->imageCount,
         .imageExtent = { DFL_HANDLE(Window)->info.dim.x, DFL_HANDLE(Window)->info.dim.y },
         .queueFamilyIndexCount = 1,
-        .pQueueFamilyIndices = &device.queues.index[DFL_QUEUE_TYPE_PRESENTATION],
+        .pQueueFamilyIndices = &index,
         .imageSharingMode = VK_SHARING_MODE_EXCLUSIVE,
         .oldSwapchain = DFL_HANDLE(Window)->swapchain,
         .imageFormat = DFL_HANDLE(Window)->info.colorFormat,
@@ -328,7 +338,7 @@ DflWindow dflWindowInit(DflWindowInfo* pWindowInfo, DflSession hSession)
     return hWindow;
 }
 
-void dflWindowBindToDevice(DflWindow hWindow, int deviceIndex, DflSession hSession)
+void dflWindowBindToDevice(DflWindow hWindow, uint32_t deviceIndex, DflSession hSession)
 {
     int formatCount;
     vkGetPhysicalDeviceSurfaceFormatsKHR(DFL_SESSION->devices[deviceIndex].physDevice, DFL_WINDOW->surface, &formatCount, NULL);
