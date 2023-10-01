@@ -30,7 +30,7 @@ int main()
 	DflWindow	window = NULL;
 	DflSession	session = NULL;
 	
-	struct DflSessionInfo info = { "Dragonfly", DFL_VERSION(0, 1, 0), DFL_SESSION_CRITERIA_DO_DEBUG};
+	struct DflSessionInfo info = { "Dragonfly", DFL_VERSION(0, 1, 0), DFL_SESSION_CRITERIA_NONE};
 	struct DflWindowInfo winfo = {
 		.dim = {1820, 1080},
 		.view = {1820, 1080},
@@ -71,6 +71,11 @@ int main()
 	dflSessionLoadDevices(session);
 	if (dflSessionDeviceCountGet(session) == NULL)
 		return 1;
+	if (dflSessionErrorGet(session) < DFL_SUCCESS)
+	{
+		printf("Error: %x\n", -error);
+		return 1;
+	}
 
 	printf("Device Count: %d\n", dflSessionDeviceCountGet(session));
 
@@ -78,7 +83,7 @@ int main()
 	error = dflSessionErrorGet(session);
 	if (error < DFL_SUCCESS)
 	{
-		printf("Error: %x\n", -error);
+		printf("Error1: %x\n", -error);
 		return 1;
 	}
 
