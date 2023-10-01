@@ -55,10 +55,10 @@ struct DflSession_T { // A Dragonfly session
 
     uint64_t memorySize;
 
-    int                 deviceCount;
+    uint32_t            deviceCount;
     struct DflDevice_T* devices;
 
-    int                    monitorCount;
+    uint32_t               monitorCount;
     struct DflMonitorInfo* monitors;
 
     DflWindow    windows[DFL_MAX_ITEM_COUNT]; // the windows that are currently open in this session
@@ -71,19 +71,28 @@ struct DflSession_T { // A Dragonfly session
  *             DEVICES              *
  * ================================ */
 
-#define DFL_QUEUE_TYPE_GRAPHICS 0
-#define DFL_QUEUE_TYPE_COMPUTE 1
-#define DFL_QUEUE_TYPE_TRANSFER 2
-#define DFL_QUEUE_TYPE_PRESENTATION 3
+#define DFL_QUEUE_TYPE_GRAPHICS 0x0001
+#define DFL_QUEUE_TYPE_COMPUTE 0x0002
+#define DFL_QUEUE_TYPE_TRANSFER 0x0004
+#define DFL_QUEUE_TYPE_PRESENTATION 0x0008
 
-struct DflQueueCollection_T { // the order of the queues is: graphics, compute, transfer, presentation (see up)
-    VkQueue*      handles[4];
+struct DflQueue_T {
+    VkQueue queue;
+    uint32_t index;
+};
 
-    VkCommandPool comPool[4];
+struct DflSingleTypeQueueArray_T {
+    uint32_t            count;
+    struct DflQueue_T*  pQueues;
+};
 
-    uint32_t      count[4]; 
+struct DflQueueFamily_T { 
+    VkCommandPool comPool;
+    uint32_t      queueCount;
+    uint32_t      queueType;
+    bool          canPresent;
 
-    uint32_t      index[4];
+    bool          isUsed;
 };
 
 
@@ -98,9 +107,15 @@ struct DflMem_T {
 struct DflDevice_T {
     VkDevice                    device;
 
+    /* -------------------- *
+     *        QUEUES        *
+     * -------------------- */
+
     VkPhysicalDevice            physDevice;
-    int                         queueFamilyCount;
-    struct DflQueueCollection_T queues;
+    uint32_t                    queueFamilyCount;
+    struct DflQueueFamily_T*    pQueueFamilies;
+
+    struct DflSingleTypeQueueArray_T queues[4]; // 0: graphics, 1: compute, 2: transfer, 3: presentation
 
     /* -------------------- *
      *   GPU PROPERTIES     *
@@ -126,8 +141,8 @@ struct DflDevice_T {
 
     bool canPresent;
 
-    int extensionsCount;
-    char** extensionNames;
+    uint32_t extensionsCount;
+    char**   extensionNames;
 
     uint32_t rank; // a number that represents how good the device is. The higher the better. It is calculated based on some of the above fields. (Not yet decided how)
 };
@@ -155,8 +170,8 @@ struct DflWindow_T { // A Dragonfly window
     VkImageView*   imageViews;
     int            colorSpace;
 
-    int error;
-    int index; // the index of the window in the session's window array
+    int      error;
+    uint32_t index; // the index of the window in the session's window array
 };
 
 /* -------------------- *
