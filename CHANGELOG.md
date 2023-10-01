@@ -1,5 +1,21 @@
 # DRAGONFLY CHANGELOG
 
+## unversioned [master] - 1/10/2023
+- Flag `DFL_GPU_CRITERIA_LOW_PERFORMANCE` is now effective.
+- Changed the way Dragonfly manages queues; 
+  - `DflQueueCollection_T` is now `DflQueueFamily_T` and concerns *solely* queue families.
+  - Enabled queues are now contained on a 4-array, which distinguishes them based on 4 types (`DflSingleTypeQueueArray_T`).
+  - Each of the members of the afore mentioned array contains a count of the enabled queues per device and the handles of the queues themselves, along with their queue family index
+  - Each family has now only one command pool initialized and only if it has a queue activated.
+  - Each family now records the amount of queues per family and their type.
+  - `DFL_QUEUE_TYPE_*` macros changed to flags.
+- Fixed memory access issues where Dragonfly would attempt to allocate memory far, far greater than it needed.
+- Types are now more consistent
+  - Fields that didn't make sense to be signed are now signed.
+  - `DFL_CHOOSE_ON_RANK` is now defined as the biggest integer possible, instead of as a negative number.
+  - Any function that refers to a device index changed the device index type from `int` to `uint32_t`.
+- Added `dflSessionActivatedDeviceIndicesGet` function.
+
 ## unversioned [master] - 19/9/2023
 - Fixed issue [#1](https://github.com/xmamalou/dragonfly/issues/1), where Dragonfly was unable to create a Vulkan device due to malformed device extension names. The reason was that the passed variable was out of scope at the moment of the creation of the device.
 - Related to this is the addition of the fields `extensionsCount` and `extentionNames` in `struct DflDevice_T`.
