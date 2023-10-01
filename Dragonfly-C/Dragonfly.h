@@ -39,8 +39,10 @@ extern "C" {
 * Errors are a 2-byte integer, laid out in hex as follows:
 * 
 * The first digit (from the left) is the general category of the error. For example, 0x1XXX is a generic error, 0x2XXX is a GLFW error, etc.
-* The second digit is a more specified category of the error. For example, for Vulkan, there could be multiple errors concerning the instance, the device, the surface, etc.
-* The third and fourth digits are the error code number.
+* The second digit is a more specified subcategory of the error. For example, for Vulkan, there could be multiple errors concerning the instance, the device, the surface, etc.
+* The third and fourth digits are the error code number (there are 255 possible errors for each subcategory).
+* 
+* Generic is an exception, as it doesn't have any subcategories. All three numbers after the first one are the error number (so, there is one category with 4095 errors).
 */
 
 #define DFL_GENERIC_OOM_ERROR -0x1001
@@ -67,9 +69,11 @@ extern "C" {
 #define DFL_VULKAN_QUEUES_NO_PROPERTIES_ERROR -0x4702 // queues have no properties
 #define DFL_VULKAN_QUEUES_COMPOOL_ALLOC_ERROR -0x4703 // failed to allocate command pool
 
-// warnings are > 0. Same convention as errors.
+// warnings are > 0. Same convention as errors. For consistency's sake, the first two digits of each warning's category are the same as the error's, even if there aren't any prior warning categories.
 
 #define DFL_GENERIC_ALREADY_INITIALIZED_WARNING 0x1001 // the device is already initialized
+
+#define DFL_VULKAN_QUEUES_UNKNOWN_TYPE_WARNING 0x4701 // the queue type is not graphics, compute, transfer, or presentation
 
 // other definitions
 
@@ -130,7 +134,7 @@ struct DflVec3D
  *   TYPES              *
  * -------------------- */
 
-#define DFL_CHOOSE_ON_RANK -1 // choose the best GPU available
+#define DFL_CHOOSE_ON_RANK UINT_MAX // choose the best GPU available - we choose the biggest number because it's impossible to have *that* many GPUs in a system
 
 #define DFL_SESSION_CRITERIA_NONE 0x00000000 // Dragonfly will operate as it sees fit. No extra criteria on how to manage the session.
 #define DFL_SESSION_CRITERIA_DO_DEBUG 0x00000001 // Dragonfly will enable validation layers and other debug features
@@ -170,7 +174,7 @@ void dflSessionLoadDevices(DflSession hSession);
 /*
 * @brief Initialize a device from the ones available to the session.
 */
-void dflSessionInitDevice(int GPUCriteria, int deviceIndex, DflSession hSession);
+void dflSessionInitDevice(int GPUCriteria, uint32_t deviceIndex, DflSession hSession);
 
 /* -------------------- *
  *   GET & SET          *
@@ -178,9 +182,14 @@ void dflSessionInitDevice(int GPUCriteria, int deviceIndex, DflSession hSession)
 
 extern inline uint32_t	  dflSessionDeviceCountGet(DflSession hSession);
 
-extern inline const char* dflSessionDeviceNameGet(int deviceIndex, DflSession hSession);
+/*
+* @brief Get the indices of the devices that are initialized. The first element is the number of devices. (the number of elements in the array is the number of devices + 1)
+*/
+extern inline uint32_t*   dflSessionActivatedDeviceIndicesGet(DflSession hSession);
 
-extern inline uint32_t    dflSessionDeviceRankGet(int deviceIndex, DflSession hSession);
+extern inline const char* dflSessionDeviceNameGet(uint32_t deviceIndex, DflSession hSession);
+
+extern inline uint32_t    dflSessionDeviceRankGet(uint32_t deviceIndex, DflSession hSession);
 
 extern inline int         dflSessionErrorGet(DflSession hSession);
 
@@ -342,7 +351,7 @@ DflWindow   dflWindowInit(struct DflWindowInfo* pWindowInfo, DflSession hSession
 * This function is used to bind a window to a device. You don't need to pass any parameters specifying the swapchain, as
 * DflWindowInfo already contains all the information needed to create a swapchain. This function just uses that information.
 */
-void dflWindowBindToDevice(DflWindow hWindow, int deviceIndex, DflSession hSession);
+void dflWindowBindToDevice(DflWindow hWindow, uint32_t deviceIndex, DflSession hSession);
 
 /*
 * @brief Change the window's dimensions, viewport, or resolution.
