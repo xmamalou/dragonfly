@@ -1,5 +1,7 @@
 # Dragonfly - Rendering and Physics
 
+*** NOTE: THIS BRANCH IS OBSOLETE. It does no longer represent Dragonfly, and will no longer be updated. `master-cpp` is the default branch of the project now. ***
+
 Dragonfly is not in a working state. 
 
 Currently, it has reached the state where a device is ready for work and a window is ready to be rendered to. However, no rendering operations take place.
