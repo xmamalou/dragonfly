@@ -25,6 +25,9 @@
     <Filter Include="Source Files\Dragonfly\Graphics">
       <UniqueIdentifier>{637c469c-d036-4a27-b310-a9b7a22b1501}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Shaders">
+      <UniqueIdentifier>{8d9ea47c-f60f-47fd-970d-e717883706d9}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Dragonfly.Observer-Window.ixx">
@@ -32,12 +35,6 @@
     </ClCompile>
     <ClCompile Include="Dragonfly.Hardware.ixx">
       <Filter>Source Files\Dragonfly</Filter>
-    </ClCompile>
-    <ClCompile Include="Dragonfly.Hardware-Monitor.cxx">
-      <Filter>Source Files\Dragonfly\Hardware</Filter>
-    </ClCompile>
-    <ClCompile Include="Dragonfly.Hardware-Monitor.ixx">
-      <Filter>Source Files\Dragonfly\Hardware</Filter>
     </ClCompile>
     <ClCompile Include="Dragonfly.Hardware-Session.cxx">
       <Filter>Source Files\Dragonfly\Hardware</Filter>
@@ -60,7 +57,13 @@
     <ClCompile Include="Dragonfly.Graphics-Image.ixx">
       <Filter>Source Files\Dragonfly\Graphics</Filter>
     </ClCompile>
-    <ClCompile Include="Dragonfly.Graphics-Image.cpp">
+    <ClCompile Include="Dragonfly.Graphics-Image.cxx">
+      <Filter>Source Files\Dragonfly\Graphics</Filter>
+    </ClCompile>
+    <ClCompile Include="Dragonfly.Graphics-Space.ixx">
+      <Filter>Source Files\Dragonfly\Graphics</Filter>
+    </ClCompile>
+    <ClCompile Include="Dragonfly.Graphics-Space.cxx">
       <Filter>Source Files\Dragonfly\Graphics</Filter>
     </ClCompile>
   </ItemGroup>
@@ -68,5 +71,13 @@
     <ClInclude Include="Dragonfly.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <FxCompile Include="Shaders\TestVertexShader.hlsl">
+      <Filter>Shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="Shaders\TestFragShader.hlsl">
+      <Filter>Shaders</Filter>
+    </FxCompile>
   </ItemGroup>
 </Project>

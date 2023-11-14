@@ -1,6 +1,26 @@
+/*
+   Copyright 2023 Christopher-Marios Mamaloukas
+
+   Licensed under the Apache License, Version 2.0 (the "License");
+   you may not use this file except in compliance with the License.
+   You may obtain a copy of the License at
+
+       http://www.apache.org/licenses/LICENSE-2.0
+
+   Unless required by applicable law or agreed to in writing, software
+   distributed under the License is distributed on an "AS IS" BASIS,
+   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+   See the License for the specific language governing permissions and
+   limitations under the License.
+*/
+
+module;
+
 #include <tuple>
 #include <string>
 #include <thread>
+#include <vector>
+#include <mutex>
 
 #include <Windows.h>
 
@@ -16,10 +36,20 @@ namespace Dfl
     namespace Observer
     {
         // standard resolution used as a default
-        //export const std::tuple<uint32_t, uint32_t> DefaultResolution = std::make_tuple(1920, 1080);
+        //export constexpr uint32_t DefaultWidth = 1920;
+        //export constexpr uint32_t DefaultHeight = 1080;
+
+        export struct WindowProcessArgs
+        {
+
+        };
 
         // a function pointer to processes meant to be executed during a Window's existence.
-        export typedef void (*WindowProcess)(void* args);
+        export class WindowProcess 
+        {
+        public:
+            virtual void operator () (WindowProcessArgs& args) = 0;
+        };
 
         /*!
          * \brief Information used for initializing a Window
@@ -36,10 +66,12 @@ namespace Dfl
             std::tuple<int, int> Position{ std::make_tuple(0, 0) }; // Relative to the monitor
             std::string_view     WindowTitle{ "Dragonfly App" };
 
-            WindowProcess        Process{ nullptr }; // the process that will execute in the thread concerning the window
-            void*                pArguments{ nullptr }; // the arguments for the process that will execute in the thread concerning the window
+            std::vector<WindowProcess*> Processes{ }; // the process that will execute in the thread concerning the window
 
-            HWND hWindow; // instead of creating a new window, set this to render to children windows
+            //Dfl::Graphics::Image& icon;
+
+            bool IsVisible{ true }; // is the Window in question an onscreen one?
+            HWND hWindow{ nullptr }; // instead of creating a new window, set this to render to children windows
         };
 
         /*!
@@ -64,12 +96,17 @@ namespace Dfl
             WindowError Error{ WindowError::Success };
             bool        ShouldClose{ false };
 
+            std::mutex        AccessProcess;
+            WindowProcessArgs Arguments;
+
             friend class Window; // Windows should be able to access everything about them
         public:
             WindowFunctor(const WindowInfo& info);
             ~WindowFunctor();
 
             void operator() ();
+
+            friend DFL_API inline void DFL_CALL PushProcess(WindowProcess& process, Window& window);
         };
 
         /*!
@@ -121,6 +158,16 @@ namespace Dfl
             {
                 return this->Functor.ShouldClose;
             }
+
+            friend DFL_API inline void DFL_CALL PushProcess(WindowProcess& process, Window& window);
         };
+
+        /*!
+        * \brief Add a new process to be executed by the window.
+        * 
+        * Temporarily locks the calling thread until the process can be pushed. Likewise, blocks the window thread
+        * until the process is pushed. There shouldn't be any noticeable delay due to this.
+        */
+        export DFL_API inline void DFL_CALL PushProcess(WindowProcess& process, Window& window);
     }
 }

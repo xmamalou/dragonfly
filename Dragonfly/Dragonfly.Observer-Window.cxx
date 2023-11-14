@@ -1,5 +1,22 @@
+/*
+   Copyright 2023 Christopher-Marios Mamaloukas
+
+   Licensed under the Apache License, Version 2.0 (the "License");
+   you may not use this file except in compliance with the License.
+   You may obtain a copy of the License at
+
+       http://www.apache.org/licenses/LICENSE-2.0
+
+   Unless required by applicable law or agreed to in writing, software
+   distributed under the License is distributed on an "AS IS" BASIS,
+   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+   See the License for the specific language governing permissions and
+   limitations under the License.
+*/
+
 module;
 
+#include <iostream>
 #include <tuple>
 #include <memory>
 #include <string>
@@ -46,11 +63,16 @@ void DflOb::WindowFunctor::operator() ()
 
     this->hWin32Window = glfwGetWin32Window(this->pGLFWwindow);
 
-    this->ShouldClose = glfwWindowShouldClose(this->pGLFWwindow);
-    while (!glfwWindowShouldClose(this->pGLFWwindow))
+    this->ShouldClose = false;
+
+    while ((!glfwWindowShouldClose(this->pGLFWwindow)) && (!this->ShouldClose))
     {
         glfwPollEvents();
-        if(this->Info.Process != nullptr) this->Info.Process(this->Info.pArguments);
+        this->AccessProcess.lock();
+        for (auto process : this->Info.Processes)
+            (*process)(this->Arguments);
+        this->AccessProcess.unlock();
+        Sleep(1/this->Info.Rate);
     }
 
     this->ShouldClose = glfwWindowShouldClose(this->pGLFWwindow);
@@ -66,13 +88,14 @@ DflOb::Window::Window(const WindowInfo& createInfo) : Functor(createInfo)
 
 DflOb::Window::~Window()
 {
+    this->Functor.ShouldClose = true;
     this->Thread.join();
     this->Functor.~WindowFunctor();
 }
 
 DflOb::WindowError DflOb::Window::OpenWindow()
 {
-    if (this->Functor.hWin32Window == nullptr)
+    if ((this->Functor.hWin32Window == nullptr) && (this->Functor.Info.IsVisible))
     {
         if (!glfwInit())
             return DflOb::WindowError::APIInitError;
@@ -88,3 +111,10 @@ DflOb::WindowError DflOb::Window::OpenWindow()
 
     return WindowError::Success;
 }
+
+inline void DflOb::PushProcess(WindowProcess& process, Window& window)
+{
+    window.Functor.AccessProcess.lock();
+    window.Functor.Info.Processes.push_back(&process);
+    window.Functor.AccessProcess.unlock();
+};

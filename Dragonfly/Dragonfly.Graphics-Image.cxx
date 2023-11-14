@@ -17,26 +17,18 @@
 module;
 
 #include <string>
-#include <tuple>
-#include <vector>
 
-export module Dragonfly.Graphics:Image;
+module Dragonfly.Graphics:Image;
 
-namespace Dfl
+namespace DflGr = Dfl::Graphics;
+
+DflGr::Image::Image(const std::string_view& file)
 {
-    namespace Graphics
-    {
-        export class Image
-        {
-            std::string_view               Path;
-            std::tuple<uint64_t, uint64_t> Size;
+    this->Path = file;
+}
 
-            //bgil::rgb8_image_t             Data;
-
-        public:
-            Image(const std::string_view& file);
-
-            void Load();
-        };
-    }
+void DflGr::Image::Load()
+{
+    // TODO: Implement image loading
+    return;
 }

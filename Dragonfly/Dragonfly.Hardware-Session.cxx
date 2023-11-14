@@ -1,3 +1,19 @@
+/*
+   Copyright 2023 Christopher-Marios Mamaloukas
+
+   Licensed under the Apache License, Version 2.0 (the "License");
+   you may not use this file except in compliance with the License.
+   You may obtain a copy of the License at
+
+       http://www.apache.org/licenses/LICENSE-2.0
+
+   Unless required by applicable law or agreed to in writing, software
+   distributed under the License is distributed on an "AS IS" BASIS,
+   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+   See the License for the specific language governing permissions and
+   limitations under the License.
+*/
+
 module;
 
 #include <iostream>
@@ -10,6 +26,17 @@ module;
 module Dragonfly.Hardware:Session;
 
 namespace DflHW = Dfl::Hardware;
+namespace DflOb = Dfl::Observer;
+
+void DflHW::DebugProcess::operator() (DflOb::WindowProcessArgs& args)
+{
+
+};
+
+void DflHW::RenderingSurface::operator() (DflOb::WindowProcessArgs& args)
+{
+
+};
 
 DflHW::Session::Session(const SessionInfo& info)
 {
@@ -116,14 +143,15 @@ DflHW::SessionError DflHW::Session::InitVulkan()
     };
 
     std::vector<const char*> extensions;
-    if (!(this->GeneralInfo.Criteria & static_cast<uint32_t>(SessionCriteria::OnlyOffscreen)))
+    if (this->GeneralInfo.EnableRTRendering == true)
     {
         extensions.push_back(VK_KHR_SURFACE_EXTENSION_NAME);
         extensions.push_back("VK_KHR_win32_surface");
+        extensions.push_back(VK_KHR_DISPLAY_EXTENSION_NAME);
     }
 
     std::vector<const char*> expectedLayers = { "VK_LAYER_KHRONOS_validation" };
-    if (this->GeneralInfo.Criteria & static_cast<uint32_t>(SessionCriteria::DoDebug))
+    if (this->GeneralInfo.DoDebug == true)
     {
         extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
 
@@ -148,17 +176,25 @@ DflHW::SessionError DflHW::Session::InitVulkan()
         }
     }
 
-    instInfo.enabledLayerCount = (this->GeneralInfo.Criteria & static_cast<uint32_t>(SessionCriteria::DoDebug)) ? expectedLayers.size() : 0;
-    instInfo.ppEnabledLayerNames = (this->GeneralInfo.Criteria & static_cast<uint32_t>(SessionCriteria::DoDebug)) ? expectedLayers.data() : nullptr;
+    instInfo.enabledLayerCount = (this->GeneralInfo.DoDebug == true) ? expectedLayers.size() : 0;
+    instInfo.ppEnabledLayerNames = (this->GeneralInfo.DoDebug == true) ? expectedLayers.data() : nullptr;
 
     instInfo.enabledExtensionCount = extensions.size();
     instInfo.ppEnabledExtensionNames = extensions.data();
 
-    if (vkCreateInstance(&instInfo, nullptr, &this->VkInstance))
-        SessionError::VkInstanceCreationError;
+    VkResult vkError = vkCreateInstance(&instInfo, nullptr, &this->VkInstance);
+    switch (vkError)
+    {
+    case VK_SUCCESS:
+        break;
+    case VK_ERROR_INCOMPATIBLE_DRIVER:
+        return SessionError::VkBadDriverError;
+    default:
+        return SessionError::VkInstanceCreationError;
+    }
 
     SessionError err = SessionError::Success;
-    if (this->GeneralInfo.Criteria & static_cast<uint32_t>(SessionCriteria::DoDebug))
+    if (this->GeneralInfo.DoDebug == true)
         err = _InitDebugger(this->VkInstance, this->VkDbMessenger);
 
     return err;
@@ -241,7 +277,7 @@ DflHW::SessionError DflHW::Session::LoadDevices()
 
 // internal for InitDevice
 
-std::vector<float> _QueuePriorities(uint32_t size)
+static std::vector<float> _QueuePriorities(uint32_t size)
 {
     std::vector<float> priorities(size);
     for (uint32_t i = 0; i < priorities.size(); i++)
@@ -250,7 +286,7 @@ std::vector<float> _QueuePriorities(uint32_t size)
     return priorities;
 }
 
-DflHW::SessionError DflHW::Session::GetQueues(std::vector<VkDeviceQueueCreateInfo>& infos, Device& device)
+DflHW::SessionError DflHW::_GetQueues(std::vector<VkDeviceQueueCreateInfo>& infos, Device& device)
 {
     std::vector<VkQueueFamilyProperties> props;
     uint32_t queueFamilies = 0;
@@ -260,7 +296,7 @@ DflHW::SessionError DflHW::Session::GetQueues(std::vector<VkDeviceQueueCreateInf
     props.resize(queueFamilies);
     vkGetPhysicalDeviceQueueFamilyProperties(device.VkPhysicalGPU, &queueFamilies, props.data());
     
-    uint32_t requiredQueues = device.Surfaces.size() + device.Simulations.size() + 1;
+    int requiredQueues = device.Surfaces.size() + device.Simulations.size() + 1;
     // ^ Why + 1? If the user doesn't want any sims or any rendering, we assume that they may, at least
     // want to use the device for some kind of computational work.
     for (uint32_t i = 0; i < queueFamilies; i++)
@@ -270,10 +306,10 @@ DflHW::SessionError DflHW::Session::GetQueues(std::vector<VkDeviceQueueCreateInf
         VkDeviceQueueCreateInfo info = {};
         if ((props[i].queueFlags & VK_QUEUE_GRAPHICS_BIT) && (device.Surfaces.size() != 0))
         {
-            family.QueueType &= static_cast<int>(DflHW::QueueType::Graphics);
+            family.QueueType |= static_cast<int>(DflHW::QueueType::Graphics);
 
             VkBool32 canPresent = false;
-            uint32_t forNextQueue = 0; 
+            int forNextQueue = 0; 
             // ^ this is the number of surfaces (and subsequently queues) that need to be presented but 
             // the current queue family is unable to do such a thing
 
@@ -298,7 +334,7 @@ DflHW::SessionError DflHW::Session::GetQueues(std::vector<VkDeviceQueueCreateInf
             if ((props[i].queueFlags & VK_QUEUE_COMPUTE_BIT) && (props[i].queueFlags & VK_QUEUE_TRANSFER_BIT))
             {
                 forNextQueue -= device.Simulations.size() + 1;
-                family.QueueType &= static_cast<int>(DflHW::QueueType::Simulation);
+                family.QueueType |= static_cast<int>(DflHW::QueueType::Simulation);
             }
             // ^ Instead of declaring another variable, we do the trick of passing the info of the availability of a computation queue 
             // down by reducing the surfaces that aren't supported for presentation by the current queue. 
@@ -313,7 +349,7 @@ DflHW::SessionError DflHW::Session::GetQueues(std::vector<VkDeviceQueueCreateInf
                 // If it does, then forNextQueue is reduced by SimulationsSize, so:
                 // (n - p) - (m - p) = n - m, in other words, we request all requiredQueues (minus the actual forNextQueues)
                 // This also works even when p > m, as seen above.
-            info.queueCount = (props[i].queueCount >= (requiredQueues - forNextQueue - device.Simulations.size())) ? (requiredQueues - forNextQueue - 1) : props[i].queueCount;
+            info.queueCount = (props[i].queueCount >= (static_cast<int>(requiredQueues) - forNextQueue - static_cast<int>(device.Simulations.size()))) ? (requiredQueues - forNextQueue - 1) : props[i].queueCount;
             info.pQueuePriorities = _QueuePriorities(info.queueCount).data();
 
             requiredQueues -= info.queueCount;
@@ -338,16 +374,20 @@ DflHW::SessionError DflHW::Session::GetQueues(std::vector<VkDeviceQueueCreateInf
             infos.push_back(info);
         }
 
-        family.QueueCount = info.queueCount; 
+        family.QueueCount = info.queueCount;
+        family.Index = i;
         // ^ we only consider that a queue Family has as many queues as we told it we want. This will also help 
         // with requesting the actual queue handles themselves later
+
+        device.QueueFamilies.push_back(family);
 
         if (requiredQueues <= 0)
             break;
     }
 
+    auto error = DflHW::SessionError::Success;
     if (requiredQueues > 0)
-        return DflHW::SessionError::VkInsufficientQueuesError;
+        error = DflHW::SessionError::VkInsufficientQueuesWarning;
 
     return DflHW::SessionError::Success;
 }
@@ -368,7 +408,7 @@ DflHW::SessionError DflHW::Session::InitDevice(const GPUInfo& info)
 
     this->Devices[info.DeviceIndex].Surfaces.resize(info.pDstWindows.size());
 
-    this->Devices[info.DeviceIndex].Surfaces.resize(info.pDstWindows.size());
+    this->Devices[info.DeviceIndex].Simulations.resize(info.PhysicsSimsNumber);
 
     for (uint32_t i = 0; i < info.pDstWindows.size(); i++)
     {
@@ -398,31 +438,116 @@ DflHW::SessionError DflHW::Session::InitDevice(const GPUInfo& info)
     };
 
     std::vector<VkDeviceQueueCreateInfo> queueInfo;
-    auto error = GetQueues(queueInfo, this->Devices[info.DeviceIndex]);
+    auto error = _GetQueues(queueInfo, this->Devices[info.DeviceIndex]);
     if (error < DflHW::SessionError::Success)
         return error;
 
     deviceInfo.queueCreateInfoCount = queueInfo.size();
     deviceInfo.pQueueCreateInfos = queueInfo.data();
-    if (this->GeneralInfo.Criteria & static_cast<int>(DflHW::SessionCriteria::OnlyOffscreen))
-    {
-        deviceInfo.enabledExtensionCount = 0;
-    }
-    else
-    {
-        deviceInfo.enabledExtensionCount = 1;
+
+    if (this->GeneralInfo.EnableRTRendering == false)
         extensions.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
-        deviceInfo.ppEnabledExtensionNames = extensions.data();
+
+    if (this->GeneralInfo.EnableRaytracing == true)
+    {
+        extensions.push_back(VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME);
+        extensions.push_back(VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME);
+        extensions.push_back(VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME);
     }
 
-    if (vkCreateDevice(
+    deviceInfo.enabledExtensionCount = extensions.size();
+    deviceInfo.ppEnabledExtensionNames = (extensions.empty()) ? nullptr : extensions.data();
+
+    VkResult vkError = vkCreateDevice(
         this->Devices[this->DeviceInfo.DeviceIndex].VkPhysicalGPU,
         &deviceInfo,
         nullptr,
-        &this->Devices[this->DeviceInfo.DeviceIndex].VkGPU) != VK_SUCCESS)
-        return DflHW::SessionError::VkDeviceInitError;
+        &this->Devices[this->DeviceInfo.DeviceIndex].VkGPU);
+    switch (vkError)
+    {
+    case VK_SUCCESS:
+        break;
+    case VK_ERROR_EXTENSION_NOT_PRESENT:
+        return SessionError::VkDeviceNoSuchExtensionError;
+    case VK_ERROR_DEVICE_LOST:
+        return SessionError::VkDeviceLostError;
+    default:
+        return SessionError::VkDeviceInitError;
+    }
 
-    // we will now find which queue families support graphics (and presentation, if applicable)
+    // we will now get the device queues
+
+    uint32_t i = 0;
+    uint32_t amountOfQueuesClaimed = 0;
+    for(auto surface : this->Devices[this->DeviceInfo.DeviceIndex].Surfaces)
+    {
+        do
+        {
+            if (i > this->Devices[this->DeviceInfo.DeviceIndex].QueueFamilies.size())
+                break;
+
+            if (!(this->Devices[this->DeviceInfo.DeviceIndex].QueueFamilies[i].QueueType & static_cast<uint32_t>(QueueType::Graphics)))
+            {
+                i++;
+                amountOfQueuesClaimed = 0;
+                continue;
+            }
+
+            if (amountOfQueuesClaimed > this->Devices[this->DeviceInfo.DeviceIndex].QueueFamilies[i].QueueCount)
+            {
+                i++;
+                amountOfQueuesClaimed = 0;
+                continue;
+            }
+
+            break;
+        } while (true);
+
+        if (i > this->Devices[this->DeviceInfo.DeviceIndex].QueueFamilies.size())
+            break;
+
+        vkGetDeviceQueue(this->Devices[this->DeviceInfo.DeviceIndex].VkGPU, this->Devices[this->DeviceInfo.DeviceIndex].QueueFamilies[i].Index, amountOfQueuesClaimed, &surface.assignedQueue.hQueue);
+        amountOfQueuesClaimed++;
+    }
+
+    for (auto simulation : this->Devices[this->DeviceInfo.DeviceIndex].Simulations)
+    {
+        do
+        {
+            if (i > this->Devices[this->DeviceInfo.DeviceIndex].QueueFamilies.size())
+                break;
+
+            if (!(this->Devices[this->DeviceInfo.DeviceIndex].QueueFamilies[i].QueueType & static_cast<uint32_t>(QueueType::Simulation)))
+            {
+                i++;
+                amountOfQueuesClaimed = 0;
+                continue;
+            }
+
+            if (amountOfQueuesClaimed > this->Devices[this->DeviceInfo.DeviceIndex].QueueFamilies[i].QueueCount)
+            {
+                i++;
+                amountOfQueuesClaimed = 0;
+                continue;
+            }
+
+            break;
+        } while (true);
+
+        if (i > this->Devices[this->DeviceInfo.DeviceIndex].QueueFamilies.size())
+            break;
+
+        vkGetDeviceQueue(this->Devices[this->DeviceInfo.DeviceIndex].VkGPU, this->Devices[this->DeviceInfo.DeviceIndex].QueueFamilies[i].Index, amountOfQueuesClaimed, &simulation.assignedQueue.hQueue);
+        amountOfQueuesClaimed++;
+    }
 
     return DflHW::SessionError::Success;
 }
+
+Dfl::Hardware::SessionError Dfl::Hardware::CreateRenderer(Session& session, uint32_t deviceIndex, const DflOb::Window& window)
+{
+
+    return Dfl::Hardware::SessionError::Success;
+};
+
+
