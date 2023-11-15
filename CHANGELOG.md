@@ -1,6 +1,6 @@
 # DRAGONFLY CHANGELOG
 
-## unversioned [master] - 14/11/2023
+## unversioned [master-cpp] - 14/11/2023
 
 - Whole project is rewritten from C to C++.
   - Handles are replaced by objects and the structs being pointed to by those handles by private class fields.
