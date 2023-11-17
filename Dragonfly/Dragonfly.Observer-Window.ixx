@@ -35,10 +35,9 @@ namespace Dfl
     // Observers are the things that the engine uses to render to.
     namespace Observer
     {
-        // standard resolution used as a default
         export DFL_API constexpr uint32_t DefaultWidth{ 1920 };
         export DFL_API constexpr uint32_t DefaultHeight{ 1080 };
-
+        // standard resolution used as a default
         export DFL_API const std::tuple<uint32_t, uint32_t> DefaultResolution{ std::make_tuple(DefaultWidth, DefaultHeight) };
 
         export struct WindowProcessArgs
@@ -46,13 +45,8 @@ namespace Dfl
 
         };
 
-        /*
-        * \brief A functor that concerns processes run in the thread that handles the window.
-        * 
-        * The functor is called every time the window is updated.
-        * 
-        * \field operator() The function that is called every time the window is updated.
-        */
+        /// <summary> A functor that concerns processes run in the thread that handles the window. 
+        /// <para>The functor is responsible for destroying itself when the window is closing, by defining <c>Destroy</c></para></summary>
         export class WindowProcess 
         {
         public:
@@ -60,9 +54,7 @@ namespace Dfl
             virtual void Destroy() = 0; // called when the window is closing.
         };
 
-        /*!
-         * \brief Information used for initializing a Window. See reference for details.
-        */
+        /// <summary>Information used for initializing a Window. See reference for details.</summary>
         export struct WindowInfo
         {
             std::tuple<uint32_t, uint32_t> Resolution{ DefaultResolution }; // the dimensions of the window and the image resolution
@@ -82,9 +74,7 @@ namespace Dfl
             HWND hWindow{ nullptr }; // instead of creating a new window, set this to render to children windows
         };
 
-        /*!
-         * \brief An enum that contains error codes for the Window management part of Dragonfly
-        */
+        ///<summary>Errors that may occur when creating a window.</summary>
         export enum class [[nodiscard]] WindowError {
             Success = 0,
             APIInitError = -0x3101,
@@ -117,12 +107,10 @@ namespace Dfl
             friend DFL_API inline void DFL_CALL PushProcess(WindowProcess& process, Window& window);
         };
 
-        /*!
-        * \brief The `Window` class concerns objects that are used to
-        * be rendered onto. May concern actual independent windows, child
-        * windows of other windows (ex. a canvas on a window) or "imaginary"
-        * windows; AKA offscreen renders.
-        */
+        /// <summary>
+        /// The Window class is responsible for creating and managing a window.
+        /// <para>Windows are created in their own thread.</para>
+        /// </summary>
         export class Window
         {
             WindowFunctor Functor;
@@ -131,15 +119,14 @@ namespace Dfl
             DFL_API DFL_CALL Window(const WindowInfo& createInfo);
             DFL_API DFL_CALL ~Window();
 
-            /*!
-            * \brief Reserves resources for and launches the thread that opens (if applicable) 
-            * the associated window.
-            *
-            * Window creation depends upon the values passed using `Observer::WindowInformation`.
-            * If some fields are missing, default values are used.
-            * 
-            * Windows are launched in their own thread.
-            */
+            /// <summary>
+            /// Opens a Window and starts its thread.
+            /// </summary>
+            /// <returns>A <c>WindowError</c> code, that could be one of the following:
+            /// <para>- <c>WindowError::Success</c>: The window was created successfully.</para>
+            /// <para>- <c>WindowError::APIInitError</c>: GLFW couldn't be initialized.</para>
+            /// <para>- <c>WindowError::WindowInitError</c>: Window couldn't be created</para>
+            /// </returns>
             DFL_API WindowError DFL_CALL OpenWindow();
 
             std::tuple<uint32_t, uint32_t> Resolution() const
@@ -175,13 +162,17 @@ namespace Dfl
             friend DFL_API inline void DFL_CALL PushProcess(WindowProcess& process, Window& window);
         };
 
-        /*!
-        * \brief Add a new process to be executed by the window.
-        * 
-        * Temporarily locks the calling thread until the process can be pushed. Likewise, blocks the window thread
-        * until the process is pushed. There shouldn't be any noticeable delay due to this, unless the window thread 
-        * has a big load to execute.
-        */
+        /// <summary>
+        /// Push a process (specifically its pointer) to the window's thread.
+        /// <para>
+        /// Automatically locks the caller thread until process can be pushed. Depending on the load of
+        /// the window thread's stack, this means that the caller thread could wait a long time. Do not offload unrelated
+        /// logic here
+        /// </para>
+        /// </summary>
+        /// <param name="process">: The process, whose pointer to push</param>
+        /// <param name="window">: The window, where to push the process pointer to</param>
+        /// <returns></returns>
         export DFL_API inline void DFL_CALL PushProcess(WindowProcess& process, Window& window);
     }
 }
