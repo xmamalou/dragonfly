@@ -73,14 +73,14 @@ void DflOb::WindowFunctor::operator() ()
     {
         glfwPollEvents();
         this->AccessProcess.lock();
-        for (auto process : this->Info.Processes)
+        for (auto process : this->Info.pProcesses)
             (*process)(this->Arguments);
         this->AccessProcess.unlock();
         Sleep(1000/this->Info.Rate);
     }
 
     this->AccessProcess.lock();
-    for (auto& process : this->Info.Processes)
+    for (auto& process : this->Info.pProcesses)
         process->Destroy();
     this->AccessProcess.unlock();
 
@@ -122,6 +122,6 @@ DflOb::WindowError DflOb::Window::OpenWindow()
 inline void DflOb::PushProcess(WindowProcess& process, Window& window)
 {
     window.Functor.AccessProcess.lock();
-    window.Functor.Info.Processes.push_back(&process);
+    window.Functor.Info.pProcesses.push_back(&process);
     window.Functor.AccessProcess.unlock();
 };
