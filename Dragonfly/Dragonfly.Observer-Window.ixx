@@ -36,8 +36,10 @@ namespace Dfl
     namespace Observer
     {
         // standard resolution used as a default
-        //export constexpr uint32_t DefaultWidth = 1920;
-        //export constexpr uint32_t DefaultHeight = 1080;
+        export DFL_API constexpr uint32_t DefaultWidth{ 1920 };
+        export DFL_API constexpr uint32_t DefaultHeight{ 1080 };
+
+        export DFL_API const std::tuple<uint32_t, uint32_t> DefaultResolution{ std::make_tuple(DefaultWidth, DefaultHeight) };
 
         export struct WindowProcessArgs
         {
@@ -49,6 +51,7 @@ namespace Dfl
         {
         public:
             virtual void operator () (WindowProcessArgs& args) = 0;
+            virtual void Destroy() = 0; // called when the window is closing.
         };
 
         /*!
@@ -56,8 +59,8 @@ namespace Dfl
         */
         export struct WindowInfo
         {
-            std::tuple<uint32_t, uint32_t> Resolution{ std::make_tuple(1920, 1080) }; // the dimensions of the window and the image resolution
-            std::tuple<uint32_t, uint32_t> View{ std::make_tuple(1920, 1080) }; // render area of the window
+            std::tuple<uint32_t, uint32_t> Resolution{ DefaultResolution }; // the dimensions of the window and the image resolution
+            std::tuple<uint32_t, uint32_t> View{ DefaultResolution }; // render area of the window
             bool                           DoFullscreen{ false };
 
             bool     DoVsync{ true };
@@ -70,7 +73,6 @@ namespace Dfl
 
             //Dfl::Graphics::Image& icon;
 
-            bool IsVisible{ true }; // is the Window in question an onscreen one?
             HWND hWindow{ nullptr }; // instead of creating a new window, set this to render to children windows
         };
 
@@ -133,6 +135,11 @@ namespace Dfl
             * Windows are launched in their own thread.
             */
             DFL_API WindowError DFL_CALL OpenWindow();
+
+            std::tuple<uint32_t, uint32_t> Resolution() const
+            {
+                return this->Functor.Info.Resolution;
+            }
 
             HWND WindowHandle() const
             {

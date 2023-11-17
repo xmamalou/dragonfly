@@ -30,25 +30,29 @@ module Dragonfly.Observer:Window;
 
 namespace DflOb = Dfl::Observer;
 
-DflOb::WindowFunctor::WindowFunctor(const WindowInfo& info)
+DflOb::WindowFunctor::WindowFunctor(const WindowInfo& info) : Info(info), Error(DflOb::WindowError::ThreadNotReadyWarning)
 {
-    this->Info = info;
-
-    this->Error = DflOb::WindowError::ThreadNotReadyWarning;
 }
 
 DflOb::WindowFunctor::~WindowFunctor()
 {
-    glfwDestroyWindow(this->pGLFWwindow);
-    glfwTerminate();
+    
 }
 
 void DflOb::WindowFunctor::operator() ()
 {
+    if (!glfwInit())
+    {
+        this->Error = DflOb::WindowError::APIInitError;
+        return;
+    }
+
     glfwWindowHint(GLFW_NO_API, GLFW_TRUE);
+    glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
+
     this->pGLFWwindow = glfwCreateWindow(
-        (std::get<0>(this->Info.Resolution) == 0) ? 1920 : std::get<0>(this->Info.Resolution),
-        (std::get<1>(this->Info.Resolution) == 0) ? 1080 : std::get<1>(this->Info.Resolution),
+        (std::get<0>(this->Info.Resolution) == 0) ? DflOb::DefaultWidth : std::get<0>(this->Info.Resolution),
+        (std::get<1>(this->Info.Resolution) == 0) ? DflOb::DefaultHeight : std::get<1>(this->Info.Resolution),
         (this->Info.WindowTitle.empty()) ? "Dragonfly App" : this->Info.WindowTitle.data(),
         (this->Info.DoFullscreen) ? glfwGetPrimaryMonitor() : nullptr,
         nullptr);
@@ -72,10 +76,18 @@ void DflOb::WindowFunctor::operator() ()
         for (auto process : this->Info.Processes)
             (*process)(this->Arguments);
         this->AccessProcess.unlock();
-        Sleep(1/this->Info.Rate);
+        Sleep(1000/this->Info.Rate);
     }
 
-    this->ShouldClose = glfwWindowShouldClose(this->pGLFWwindow);
+    this->AccessProcess.lock();
+    for (auto& process : this->Info.Processes)
+        process->Destroy();
+    this->AccessProcess.unlock();
+
+    this->ShouldClose = true; 
+
+    glfwDestroyWindow(this->pGLFWwindow);
+    glfwTerminate();
 
     return;
 }
@@ -95,19 +107,14 @@ DflOb::Window::~Window()
 
 DflOb::WindowError DflOb::Window::OpenWindow()
 {
-    if ((this->Functor.hWin32Window == nullptr) && (this->Functor.Info.IsVisible))
+    if (this->Functor.hWin32Window == nullptr)
     {
-        if (!glfwInit())
-            return DflOb::WindowError::APIInitError;
-
         this->Thread = std::thread::thread(std::ref(this->Functor));
         while(this->Functor.Error == DflOb::WindowError::ThreadNotReadyWarning)
             Sleep(50); // we are waiting for the window to be ready
         return this->Functor.Error;
     }
     // we don't need to do anything if the above doesn't hold true
-
-    // TODO: Add support for "offscreen" windows (AKA surfaceless rendering)
 
     return WindowError::Success;
 }
