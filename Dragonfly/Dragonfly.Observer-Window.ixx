@@ -46,7 +46,13 @@ namespace Dfl
 
         };
 
-        // a function pointer to processes meant to be executed during a Window's existence.
+        /*
+        * \brief A functor that concerns processes run in the thread that handles the window.
+        * 
+        * The functor is called every time the window is updated.
+        * 
+        * \field operator() The function that is called every time the window is updated.
+        */
         export class WindowProcess 
         {
         public:
@@ -55,21 +61,21 @@ namespace Dfl
         };
 
         /*!
-         * \brief Information used for initializing a Window
+         * \brief Information used for initializing a Window. See reference for details.
         */
         export struct WindowInfo
         {
             std::tuple<uint32_t, uint32_t> Resolution{ DefaultResolution }; // the dimensions of the window and the image resolution
-            std::tuple<uint32_t, uint32_t> View{ DefaultResolution }; // render area of the window
-            bool                           DoFullscreen{ false };
+            std::tuple<uint32_t, uint32_t> View{ DefaultResolution }; // currently equivalent to resolution
+            bool DoFullscreen{ false };
 
-            bool     DoVsync{ true };
-            uint32_t Rate{ 60 }; // Refresh rate, in Hz
+            bool        DoVsync{ true };
+            uint32_t Rate{ 60 }; // Refresh rate, in Hz. Ignored if Vsync is enabled.
 
-            std::tuple<int, int> Position{ std::make_tuple(0, 0) }; // Relative to the monitor
+            std::tuple<int, int> Position{ std::make_tuple(0, 0) }; // Relative to the screen space
             std::string_view     WindowTitle{ "Dragonfly App" };
 
-            std::vector<WindowProcess*> Processes{ }; // the process that will execute in the thread concerning the window
+            std::vector<WindowProcess*> pProcesses{ }; // the process that will execute in the thread handling the window
 
             //Dfl::Graphics::Image& icon;
 
@@ -173,7 +179,8 @@ namespace Dfl
         * \brief Add a new process to be executed by the window.
         * 
         * Temporarily locks the calling thread until the process can be pushed. Likewise, blocks the window thread
-        * until the process is pushed. There shouldn't be any noticeable delay due to this.
+        * until the process is pushed. There shouldn't be any noticeable delay due to this, unless the window thread 
+        * has a big load to execute.
         */
         export DFL_API inline void DFL_CALL PushProcess(WindowProcess& process, Window& window);
     }
