@@ -95,7 +95,7 @@ namespace Dfl
             GLFWwindow* pGLFWwindow{ nullptr };
             HWND        hWin32Window{ nullptr };
 
-            WindowError Error{ WindowError::Success };
+            WindowError Error{ WindowError::ThreadNotReadyWarning };
             bool        ShouldClose{ false };
 
             std::mutex        AccessProcess;
