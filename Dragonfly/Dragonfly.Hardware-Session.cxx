@@ -358,7 +358,7 @@ DflHW::SessionError DflHW::Session::InitVulkan()
 // internal for LoadDevices
 
 template <DflHW::MemoryType type>
-void _OrganizeMemory(std::vector<DflHW::DeviceMemory<type>>& memory, const VkPhysicalDeviceMemoryProperties props)
+inline void _OrganizeMemory(std::vector<DflHW::DeviceMemory<type>>& memory, const VkPhysicalDeviceMemoryProperties props)
 {
     uint32_t heapCount = 0;
     for (uint32_t i = 0; i < props.memoryHeapCount; i++)
