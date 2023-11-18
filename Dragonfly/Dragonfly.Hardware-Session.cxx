@@ -134,7 +134,21 @@ void DflHW::RenderingSurface::operator() (DflOb::WindowProcessArgs& args)
             break;
         }
         this->pMutex->unlock();
-        
+        /*this->Error = _CreateSwapchain(*this);
+        if (this->Error != DflHW::SessionError::Success)
+        {
+            this->State = DflHW::RenderingState::Fail;
+            this->pMutex->unlock();
+            break;
+        }
+        this->pMutex->unlock();
+
+        this->Error = DflHW::SessionError::Success;
+
+        uint32_t imageCount;
+        vkGetSwapchainImagesKHR(this->pSharedResources->GPU, this->pSharedResources->Swapchain, &imageCount, nullptr);
+        this->pSharedResources->SwapchainImages.resize(imageCount);
+        vkGetSwapchainImagesKHR(this->pSharedResources->GPU, this->pSharedResources->Swapchain, &imageCount, this->pSharedResources->SwapchainImages.data());*/
         this->Error = DflHW::SessionError::Success;
         this->State = DflHW::RenderingState::Loop;
         break;
@@ -163,7 +177,7 @@ void DflHW::RenderingSurface::operator() (DflOb::WindowProcessArgs& args)
 
 void DflHW::RenderingSurface::Destroy()
 {
-    this->pMutex->lock();
+    (this->pMutex)->lock();
     if (this->pSharedResources->Swapchain != VK_NULL_HANDLE)
     {
         vkDeviceWaitIdle(this->pSharedResources->GPU);
@@ -171,7 +185,7 @@ void DflHW::RenderingSurface::Destroy()
     }
     if (this->pSharedResources->CmdPool != VK_NULL_HANDLE)
         vkDestroyCommandPool(this->pSharedResources->GPU, this->pSharedResources->CmdPool, nullptr);
-    this->pMutex->unlock();
+    (this->pMutex)->unlock();
 };
 
 DflHW::Session::Session(const SessionInfo& info) : GeneralInfo(info)
@@ -343,6 +357,24 @@ DflHW::SessionError DflHW::Session::InitVulkan()
 
 // internal for LoadDevices
 
+template <DflHW::MemoryType type>
+void _OrganizeMemory(std::vector<DflHW::DeviceMemory<type>>& memory, const VkPhysicalDeviceMemoryProperties props)
+{
+    uint32_t heapCount = 0;
+    for (uint32_t i = 0; i < props.memoryHeapCount; i++)
+    {
+        if (((props.memoryHeaps[i].flags & VK_MEMORY_HEAP_DEVICE_LOCAL_BIT) && (type == DflHW::MemoryType::Local)) || (!(props.memoryHeaps[i].flags & VK_MEMORY_HEAP_DEVICE_LOCAL_BIT) && (type == DflHW::MemoryType::Shared)))
+        {
+            memory[heapCount].Size = props.memoryHeaps[i].size;
+            memory[heapCount].HeapIndex = props.memoryTypes[i].heapIndex;
+
+            memory[heapCount].IsHostVisible = (props.memoryTypes[i].propertyFlags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) ? true : false;
+
+            heapCount++;
+        }
+    }
+}
+
 void _OrganizeData(Dfl::Hardware::Device& device)
 {
     VkPhysicalDeviceProperties devProps;
@@ -368,29 +400,8 @@ void _OrganizeData(Dfl::Hardware::Device& device)
     device.LocalHeaps.resize(localHeapCount);
     device.SharedHeaps.resize(sharedHeapCount);
 
-    localHeapCount = 0;
-    sharedHeapCount = 0;
-    for (uint32_t i = 0; i < memProps.memoryHeapCount; i++)
-    {
-        if (memProps.memoryHeaps[i].flags & VK_MEMORY_HEAP_DEVICE_LOCAL_BIT)
-        {
-            device.LocalHeaps[localHeapCount].Size = memProps.memoryHeaps[i].size;
-            device.LocalHeaps[localHeapCount].HeapIndex = memProps.memoryTypes[i].heapIndex;
-
-            device.LocalHeaps[localHeapCount].IsHostVisible = (memProps.memoryTypes[i].propertyFlags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) ? true : false;
-
-            localHeapCount++;
-        }
-        else
-        {
-            device.SharedHeaps[sharedHeapCount].Size = memProps.memoryHeaps[i].size;
-            device.SharedHeaps[sharedHeapCount].HeapIndex = memProps.memoryTypes[i].heapIndex;
-
-            device.SharedHeaps[sharedHeapCount].IsHostVisible = (memProps.memoryTypes[i].propertyFlags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) ? true : false;
-
-            sharedHeapCount++;
-        }
-    }
+    _OrganizeMemory(device.LocalHeaps, memProps);
+    _OrganizeMemory(device.SharedHeaps, memProps);
 }
 
 //

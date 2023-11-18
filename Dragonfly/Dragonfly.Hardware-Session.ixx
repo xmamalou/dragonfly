@@ -194,6 +194,13 @@ namespace Dfl
             bool     CanPresent{ false };
         };
 
+        enum class MemoryType
+        {
+            Local,
+            Shared
+        };
+
+        template <MemoryType type>
         struct DeviceMemory
         {
             VkDeviceSize Size{ 0 };
@@ -211,8 +218,8 @@ namespace Dfl
 
             std::string Name{ "Placeholder GPU Name" };
 
-            std::vector<DeviceMemory> LocalHeaps{ };
-            std::vector<DeviceMemory> SharedHeaps{ };
+            std::vector<DeviceMemory<MemoryType::Local>> LocalHeaps{ };
+            std::vector<DeviceMemory<MemoryType::Shared>> SharedHeaps{ };
 
             std::vector<RenderingSurface> Surfaces{ }; // the surfaces the device is told to render to. Not equivalent to Vulkan surfaces (may concern offscreen surfaces)
             std::vector<PhysicsSim>            Simulations{ };
