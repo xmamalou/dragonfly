@@ -20,6 +20,7 @@ module;
 #include <tuple>
 #include <memory>
 #include <string>
+
 #include <GLFW/glfw3.h>
 #define GLFW_EXPOSE_NATIVE_WIN32
 #include <GLFW/glfw3native.h>
@@ -105,11 +106,18 @@ DflOb::Window::~Window()
     this->Functor.~WindowFunctor();
 }
 
-DflOb::WindowError DflOb::Window::OpenWindow()
+DflOb::WindowError DflOb::Window::OpenWindow() noexcept
 {
     if (this->Functor.hWin32Window == nullptr)
     {
-        this->Thread = std::thread::thread(std::ref(this->Functor));
+        try
+        {
+            this->Thread = std::thread::thread(std::ref(this->Functor));
+        }
+        catch (std::system_error& e)
+        {
+            return WindowError::ThreadCreationError;
+        }
         while(this->Functor.Error == DflOb::WindowError::ThreadNotReadyWarning)
             Sleep(50); // we are waiting for the window to be ready
         return this->Functor.Error;

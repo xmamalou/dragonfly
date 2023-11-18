@@ -77,6 +77,7 @@ namespace Dfl
         ///<summary>Errors that may occur when creating a window.</summary>
         export enum class [[nodiscard]] WindowError {
             Success = 0,
+            ThreadCreationError = -0x1001,
             APIInitError = -0x3101,
             WindowInitError = -0x3201,
             // warnings
@@ -124,24 +125,27 @@ namespace Dfl
             /// </summary>
             /// <returns>A <c>WindowError</c> code, that could be one of the following:
             /// <para>- <c>WindowError::Success</c>: The window was created successfully.</para>
+            /// <para>- <c>WindowError::ThreadCreationError</c>: The thread couldn't be created.</para>
             /// <para>- <c>WindowError::APIInitError</c>: GLFW couldn't be initialized.</para>
             /// <para>- <c>WindowError::WindowInitError</c>: Window couldn't be created</para>
             /// </returns>
-            DFL_API WindowError DFL_CALL OpenWindow();
+            DFL_API WindowError DFL_CALL OpenWindow() noexcept;
 
-            std::tuple<uint32_t, uint32_t> Resolution() const
+            std::tuple<uint32_t, uint32_t> Resolution() const noexcept
             {
                 return this->Functor.Info.Resolution;
             }
 
-            HWND WindowHandle() const
+            HWND WindowHandle() const noexcept
             {
                 return this->Functor.hWin32Window;
             }
 
-            bool IsOnscreen() const
+            bool IsOnscreen() const noexcept
             {
-                if (this->Functor.pGLFWwindow != nullptr)
+                // we don't mess with the visibility of windows created with GLFW
+                // so we know that if it's a GLFW window, it's visible
+                if (this->Functor.pGLFWwindow != nullptr) 
                     return true;
                 else if (this->Functor.hWin32Window != nullptr)
                 {
@@ -154,7 +158,7 @@ namespace Dfl
                 return false;
             }
 
-            bool CloseStatus() const
+            bool CloseStatus() const noexcept
             {
                 return this->Functor.ShouldClose;
             }
