@@ -85,10 +85,10 @@ void DflOb::WindowFunctor::operator() ()
         process->Destroy();
     this->AccessProcess.unlock();
 
-    this->ShouldClose = true; 
-
     glfwDestroyWindow(this->pGLFWwindow);
     glfwTerminate();
+
+    this->ShouldClose = true;
 
     return;
 }
