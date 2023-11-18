@@ -18,6 +18,7 @@ module;
 
 #include <iostream>
 #include <vector>
+#include <optional>
 
 #include <Windows.h>
 #define VK_USE_PLATFORM_WIN32_KHR
@@ -30,18 +31,151 @@ namespace DflOb = Dfl::Observer;
 
 void DflHW::DebugProcess::operator() (DflOb::WindowProcessArgs& args)
 {
+    
+};
 
+void DflHW::DebugProcess::Destroy ()
+{
+
+};
+
+inline bool _DoesSupportSRGB(VkColorSpaceKHR& colorSpace, const std::vector<VkSurfaceFormatKHR>& formats)
+{
+    for (auto& format : formats)
+    {
+        colorSpace = format.colorSpace;
+        if (format.format == VK_FORMAT_B8G8R8A8_SRGB)
+            return true;
+    }
+
+    colorSpace = formats[0].colorSpace;
+
+    return false;
+};
+
+inline bool _DoesSupportMailbox(const std::vector<VkPresentModeKHR>& modes)
+{
+    for (auto& mode : modes)
+    {
+        if (mode == VK_PRESENT_MODE_MAILBOX_KHR)
+            return true;
+    }
+
+    return false;
+};
+
+inline VkExtent2D _MakeExtent(const std::tuple<uint32_t, uint32_t>& resolution, const VkSurfaceCapabilitiesKHR& capabs)
+{
+    VkExtent2D extent;
+
+    uint32_t minHeight = max(capabs.minImageExtent.height, std::get<1>(resolution));
+    uint32_t minWidth = max(capabs.minImageExtent.width, std::get<0>(resolution));
+
+    extent.height = min(minHeight, capabs.maxImageExtent.height);
+    extent.width = min(minWidth, capabs.maxImageExtent.width);
+
+    return extent;
+}
+
+DflHW::SessionError DflHW::_CreateSwapchain(DflHW::RenderingSurface& surface)
+{
+    VkSwapchainCreateInfoKHR swapchainInfo;
+    VkColorSpaceKHR colorSpace;
+    swapchainInfo.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
+    swapchainInfo.pNext = nullptr;
+    swapchainInfo.flags = 0;
+    swapchainInfo.oldSwapchain = surface.pSharedResources->Swapchain;
+    swapchainInfo.surface = surface.pSharedResources->Surface;
+    swapchainInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+    swapchainInfo.imageFormat = (_DoesSupportSRGB(colorSpace, surface.pSharedResources->Formats)) ? VK_FORMAT_B8G8R8A8_SRGB : surface.pSharedResources->Formats[0].format;
+    swapchainInfo.imageColorSpace = colorSpace;
+    swapchainInfo.imageArrayLayers = 1;
+    swapchainInfo.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
+    swapchainInfo.clipped = VK_TRUE;
+    swapchainInfo.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
+    swapchainInfo.presentMode = (_DoesSupportMailbox(surface.pSharedResources->PresentModes)) ? VK_PRESENT_MODE_MAILBOX_KHR : VK_PRESENT_MODE_FIFO_KHR;
+    swapchainInfo.imageExtent = _MakeExtent(surface.pSharedResources->AssociatedWindow->Resolution(), surface.pSharedResources->Capabilities);
+    swapchainInfo.minImageCount = surface.pSharedResources->Capabilities.minImageCount + 1;
+    swapchainInfo.preTransform = surface.pSharedResources->Capabilities.currentTransform;
+
+    auto error = vkCreateSwapchainKHR(surface.pSharedResources->GPU, &swapchainInfo, nullptr, &surface.pSharedResources->Swapchain);
+    switch (error)
+    {
+    case VK_SUCCESS:
+        break;
+    case VK_ERROR_SURFACE_LOST_KHR:
+        return DflHW::SessionError::VkSwapchainSurfaceLostError;
+    case VK_ERROR_NATIVE_WINDOW_IN_USE_KHR:
+        return DflHW::SessionError::VkSwapchainWindowUnavailableError;
+    default:
+        return DflHW::SessionError::VkSwapchainInitError;
+    }
+
+    return DflHW::SessionError::Success;
 };
 
 void DflHW::RenderingSurface::operator() (DflOb::WindowProcessArgs& args)
 {
+    switch (this->State)
+    {
+    case DflHW::RenderingState::Init:
+        VkCommandPoolCreateInfo cmdPoolInfo;
+        cmdPoolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
+        cmdPoolInfo.pNext = nullptr;
+        cmdPoolInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
+        cmdPoolInfo.queueFamilyIndex = this->pSharedResources->AssignedQueue.FamilyIndex;
 
+        this->pMutex->lock();
+        if (vkCreateCommandPool(this->pSharedResources->GPU, &cmdPoolInfo, nullptr, &(this->pSharedResources->CmdPool)) != VK_SUCCESS)
+        {
+            this->Error = DflHW::SessionError::VkComPoolInitError;
+            this->State = DflHW::RenderingState::Fail;
+            this->pMutex->unlock();
+            break;
+        }
+        this->pMutex->unlock();
+        
+        this->Error = DflHW::SessionError::Success;
+        this->State = DflHW::RenderingState::Loop;
+        break;
+
+    case DflHW::RenderingState::Fail:
+        this->pMutex->lock();
+        if (this->pSharedResources->Swapchain != VK_NULL_HANDLE)
+        {
+            vkDeviceWaitIdle(this->pSharedResources->GPU);
+            vkDestroySwapchainKHR(this->pSharedResources->GPU, this->pSharedResources->Swapchain, nullptr);
+        }
+        if(this->pSharedResources->CmdPool != VK_NULL_HANDLE)
+            vkDestroyCommandPool(this->pSharedResources->GPU, this->pSharedResources->CmdPool, nullptr);
+        this->pMutex->unlock();
+        this->State = DflHW::RenderingState::Dead;
+        break;
+
+    case DflHW::RenderingState::Dead:
+        break;
+
+    case DflHW::RenderingState::Loop:
+        std::cout << "";
+        break;
+    }
 };
 
-DflHW::Session::Session(const SessionInfo& info)
+void DflHW::RenderingSurface::Destroy()
 {
-    this->GeneralInfo = info;
+    this->pMutex->lock();
+    if (this->pSharedResources->Swapchain != VK_NULL_HANDLE)
+    {
+        vkDeviceWaitIdle(this->pSharedResources->GPU);
+        vkDestroySwapchainKHR(this->pSharedResources->GPU, this->pSharedResources->Swapchain, nullptr);
+    }
+    if (this->pSharedResources->CmdPool != VK_NULL_HANDLE)
+        vkDestroyCommandPool(this->pSharedResources->GPU, this->pSharedResources->CmdPool, nullptr);
+    this->pMutex->unlock();
+};
 
+DflHW::Session::Session(const SessionInfo& info) : GeneralInfo(info)
+{
     SYSTEM_INFO sysInfo;
     GetSystemInfo(&sysInfo);
     this->CPU.Count = sysInfo.dwNumberOfProcessors;
@@ -49,16 +183,18 @@ DflHW::Session::Session(const SessionInfo& info)
 
 DflHW::Session::~Session()
 {
-    for (auto device : this->Devices)
+    for (auto& device : this->Devices)
     {
-        for (auto surface : device.Surfaces)
-            vkDestroySurfaceKHR(this->VkInstance, surface.surface, nullptr);
+        this->DeviceMutex.lock();
+        for (auto& surface : device.Surfaces)
+            vkDestroySurfaceKHR(this->VkInstance, surface.pSharedResources->Surface, nullptr);
 
         if (device.VkGPU != nullptr)
         {
             vkDeviceWaitIdle(device.VkGPU);
             vkDestroyDevice(device.VkGPU, nullptr);
         }
+        this->DeviceMutex.unlock();
     }
 
     if (this->VkDbMessenger != nullptr) // that means debugging was enabled.
@@ -67,7 +203,9 @@ DflHW::Session::~Session()
         if (destroyDebug != nullptr)
             destroyDebug(this->VkInstance, this->VkDbMessenger, nullptr);
     }
-    vkDestroyInstance(this->VkInstance, nullptr);
+
+    if(this->VkInstance != nullptr)
+        vkDestroyInstance(this->VkInstance, nullptr);
 }
 
 // internal for InitVulkan
@@ -143,7 +281,7 @@ DflHW::SessionError DflHW::Session::InitVulkan()
     };
 
     std::vector<const char*> extensions;
-    if (this->GeneralInfo.EnableRTRendering == true)
+    if (this->GeneralInfo.EnableOnscreenRendering == true)
     {
         extensions.push_back(VK_KHR_SURFACE_EXTENSION_NAME);
         extensions.push_back("VK_KHR_win32_surface");
@@ -197,12 +335,15 @@ DflHW::SessionError DflHW::Session::InitVulkan()
     if (this->GeneralInfo.DoDebug == true)
         err = _InitDebugger(this->VkInstance, this->VkDbMessenger);
 
+    if (err != SessionError::Success)
+        vkDestroyInstance(this->VkInstance, nullptr);
+
     return err;
 }
 
 // internal for LoadDevices
 
-void DflHW::Session::OrganizeData(Device& device)
+void _OrganizeData(Dfl::Hardware::Device& device)
 {
     VkPhysicalDeviceProperties devProps;
     vkGetPhysicalDeviceProperties(device.VkPhysicalGPU, &devProps);
@@ -236,7 +377,7 @@ void DflHW::Session::OrganizeData(Device& device)
             device.LocalHeaps[localHeapCount].Size = memProps.memoryHeaps[i].size;
             device.LocalHeaps[localHeapCount].HeapIndex = memProps.memoryTypes[i].heapIndex;
 
-            (memProps.memoryTypes[i].propertyFlags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) ? device.LocalHeaps[localHeapCount].IsHostVisible = true : device.LocalHeaps[localHeapCount].IsHostVisible = false;
+            device.LocalHeaps[localHeapCount].IsHostVisible = (memProps.memoryTypes[i].propertyFlags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) ? true : false;
 
             localHeapCount++;
         }
@@ -245,7 +386,7 @@ void DflHW::Session::OrganizeData(Device& device)
             device.SharedHeaps[sharedHeapCount].Size = memProps.memoryHeaps[i].size;
             device.SharedHeaps[sharedHeapCount].HeapIndex = memProps.memoryTypes[i].heapIndex;
 
-            (memProps.memoryTypes[i].propertyFlags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) ? device.SharedHeaps[sharedHeapCount].IsHostVisible = true : device.SharedHeaps[sharedHeapCount].IsHostVisible = false;
+            device.SharedHeaps[sharedHeapCount].IsHostVisible = (memProps.memoryTypes[i].propertyFlags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) ? true : false;
 
             sharedHeapCount++;
         }
@@ -269,7 +410,7 @@ DflHW::SessionError DflHW::Session::LoadDevices()
     {
         this->Devices[i].VkPhysicalGPU = devices[i];
 
-        this->OrganizeData(this->Devices[i]);
+        _OrganizeData(this->Devices[i]);
     }
 
     return SessionError::Success;
@@ -277,16 +418,56 @@ DflHW::SessionError DflHW::Session::LoadDevices()
 
 // internal for InitDevice
 
-static std::vector<float> _QueuePriorities(uint32_t size)
+DflHW::SessionError DflHW::_GetRenderResources(
+    DflHW::SharedRenderResources& resources, 
+    const DflHW::Device& device, 
+    const VkInstance& instance,
+    const DflOb::Window& window)
+{
+    if (window.WindowHandle() != nullptr) // ensures the window is valid
+    {
+        VkWin32SurfaceCreateInfoKHR surfaceInfo = {
+            .sType = VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR,
+            .pNext = nullptr,
+            .flags = 0,
+            .hwnd = window.WindowHandle()
+        };
+        if (vkCreateWin32SurfaceKHR(instance, &surfaceInfo, nullptr, &resources.Surface) != VK_SUCCESS)
+            return DflHW::SessionError::VkSurfaceCreationError;
+
+        vkGetPhysicalDeviceSurfaceCapabilitiesKHR(device.VkPhysicalGPU, resources.Surface, &resources.Capabilities);
+
+        uint32_t  count = 0;
+        vkGetPhysicalDeviceSurfaceFormatsKHR(device.VkPhysicalGPU, resources.Surface, &count, nullptr);
+        if (count == 0)
+            return DflHW::SessionError::VkNoSurfaceFormatsError;
+        resources.Formats.resize(count);
+        vkGetPhysicalDeviceSurfaceFormatsKHR(device.VkPhysicalGPU, resources.Surface, &count, resources.Formats.data());
+
+        vkGetPhysicalDeviceSurfacePresentModesKHR(device.VkPhysicalGPU, resources.Surface, &count, nullptr);
+        if (count == 0)
+            return DflHW::SessionError::VkNoSurfacePresentModesError;
+        resources.PresentModes.resize(count);
+        vkGetPhysicalDeviceSurfacePresentModesKHR(device.VkPhysicalGPU, resources.Surface, &count, resources.PresentModes.data());
+    }
+    else
+        return DflHW::SessionError::InvalidWindowHandleError;
+
+    return DflHW::SessionError::Success;
+}
+
+std::vector<float> _QueuePriorities(uint32_t size)
 {
     std::vector<float> priorities(size);
-    for (uint32_t i = 0; i < priorities.size(); i++)
-        priorities[i] = 1.0f;
+    for (auto& priority : priorities)
+        priority = 1.0;
 
     return priorities;
 }
 
-DflHW::SessionError DflHW::_GetQueues(std::vector<VkDeviceQueueCreateInfo>& infos, Device& device)
+DflHW::SessionError DflHW::_GetQueues(
+    std::vector<VkDeviceQueueCreateInfo>& infos, 
+    Device& device)
 {
     std::vector<VkQueueFamilyProperties> props;
     uint32_t queueFamilies = 0;
@@ -313,15 +494,10 @@ DflHW::SessionError DflHW::_GetQueues(std::vector<VkDeviceQueueCreateInfo>& info
             // ^ this is the number of surfaces (and subsequently queues) that need to be presented but 
             // the current queue family is unable to do such a thing
 
-            for (auto surface : device.Surfaces)
+            for (auto& surface : device.Surfaces)
             {
-                if (surface.surface != nullptr) // some rendering surfaces may not be for presentation!
-                    vkGetPhysicalDeviceSurfaceSupportKHR(device.VkPhysicalGPU, i, surface.surface, &canPresent);
-                else
-                    canPresent == true;
-                    // ^ why? We are essentially telling Dragonfly that the presentation capability of 
-                    // this queue family doesn't matter, so we don't want to push the surface in 
-                    // question to the next queue
+                vkGetPhysicalDeviceSurfaceSupportKHR(device.VkPhysicalGPU, i, surface.pSharedResources->Surface, &canPresent);
+
                 if (canPresent == false)
                     forNextQueue++;
                 else
@@ -350,7 +526,6 @@ DflHW::SessionError DflHW::_GetQueues(std::vector<VkDeviceQueueCreateInfo>& info
                 // (n - p) - (m - p) = n - m, in other words, we request all requiredQueues (minus the actual forNextQueues)
                 // This also works even when p > m, as seen above.
             info.queueCount = (props[i].queueCount >= (static_cast<int>(requiredQueues) - forNextQueue - static_cast<int>(device.Simulations.size()))) ? (requiredQueues - forNextQueue - 1) : props[i].queueCount;
-            info.pQueuePriorities = _QueuePriorities(info.queueCount).data();
 
             requiredQueues -= info.queueCount;
 
@@ -367,7 +542,6 @@ DflHW::SessionError DflHW::_GetQueues(std::vector<VkDeviceQueueCreateInfo>& info
             info.flags = 0;
             info.queueFamilyIndex = i;
             info.queueCount = (props[i].queueCount >= device.Simulations.size()) ? device.Simulations.size() : props[i].queueCount;
-            info.pQueuePriorities = _QueuePriorities(info.queueCount).data();
 
             requiredQueues -= info.queueCount;
 
@@ -385,9 +559,8 @@ DflHW::SessionError DflHW::_GetQueues(std::vector<VkDeviceQueueCreateInfo>& info
             break;
     }
 
-    auto error = DflHW::SessionError::Success;
     if (requiredQueues > 0)
-        error = DflHW::SessionError::VkInsufficientQueuesWarning;
+        return DflHW::SessionError::VkInsufficientQueuesWarning;
 
     return DflHW::SessionError::Success;
 }
@@ -396,38 +569,35 @@ DflHW::SessionError DflHW::_GetQueues(std::vector<VkDeviceQueueCreateInfo>& info
 
 DflHW::SessionError DflHW::Session::InitDevice(const GPUInfo& info)
 {
+    if (info.DeviceIndex > this->Devices.size())
+        return SessionError::VkDeviceIndexOutOfRangeError;
+
+    Device& device = this->Devices[info.DeviceIndex];
     if (this->Devices.size() == 0)
         return SessionError::VkNoDevicesError;
 
-    if (this->Devices[info.DeviceIndex].VkGPU != nullptr)
+    if (device.VkGPU != nullptr)
         return SessionError::VkAlreadyInitDeviceWarning;
 
     // TODO: Implement ranking system
 
+    device.Info = info;
+    device.pUsageMutex = &this->DeviceMutex;
+
     std::vector<const char*> extensions;
 
-    this->Devices[info.DeviceIndex].Surfaces.resize(info.pDstWindows.size());
-
-    this->Devices[info.DeviceIndex].Simulations.resize(info.PhysicsSimsNumber);
+    device.Surfaces.resize(info.pDstWindows.size());
+    device.Simulations.resize(info.PhysicsSimsNumber);
 
     for (uint32_t i = 0; i < info.pDstWindows.size(); i++)
     {
-        if (info.pDstWindows[i]->WindowHandle() != nullptr) // it is assumed all windows with a HWND are for onscreen rendering, even if not visible
-        {
-            VkWin32SurfaceCreateInfoKHR surfaceInfo = {
-                .sType = VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR,
-                .pNext = nullptr,
-                .flags = 0,
-                .hwnd = info.pDstWindows[i]->WindowHandle()
-            };
-            if (vkCreateWin32SurfaceKHR(
-                this->VkInstance,
-                &surfaceInfo,
-                nullptr,
-                &this->Devices[info.DeviceIndex].Surfaces[i].surface) != VK_SUCCESS)
-                return DflHW::SessionError::VkSurfaceCreationError;
-        }
-        this->Devices[info.DeviceIndex].Surfaces[i].associatedWindow = info.pDstWindows[i];
+        device.Surfaces[i].pSharedResources = std::unique_ptr<DflHW::SharedRenderResources>::unique_ptr(new DflHW::SharedRenderResources);
+        device.Surfaces[i].pMutex = &this->DeviceMutex;
+        auto& resources = device.Surfaces[i].pSharedResources;
+        auto error = _GetRenderResources(*resources, device, this->VkInstance, *info.pDstWindows[i]);
+        if(error < DflHW::SessionError::Success)
+            return error;
+        resources->AssociatedWindow = info.pDstWindows[i];
     }
 
     VkDeviceCreateInfo deviceInfo = 
@@ -438,17 +608,24 @@ DflHW::SessionError DflHW::Session::InitDevice(const GPUInfo& info)
     };
 
     std::vector<VkDeviceQueueCreateInfo> queueInfo;
-    auto error = _GetQueues(queueInfo, this->Devices[info.DeviceIndex]);
+    auto error = _GetQueues(queueInfo, device);
     if (error < DflHW::SessionError::Success)
         return error;
+
+    std::vector<std::vector<float>> queuePriorities(queueInfo.size());
+    for (auto& queue : queueInfo)
+    {
+        queuePriorities[&queue - queueInfo.data()] = _QueuePriorities(queue.queueCount);
+        queue.pQueuePriorities = queuePriorities[&queue - queueInfo.data()].data();
+    }
 
     deviceInfo.queueCreateInfoCount = queueInfo.size();
     deviceInfo.pQueueCreateInfos = queueInfo.data();
 
-    if (this->GeneralInfo.EnableRTRendering == false)
+    if ((this->GeneralInfo.EnableOnscreenRendering) && (device.Info.EnableOnscreenRendering))
         extensions.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
 
-    if (this->GeneralInfo.EnableRaytracing == true)
+    if ((this->GeneralInfo.EnableRaytracing) && (device.Info.EnableRaytracing))
     {
         extensions.push_back(VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME);
         extensions.push_back(VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME);
@@ -459,10 +636,10 @@ DflHW::SessionError DflHW::Session::InitDevice(const GPUInfo& info)
     deviceInfo.ppEnabledExtensionNames = (extensions.empty()) ? nullptr : extensions.data();
 
     VkResult vkError = vkCreateDevice(
-        this->Devices[this->DeviceInfo.DeviceIndex].VkPhysicalGPU,
+        device.VkPhysicalGPU,
         &deviceInfo,
         nullptr,
-        &this->Devices[this->DeviceInfo.DeviceIndex].VkGPU);
+        &device.VkGPU);
     switch (vkError)
     {
     case VK_SUCCESS:
@@ -479,21 +656,21 @@ DflHW::SessionError DflHW::Session::InitDevice(const GPUInfo& info)
 
     uint32_t i = 0;
     uint32_t amountOfQueuesClaimed = 0;
-    for(auto surface : this->Devices[this->DeviceInfo.DeviceIndex].Surfaces)
+    for(auto& surface : device.Surfaces)
     {
         do
         {
-            if (i > this->Devices[this->DeviceInfo.DeviceIndex].QueueFamilies.size())
+            if (i > device.QueueFamilies.size())
                 break;
 
-            if (!(this->Devices[this->DeviceInfo.DeviceIndex].QueueFamilies[i].QueueType & static_cast<uint32_t>(QueueType::Graphics)))
+            if (!(device.QueueFamilies[i].QueueType & static_cast<uint32_t>(QueueType::Graphics)))
             {
                 i++;
                 amountOfQueuesClaimed = 0;
                 continue;
             }
 
-            if (amountOfQueuesClaimed > this->Devices[this->DeviceInfo.DeviceIndex].QueueFamilies[i].QueueCount)
+            if (amountOfQueuesClaimed > device.QueueFamilies[i].QueueCount)
             {
                 i++;
                 amountOfQueuesClaimed = 0;
@@ -503,28 +680,30 @@ DflHW::SessionError DflHW::Session::InitDevice(const GPUInfo& info)
             break;
         } while (true);
 
-        if (i > this->Devices[this->DeviceInfo.DeviceIndex].QueueFamilies.size())
+        if (i > device.QueueFamilies.size())
             break;
 
-        vkGetDeviceQueue(this->Devices[this->DeviceInfo.DeviceIndex].VkGPU, this->Devices[this->DeviceInfo.DeviceIndex].QueueFamilies[i].Index, amountOfQueuesClaimed, &surface.assignedQueue.hQueue);
+        vkGetDeviceQueue(device.VkGPU, device.QueueFamilies[i].Index, amountOfQueuesClaimed, &surface.pSharedResources->AssignedQueue.hQueue);
+        surface.pSharedResources->AssignedQueue.FamilyIndex = device.QueueFamilies[i].Index;
+        surface.pSharedResources->GPU = device.VkGPU;
         amountOfQueuesClaimed++;
     }
 
-    for (auto simulation : this->Devices[this->DeviceInfo.DeviceIndex].Simulations)
+    for (auto& simulation : device.Simulations)
     {
         do
         {
-            if (i > this->Devices[this->DeviceInfo.DeviceIndex].QueueFamilies.size())
+            if (i > device.QueueFamilies.size())
                 break;
 
-            if (!(this->Devices[this->DeviceInfo.DeviceIndex].QueueFamilies[i].QueueType & static_cast<uint32_t>(QueueType::Simulation)))
+            if (!(device.QueueFamilies[i].QueueType & static_cast<uint32_t>(QueueType::Simulation)))
             {
                 i++;
                 amountOfQueuesClaimed = 0;
                 continue;
             }
 
-            if (amountOfQueuesClaimed > this->Devices[this->DeviceInfo.DeviceIndex].QueueFamilies[i].QueueCount)
+            if (amountOfQueuesClaimed > device.QueueFamilies[i].QueueCount)
             {
                 i++;
                 amountOfQueuesClaimed = 0;
@@ -534,20 +713,37 @@ DflHW::SessionError DflHW::Session::InitDevice(const GPUInfo& info)
             break;
         } while (true);
 
-        if (i > this->Devices[this->DeviceInfo.DeviceIndex].QueueFamilies.size())
+        if (i > device.QueueFamilies.size())
             break;
 
-        vkGetDeviceQueue(this->Devices[this->DeviceInfo.DeviceIndex].VkGPU, this->Devices[this->DeviceInfo.DeviceIndex].QueueFamilies[i].Index, amountOfQueuesClaimed, &simulation.assignedQueue.hQueue);
+        vkGetDeviceQueue(device.VkGPU, device.QueueFamilies[i].Index, amountOfQueuesClaimed, &simulation.AssignedQueue.hQueue);
         amountOfQueuesClaimed++;
     }
 
     return DflHW::SessionError::Success;
 }
 
-Dfl::Hardware::SessionError Dfl::Hardware::CreateRenderer(Session& session, uint32_t deviceIndex, const DflOb::Window& window)
+Dfl::Hardware::SessionError Dfl::Hardware::CreateRenderer(Session& session, uint32_t deviceIndex, DflOb::Window& window)
 {
+    std::optional<uint32_t> surfaceIndex = std::nullopt;
+    for (auto& surface : session.Devices[deviceIndex].Surfaces)
+    {
+        if (surface.pSharedResources->AssociatedWindow == &window)
+        {
+            surfaceIndex = &surface - &session.Devices[deviceIndex].Surfaces[0];
+            break;
+        }
+    }
+    if (surfaceIndex.has_value() == false)
+        return DflHW::SessionError::VkWindowNotAssociatedError;
 
-    return Dfl::Hardware::SessionError::Success;
+    auto& surface = session.Devices[deviceIndex].Surfaces[surfaceIndex.value()];
+    DflHW::SessionError error = DflHW::SessionError::ThreadNotReadyWarning;
+
+    DflOb::PushProcess(surface, window);
+    while (surface.Error == DflHW::SessionError::ThreadNotReadyWarning)
+        Sleep(50);
+    error = surface.Error;
+
+    return error;
 };
-
-

@@ -14,10 +14,14 @@
    limitations under the License.
 */
 
+module;
+
 #include <iostream>
 #include <string>
 #include <vector>
 #include <memory>
+#include <mutex>
+#include <map>
 
 #include <vulkan/vulkan.h>
 
@@ -34,27 +38,24 @@ namespace Dfl
 {
     namespace Hardware
     {
-        export enum class GPUCriteria
-        {
-            None = 0,
-        };
-
         export struct SessionInfo
         {
             std::string_view AppName{ "Dragonfly App" };
             uint32_t         AppVersion{ 0 };
 
-            bool             DoDebug{ false };
-            bool             EnableRTRendering{ true }; // enable real time rendering
-            bool             EnableRaytracing{ false };
+            bool DoDebug{ false };
+            bool EnableOnscreenRendering{ true }; // if set to false, disables onscreen rendering globally
+            bool EnableRaytracing{ false }; // if set to false, disables raytracing globally
         };
         export struct GPUInfo
         {
-            bool      ChooseOnRank{ false }; // whether to pick the strongest one (based on a ranking system). By default, Dragonfly will initialize the device on DeviceIndex instead
+            bool ChooseOnRank{ false }; // whether to pick the strongest one (based on a ranking system). By default, Dragonfly will initialize the device on DeviceIndex instead
+            bool EnableOnscreenRendering{ true }; // if set to false, disables onscreen rendering for this device
+            bool EnableRaytracing{ false }; // if set to false, disables raytracing for this device
 
-            uint32_t                    DeviceIndex{ 0 };
-            uint32_t                    Criteria{ 0 };
-            std::vector<DflOb::Window*> pDstWindows{ {} }; // where will the device render onto - by default, Dragonfly assumes no surfaces
+            uint32_t DeviceIndex{ 0 };
+
+            std::vector<DflOb::Window*> pDstWindows{ {} }; // where will the device render onto 
 
             uint32_t  PhysicsSimsNumber{ 1 }; // how many simulations the user wants to run on the device. By default, Dragonfly assumes 1.
         };
@@ -74,13 +75,22 @@ namespace Dfl
             VkDeviceInitError = -0x4202,
             VkDeviceNoSuchExtensionError = -0x4203,
             VkDeviceLostError = -0x4204,
+            VkDeviceIndexOutOfRangeError = -0x4205,
             VkNoLayersError = -0x4301,
             VkNoExpectedLayersError = -0x4302,
             VkDebuggerCreationError = -0x4402,
-            VkSurfaceCreationError = -0x4601,
+            VkWindowNotAssociatedError = -0x4601,
+            InvalidWindowHandleError = -0x4602,
+            VkSurfaceCreationError = -0x4603,
+            VkNoSurfaceFormatsError = -0x4604,
+            VkNoSurfacePresentModesError = -0x4605,
             VkNoAvailableQueuesError = -0x4701,
             VkComPoolInitError = -0x4702,
+            VkSwapchainInitError = -0x4801,
+            VkSwapchainSurfaceLostError = -0x4802,
+            VkSwapchainWindowUnavailableError = -0x4803,
             // warnings
+            ThreadNotReadyWarning = 0x1001,
             VkAlreadyInitDeviceWarning = 0x4201,
             VkUnknownQueueTypeWarning = 0x4701,
             VkInsufficientQueuesWarning = 0x4702,
@@ -109,139 +119,175 @@ namespace Dfl
         /* ================================ *
          *             DEVICES              *
          * ================================ */
+
         enum class QueueType
         {
             Graphics = 1,
-            Simulation = 2 // Simulation = Compute + Transfer. We consider those two essential for a queue that does sims.
+            Simulation = 2, // Simulation = Compute + Transfer. We consider those two essential for a queue that does sims.
+            ComputeOnly = 4
         };
 
         struct Queue
         {
-            VkQueue  hQueue;
-            uint32_t FamilyIndex;
+            VkQueue  hQueue{ nullptr };
+            uint32_t    FamilyIndex{ 0 };
+        };
+
+        enum class RenderingState
+        {
+            Init,
+            Loop,
+            Fail,
+            Dead
+        };
+
+        struct SharedRenderResources
+        {
+            VkDevice GPU{ nullptr };
+            Queue      AssignedQueue;
+            
+            VkCommandPool  CmdPool{ nullptr };
+            // ^ why is this here, even though command pools are per family? The reason is that command pools need to be
+            // used only by the thread that created them. Hence, it is not safe to allocate one command pool per family, but rather
+            // per thread.
+            VkSurfaceKHR   Surface{ nullptr };
+            VkSwapchainKHR Swapchain{ nullptr };
+
+            std::vector<VkImage> SwapchainImages{ };
+
+            VkSurfaceCapabilitiesKHR        Capabilities;
+            std::vector<VkSurfaceFormatKHR> Formats;
+            std::vector<VkPresentModeKHR>   PresentModes;
+
+            DflOb::Window* AssociatedWindow{ nullptr };
         };
 
         class RenderingSurface : public DflOb::WindowProcess
         {
-            VkSurfaceKHR   surface; // not required to be filled. If not filled, it's implied it's offscreen surface
-            VkSwapchainKHR swapchain; // same
+            std::unique_ptr<SharedRenderResources> pSharedResources;
+            std::mutex* pMutex;
 
-            DflOb::Window* associatedWindow;
-            Queue          assignedQueue;
-
-        public: 
+            RenderingState State{ RenderingState::Init };
+            SessionError   Error{ SessionError::ThreadNotReadyWarning };
+        public:
             void operator () (DflOb::WindowProcessArgs& args);
+            void Destroy();
 
-            friend class Device;
-            friend class Session;
+            friend struct Device;
+            friend class  Session;
+            friend SessionError _GetRenderResources(SharedRenderResources& Resources, const Device& device, const VkInstance& instance, const DflOb::Window& window);
             friend SessionError _GetQueues(std::vector<VkDeviceQueueCreateInfo>& infos, Device& device);
+            friend SessionError _CreateSwapchain(RenderingSurface& surface);
+            friend DFL_API SessionError DFL_CALL CreateRenderer(Session& session, uint32_t deviceIndex, DflOb::Window& window);
         };
 
         struct PhysicsSim
         {
-            Queue assignedQueue;
+            Queue AssignedQueue;
         };
 
         struct QueueFamily
         {
-            uint32_t      Index;
-            uint32_t      QueueCount;
-            int           QueueType{ 0 };
-            bool          CanPresent{ false };
+            uint32_t Index{ 0 };
+            uint32_t QueueCount{ 0 };
+            int      QueueType{ 0 };
+            bool     CanPresent{ false };
         };
 
         struct DeviceMemory
         {
-            VkDeviceSize Size;
-            uint32_t     HeapIndex;
-            bool         IsHostVisible;
+            VkDeviceSize Size{ 0 };
+            uint32_t     HeapIndex{ 0 };
+            bool         IsHostVisible{ false };
         };
 
         struct Device
         {
-            VkPhysicalDevice VkPhysicalGPU;
-            VkDevice         VkGPU;
+            GPUInfo                 Info{ };
+            VkPhysicalDevice VkPhysicalGPU{ nullptr };
+            VkDevice               VkGPU{ nullptr };
 
-            std::vector<QueueFamily> QueueFamilies;
+            std::vector<QueueFamily> QueueFamilies{ };
 
-            std::string Name;
+            std::string Name{ "Placeholder GPU Name" };
 
-            std::vector<DeviceMemory> LocalHeaps;
-            std::vector<DeviceMemory> SharedHeaps;
+            std::vector<DeviceMemory> LocalHeaps{ };
+            std::vector<DeviceMemory> SharedHeaps{ };
 
-            std::vector<RenderingSurface> Surfaces; // the surfaces the device is told to render to. Not equivalent to Vulkan surfaces (may concern offscreen surfaces)
-            std::vector<PhysicsSim>       Simulations;
+            std::vector<RenderingSurface> Surfaces{ }; // the surfaces the device is told to render to. Not equivalent to Vulkan surfaces (may concern offscreen surfaces)
+            std::vector<PhysicsSim>            Simulations{ };
 
-            std::vector<VkDisplayKHR> Displays; // the displays the device is connected to. Filled only if device is activated.
+            std::vector<VkDisplayKHR> Displays{ }; // the displays the device is connected to. Filled only if device is activated.
 
-            friend class Session;
-            friend SessionError _GetQueues(std::vector<VkDeviceQueueCreateInfo>& infos, Device& device);
+            std::mutex* pUsageMutex{ nullptr };
         };
 
         class DebugProcess : public DflOb::WindowProcess
         {
-            int            NotInit{ 0 };
             DflOb::Window* pWindow{ nullptr };
-
         public:
             void operator () (DflOb::WindowProcessArgs& args);
+            void Destroy();
         };
 
-        /**
-        * \brief The `Session` class concerns objects that represent
-        * the machine and its hardware
-        */
+        /// <summary>
+        /// The `Session` class concerns objects that represent
+        /// the machine and its hardware
+        /// </summary>
         export class Session
         {
-            SessionInfo        GeneralInfo;
-            GPUInfo            DeviceInfo;
+            SessionInfo GeneralInfo;
 
-            VkInstance               VkInstance;
+            VkInstance                               VkInstance;
             VkDebugUtilsMessengerEXT VkDbMessenger;
 
             Processor CPU;
 
             uint64_t Memory; // memory size in B
 
-            std::vector<Device> Devices;
+            std::vector<Device>   Devices;
+            std::mutex                   DeviceMutex;
+            // ^ the above concerns all the devices that are available on the machine. That means that if the machine has, for example, 2 initialized GPUs, 
+            // and GPU A is used by thread 1, if thread 2 attempts to use GPU B, even if it's unused, it will be blocked until thread 1 is done with GPU A. 
+            // This may seem like an issue, but it is not that problematic, as there's not many personal computers that have more than one GPU. 
+            // For now, this is how it will be done. Later, I may add a more robust/complex system that allows for multiple GPUs to be used at the same time.
 
             DebugProcess        WindowDebugging;
-
-            void OrganizeData(Device& device); // for LoadDevices
         public:
             DFL_API DFL_CALL Session(const SessionInfo& info);
             DFL_API DFL_CALL ~Session();
 
-            /**
-            * \brief Initialize Vulkan
-            *
-            * \returns `SessionError::Success` on success.
-            * \returns `SessionError::VkInstanceCreationError` if Vulkan couldn't create an instance.
-            * \returns `SessionError::VkBadDriverError` if the Vulkan driver is bad or out of date.
-            * \returns `SessionError::VkNoLayersError` if Vulkan didn't find any layers (applicable if `SessionCriteria::DoDebug` is set).
-            * \returns `SessionError::VkNoExpectedLayersError` if Vulkan didn't find the desired layers (applicable if `SessionCriteria::DoDebug` is set).
-            * \returns `SessionError::VkDebuggerCreationError` if Vulkan couldn't create the debug messenger (applicable if `SessionCriteria::DoDebug` is set).
-            */
+            /// <summary>
+            /// Initialize Vulkan
+            /// </summary>
+            /// <returns>
+            /// A `SessionError` error code that could be any of the following:
+            /// <para>- Success, on success</para>
+            /// </returns>
             DFL_API SessionError DFL_CALL InitVulkan();
 
-            /**
-            * \brief Gets the devices available to the machine into memory
-            */
+            /// <summary>
+            /// Load the devices available on the machine to the session.
+            /// </summary>
+            /// <returns>
+            /// A `SessionError` error code that could be any of the following:
+            /// <para>- Success, on success</para>
+            /// </returns>
             DFL_API SessionError DFL_CALL LoadDevices();
 
-            /**
-            * \brief Initializes the device indicated by `DeviceIndex` in `info` based on other various
-            * information in `info`
-            *
-            * \param `info`: Information about the GPU to be initialized
-            *
-            * \returns `SessionError::Success` on success.
-            * \returns `SessionError::VkAlreadyInitDeviceWarning` if the desired device is already initialized.
-            * \returns `SessionError::VkNoDevicesError` if there are no (Vulkan capable) devices in the system.
-            * \returns `SessionError::VkDeviceInitError` if the device couldn't be initialized.
-            */
+            /// <summary>
+            /// Initialize a device
+            /// </summary>
+            /// <param name="info">The GPUInfo struct that contains the information needed to initialize the device</param>
+            /// <returns>
+            /// A `SessionError` error code that could be any of the following:
+            /// <para>- Success, on success</para>
+            /// </returns>
             DFL_API SessionError DFL_CALL InitDevice(const GPUInfo& info);
 
+            /// <summary>
+            /// Get the amount of devices available on the machine, initalized or not.
+            /// </summary>
             uint64_t DeviceCount() const
             {
                 return this->Devices.size();
@@ -252,9 +298,9 @@ namespace Dfl
                 return std::string_view(this->Devices[deviceIndex].Name);
             };
 
-            friend DFL_API SessionError DFL_CALL CreateRenderer(Session& session, uint32_t deviceIndex, const DflOb::Window& window);
+            friend DFL_API SessionError DFL_CALL CreateRenderer(Session& session, uint32_t deviceIndex, DflOb::Window& window);
         };
 
-        export DFL_API SessionError DFL_CALL CreateRenderer(Session& session, uint32_t deviceIndex, const DflOb::Window& window);
+        export DFL_API SessionError DFL_CALL CreateRenderer(Session& session, uint32_t deviceIndex, DflOb::Window& window);
     }
 }
