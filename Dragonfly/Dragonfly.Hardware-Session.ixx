@@ -130,7 +130,7 @@ namespace Dfl
         struct Queue
         {
             VkQueue  hQueue{ nullptr };
-            uint32_t    FamilyIndex{ 0 };
+            uint32_t FamilyIndex{ 0 };
         };
 
         enum class RenderingState
@@ -311,3 +311,4 @@ namespace Dfl
         export DFL_API SessionError DFL_CALL CreateRenderer(Session& session, uint32_t deviceIndex, DflOb::Window& window);
     }
 }
+

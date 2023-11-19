@@ -328,10 +328,10 @@ DflHW::SessionError DflHW::Session::InitVulkan()
         }
     }
 
-    instInfo.enabledLayerCount = (this->GeneralInfo.DoDebug == true) ? expectedLayers.size() : 0;
+    instInfo.enabledLayerCount = (this->GeneralInfo.DoDebug == true) ? static_cast<uint32_t>(expectedLayers.size()) : 0;
     instInfo.ppEnabledLayerNames = (this->GeneralInfo.DoDebug == true) ? expectedLayers.data() : nullptr;
 
-    instInfo.enabledExtensionCount = extensions.size();
+    instInfo.enabledExtensionCount = static_cast<uint32_t>(extensions.size());
     instInfo.ppEnabledExtensionNames = extensions.data();
 
     VkResult vkError = vkCreateInstance(&instInfo, nullptr, &this->VkInstance);
@@ -488,7 +488,7 @@ DflHW::SessionError DflHW::_GetQueues(
     props.resize(queueFamilies);
     vkGetPhysicalDeviceQueueFamilyProperties(device.VkPhysicalGPU, &queueFamilies, props.data());
     
-    int requiredQueues = device.Surfaces.size() + device.Simulations.size() + 1;
+    int requiredQueues = static_cast<uint32_t>(device.Surfaces.size()) + static_cast<uint32_t>(device.Simulations.size()) + 1;
     // ^ Why + 1? If the user doesn't want any sims or any rendering, we assume that they may, at least
     // want to use the device for some kind of computational work.
     for (uint32_t i = 0; i < queueFamilies; i++)
@@ -520,7 +520,7 @@ DflHW::SessionError DflHW::_GetQueues(
             // also a requirement
             if ((props[i].queueFlags & VK_QUEUE_COMPUTE_BIT) && (props[i].queueFlags & VK_QUEUE_TRANSFER_BIT))
             {
-                forNextQueue -= device.Simulations.size() + 1;
+                forNextQueue -= static_cast<uint32_t>(device.Simulations.size()) + 1;
                 family.QueueType |= static_cast<int>(DflHW::QueueType::Simulation);
             }
             // ^ Instead of declaring another variable, we do the trick of passing the info of the availability of a computation queue 
@@ -536,7 +536,7 @@ DflHW::SessionError DflHW::_GetQueues(
                 // If it does, then forNextQueue is reduced by SimulationsSize, so:
                 // (n - p) - (m - p) = n - m, in other words, we request all requiredQueues (minus the actual forNextQueues)
                 // This also works even when p > m, as seen above.
-            info.queueCount = (props[i].queueCount >= (static_cast<int>(requiredQueues) - forNextQueue - static_cast<int>(device.Simulations.size()))) ? (requiredQueues - forNextQueue - 1) : props[i].queueCount;
+            info.queueCount = (static_cast<int>(props[i].queueCount) >= (requiredQueues - forNextQueue - static_cast<int>(device.Simulations.size()))) ? (requiredQueues - forNextQueue - 1) : props[i].queueCount;
 
             requiredQueues -= info.queueCount;
 
@@ -552,7 +552,7 @@ DflHW::SessionError DflHW::_GetQueues(
             info.pNext = nullptr;
             info.flags = 0;
             info.queueFamilyIndex = i;
-            info.queueCount = (props[i].queueCount >= device.Simulations.size()) ? device.Simulations.size() : props[i].queueCount;
+            info.queueCount = (props[i].queueCount >= static_cast<uint32_t>(device.Simulations.size())) ? static_cast<uint32_t>(device.Simulations.size()) : props[i].queueCount;
 
             requiredQueues -= info.queueCount;
 
@@ -630,7 +630,7 @@ DflHW::SessionError DflHW::Session::InitDevice(const GPUInfo& info)
         queue.pQueuePriorities = queuePriorities[&queue - queueInfo.data()].data();
     }
 
-    deviceInfo.queueCreateInfoCount = queueInfo.size();
+    deviceInfo.queueCreateInfoCount = static_cast<uint32_t>(queueInfo.size());
     deviceInfo.pQueueCreateInfos = queueInfo.data();
 
     if ((this->GeneralInfo.EnableOnscreenRendering) && (device.Info.EnableOnscreenRendering))
@@ -643,7 +643,7 @@ DflHW::SessionError DflHW::Session::InitDevice(const GPUInfo& info)
         extensions.push_back(VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME);
     }
 
-    deviceInfo.enabledExtensionCount = extensions.size();
+    deviceInfo.enabledExtensionCount = static_cast<uint32_t>(extensions.size());
     deviceInfo.ppEnabledExtensionNames = (extensions.empty()) ? nullptr : extensions.data();
 
     VkResult vkError = vkCreateDevice(
