@@ -2,6 +2,7 @@
 
 #include <iostream>
 #include <tuple>
+#include <optional>
 
 import Dragonfly;
 
@@ -26,9 +27,6 @@ int main()
 
     Dfl::Hardware::Session session(sesInfo);
     if (session.InitVulkan() < Dfl::Hardware::SessionError::Success)
-        return 1;
-
-    if (session.LoadDevices() < Dfl::Hardware::SessionError::Success)
         return 1;
 
     std::cout << "You have " << session.DeviceCount() << " devices in your system." << std::endl;
