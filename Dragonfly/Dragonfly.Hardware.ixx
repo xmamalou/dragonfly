@@ -17,8 +17,9 @@ module;
 
 export module Dragonfly.Hardware;
 
-export import :Session;
 export import :Memory;
+export import :Session;
+
 
 namespace Dfl
 {
