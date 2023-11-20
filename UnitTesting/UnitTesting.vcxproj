@@ -172,6 +172,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="pch.h" />
+    <ClInclude Include="Specialization.hpp" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Dragonfly\Dragonfly.vcxproj">

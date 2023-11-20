@@ -1,20 +1,39 @@
 #include "pch.h"
 #include "CppUnitTest.h"
 
+#include "Specialization.hpp"
+
 import Dragonfly;
 
 using namespace Microsoft::VisualStudio::CppUnitTestFramework;
 
 namespace UnitTesting
 {
-	TEST_CLASS(UnitTesting)
+	TEST_CLASS(WindowTesting)
 	{
 	public:
-		
-		TEST_METHOD(TestMethod1)
+		TEST_METHOD(WindowCreationTest)
 		{
-			Dfl::Hardware::SessionInfo info;
-			Dfl::Hardware::Session session(info);
+			Dfl::Observer::WindowInfo info;
+			info.Resolution = { 1000, 1000 };
+
+			Dfl::Observer::Window window(info);
+			Assert::AreEqual(Dfl::Observer::WindowError::Success, window.OpenWindow());
+		}
+	};
+
+	TEST_CLASS(SessionTesting)
+	{
+	public:
+		TEST_METHOD(SessionCreationTest)
+		{
+			Dfl::Hardware::SessionInfo sesInfo = {
+				.AppName{ "My super app" },
+				.AppVersion{ Dfl::MakeVersion(1000, 1000, 1000) },
+				.DoDebug{ true }
+			};
+
+			Dfl::Hardware::Session session(sesInfo);
 			Assert::AreEqual(Dfl::Hardware::SessionError::Success, session.InitVulkan());
 		}
 	};
