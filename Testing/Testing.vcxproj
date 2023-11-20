@@ -109,7 +109,7 @@
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpplatest</LanguageStandard>
       <AdditionalIncludeDirectories>C:\VulkanSDK\1.3.224.1\Include;C:\glfw-3.3.8\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <AdditionalModuleDependencies>$(SolutionDir)Dragonfly\x64\Debug\Dragonfly.ixx.ifc;$(SolutionDir)Dragonfly\x64\Debug\Dragonfly.Hardware.ixx.ifc;$(SolutionDir)Dragonfly\x64\Debug\Dragonfly.Observer.ixx.ifc;$(SolutionDir)Dragonfly\x64\Debug\Dragonfly.Hardware-Session.ixx.ifc;$(SolutionDir)Dragonfly\x64\Debug\Dragonfly.Hardware-Monitor.ixx.ifc;$(SolutionDir)Dragonfly\x64\Debug\Dragonfly.Observer-Window.ixx.ifc;$(SolutionDir)Dragonfly\x64\Debug\Dragonfly.Graphics.ixx.ifc;$(SolutionDir)Dragonfly\x64\Debug\Dragonfly.Graphics-Image.ixx.ifc;$(SolutionDir)Dragonfly\x64\Debug\Dragonfly.Graphics-Space.ixx.ifc;%(AdditionalModuleDependencies)</AdditionalModuleDependencies>
+      <AdditionalModuleDependencies>$(SolutionDir)Dragonfly\x64\Debug\Dragonfly.ixx.ifc;$(SolutionDir)Dragonfly\x64\Debug\Dragonfly.Hardware.ixx.ifc;$(SolutionDir)Dragonfly\x64\Debug\Dragonfly.Observer.ixx.ifc;$(SolutionDir)Dragonfly\x64\Debug\Dragonfly.Hardware-Session.ixx.ifc;$(SolutionDir)Dragonfly\x64\Debug\Dragonfly.Observer-Window.ixx.ifc;$(SolutionDir)Dragonfly\x64\Debug\Dragonfly.Graphics.ixx.ifc;$(SolutionDir)Dragonfly\x64\Debug\Dragonfly.Graphics-Image.ixx.ifc;$(SolutionDir)Dragonfly\x64\Debug\Dragonfly.Graphics-Space.ixx.ifc;%(AdditionalModuleDependencies)</AdditionalModuleDependencies>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -129,7 +129,7 @@
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpplatest</LanguageStandard>
       <AdditionalIncludeDirectories>C:\VulkanSDK\1.3.224.1\Include;C:\glfw-3.3.8\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <AdditionalModuleDependencies>$(SolutionDir)Dragonfly\x64\Release\Dragonfly.ixx.ifc;$(SolutionDir)Dragonfly\x64\Release\Dragonfly.Hardware.ixx.ifc;$(SolutionDir)Dragonfly\x64\Release\Dragonfly.Observer.ixx.ifc;$(SolutionDir)Dragonfly\x64\Release\Dragonfly.Hardware-Session.ixx.ifc;$(SolutionDir)Dragonfly\x64\Release\Dragonfly.Hardware-Monitor.ixx.ifc;$(SolutionDir)Dragonfly\x64\Release\Dragonfly.Observer-Window.ixx.ifc;$(SolutionDir)Dragonfly\x64\Release\Dragonfly.Graphics.ixx.ifc;$(SolutionDir)Dragonfly\x64\Release\Dragonfly.Graphics-Image.ixx.ifc;$(SolutionDir)Dragonfly\x64\Release\Dragonfly.Graphics-Space.ixx.ifc;%(AdditionalModuleDependencies)</AdditionalModuleDependencies>
+      <AdditionalModuleDependencies>$(SolutionDir)Dragonfly\x64\Release\Dragonfly.ixx.ifc;$(SolutionDir)Dragonfly\x64\Release\Dragonfly.Hardware.ixx.ifc;$(SolutionDir)Dragonfly\x64\Release\Dragonfly.Observer.ixx.ifc;$(SolutionDir)Dragonfly\x64\Release\Dragonfly.Hardware-Session.ixx.ifc;$(SolutionDir)Dragonfly\x64\Release\Dragonfly.Observer-Window.ixx.ifc;$(SolutionDir)Dragonfly\x64\Release\Dragonfly.Graphics.ixx.ifc;$(SolutionDir)Dragonfly\x64\Release\Dragonfly.Graphics-Image.ixx.ifc;$(SolutionDir)Dragonfly\x64\Release\Dragonfly.Graphics-Space.ixx.ifc;%(AdditionalModuleDependencies)</AdditionalModuleDependencies>
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
     </ClCompile>
     <Link>
