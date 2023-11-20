@@ -140,7 +140,7 @@
     <ClCompile Include="Dragonfly.Graphics-Space.cxx" />
     <ClCompile Include="Dragonfly.Graphics-Space.ixx" />
     <ClCompile Include="Dragonfly.Graphics.ixx" />
-    <ClCompile Include="Dragonfly.Hardware-Memory.cpp" />
+    <ClCompile Include="Dragonfly.Hardware-Memory.cxx" />
     <ClCompile Include="Dragonfly.Hardware-Memory.ixx" />
     <ClCompile Include="Dragonfly.Hardware-Session.cxx" />
     <ClCompile Include="Dragonfly.Hardware-Session.ixx" />

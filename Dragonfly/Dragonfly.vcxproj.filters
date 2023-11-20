@@ -69,7 +69,7 @@
     <ClCompile Include="Dragonfly.Hardware-Memory.ixx">
       <Filter>Source Files\Dragonfly\Hardware</Filter>
     </ClCompile>
-    <ClCompile Include="Dragonfly.Hardware-Memory.cpp">
+    <ClCompile Include="Dragonfly.Hardware-Memory.cxx">
       <Filter>Source Files\Dragonfly\Hardware</Filter>
     </ClCompile>
   </ItemGroup>
