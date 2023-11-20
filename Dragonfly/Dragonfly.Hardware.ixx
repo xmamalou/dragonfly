@@ -15,13 +15,6 @@
 */
 module;
 
-#include "Dragonfly.h"
-
-#include <vector>
-#include <string>
-
-#include <vulkan/vulkan.h>
-
 export module Dragonfly.Hardware;
 
 export import :Session;
