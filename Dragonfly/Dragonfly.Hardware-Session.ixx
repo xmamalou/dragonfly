@@ -22,6 +22,7 @@ module;
 #include <memory>
 #include <mutex>
 #include <map>
+#include <optional>
 
 #include <vulkan/vulkan.h>
 
@@ -53,7 +54,7 @@ namespace Dfl
             bool EnableOnscreenRendering{ true }; // if set to false, disables onscreen rendering for this device
             bool EnableRaytracing{ false }; // if set to false, disables raytracing for this device
 
-            uint32_t DeviceIndex{ 0 };
+            std::optional<uint32_t> DeviceIndex{ 0 }; // set to null for Dragonfly to pick the strongest one (based on a ranking system). By default, first device is picked.
 
             std::vector<DflOb::Window*> pDstWindows{ {} }; // where will the device render onto 
 
@@ -144,7 +145,7 @@ namespace Dfl
         struct SharedRenderResources
         {
             VkDevice GPU{ nullptr };
-            Queue      AssignedQueue;
+            Queue    AssignedQueue;
             
             VkCommandPool  CmdPool{ nullptr };
             // ^ why is this here, even though command pools are per family? The reason is that command pools need to be

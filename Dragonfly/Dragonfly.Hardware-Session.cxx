@@ -580,17 +580,21 @@ DflHW::SessionError DflHW::_GetQueues(
 
 DflHW::SessionError DflHW::Session::InitDevice(const GPUInfo& info)
 {
-    if (info.DeviceIndex > this->Devices.size())
+    // TODO: Implement ranking system
+    if (!info.DeviceIndex.has_value())
         return SessionError::VkDeviceIndexOutOfRangeError;
 
-    Device& device = this->Devices[info.DeviceIndex];
+    if (info.DeviceIndex.value() > this->Devices.size())
+        return SessionError::VkDeviceIndexOutOfRangeError;
+
+    Device& device = this->Devices[info.DeviceIndex.value()];
     if (this->Devices.size() == 0)
         return SessionError::VkNoDevicesError;
 
     if (device.VkGPU != nullptr)
         return SessionError::VkAlreadyInitDeviceWarning;
 
-    // TODO: Implement ranking system
+    
 
     device.Info = info;
     device.pUsageMutex = &this->DeviceMutex;
