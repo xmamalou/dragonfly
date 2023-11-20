@@ -66,6 +66,12 @@
     <ClCompile Include="Dragonfly.Graphics-Space.cxx">
       <Filter>Source Files\Dragonfly\Graphics</Filter>
     </ClCompile>
+    <ClCompile Include="Dragonfly.Hardware-Memory.ixx">
+      <Filter>Source Files\Dragonfly\Hardware</Filter>
+    </ClCompile>
+    <ClCompile Include="Dragonfly.Hardware-Memory.cpp">
+      <Filter>Source Files\Dragonfly\Hardware</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Dragonfly.h">

@@ -13,24 +13,7 @@
    See the License for the specific language governing permissions and
    limitations under the License.
 */
+
 module;
 
-#include "Dragonfly.h"
-
-#include <vector>
-#include <string>
-
-#include <vulkan/vulkan.h>
-
-export module Dragonfly.Hardware;
-
-export import :Session;
-export import :Memory;
-
-namespace Dfl
-{
-    namespace Hardware
-    {
-    }
-}
-
+module Dragonfly.Hardware:Memory;
