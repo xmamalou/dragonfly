@@ -30,4 +30,4 @@ Dragonfly uses 2 libraries:
 GLFW is *statically* linked.
 
 >[!IMPORTANT]
-> The above dependencies **need** to be included even when not building Dragonfly and just using it, as the import modules actively include them
+> The above dependencies **need** to be included even when not building Dragonfly and just using it, as the import modules actively include them, ***unless*** you include the compiled module files and not the source module files themselves.
