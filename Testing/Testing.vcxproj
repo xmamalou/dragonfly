@@ -108,14 +108,14 @@
       <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpplatest</LanguageStandard>
-      <AdditionalIncludeDirectories>C:\VulkanSDK\1.3.224.1\Include;C:\glfw-3.3.8\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <AdditionalModuleDependencies>$(SolutionDir)Dragonfly\x64\Debug\Dragonfly.ixx.ifc;$(SolutionDir)Dragonfly\x64\Debug\Dragonfly.Hardware.ixx.ifc;$(SolutionDir)Dragonfly\x64\Debug\Dragonfly.Observer.ixx.ifc;$(SolutionDir)Dragonfly\x64\Debug\Dragonfly.Hardware-Session.ixx.ifc;$(SolutionDir)Dragonfly\x64\Debug\Dragonfly.Hardware-Memory.ixx.ifc;$(SolutionDir)Dragonfly\x64\Debug\Dragonfly.Observer-Window.ixx.ifc;$(SolutionDir)Dragonfly\x64\Debug\Dragonfly.Graphics.ixx.ifc;$(SolutionDir)Dragonfly\x64\Debug\Dragonfly.Graphics-Image.ixx.ifc;$(SolutionDir)Dragonfly\x64\Debug\Dragonfly.Graphics-Space.ixx.ifc;%(AdditionalModuleDependencies)</AdditionalModuleDependencies>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>Dragonfly.lib;vulkan-1.lib;glfw3.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <AdditionalLibraryDirectories>C:\VulkanSDK\1.3.224.1\Lib;C:\glfw-3.3.8\lib-vc2022;I:\Source\Code2\Dragonfly\x64\Debug;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>Dragonfly.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>I:\Source\Code2\Dragonfly\x64\Debug;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <OutputFile>$(OutDir)$(TargetName)$(TargetExt)</OutputFile>
     </Link>
   </ItemDefinitionGroup>
@@ -128,7 +128,7 @@
       <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpplatest</LanguageStandard>
-      <AdditionalIncludeDirectories>C:\VulkanSDK\1.3.224.1\Include;C:\glfw-3.3.8\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <AdditionalModuleDependencies>$(SolutionDir)Dragonfly\x64\Release\Dragonfly.ixx.ifc;$(SolutionDir)Dragonfly\x64\Release\Dragonfly.Hardware.ixx.ifc;$(SolutionDir)Dragonfly\x64\Release\Dragonfly.Observer.ixx.ifc;$(SolutionDir)Dragonfly\x64\Release\Dragonfly.Hardware-Session.ixx.ifc;$(SolutionDir)Dragonfly\x64\Release\Dragonfly.Hardware-Memory.ixx.ifc;$(SolutionDir)Dragonfly\x64\Release\Dragonfly.Observer-Window.ixx.ifc;$(SolutionDir)Dragonfly\x64\Release\Dragonfly.Graphics.ixx.ifc;$(SolutionDir)Dragonfly\x64\Release\Dragonfly.Graphics-Image.ixx.ifc;$(SolutionDir)Dragonfly\x64\Release\Dragonfly.Graphics-Space.ixx.ifc;%(AdditionalModuleDependencies)</AdditionalModuleDependencies>
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
     </ClCompile>
@@ -137,8 +137,8 @@
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>Dragonfly.lib;vulkan-1.lib;glfw3.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <AdditionalLibraryDirectories>C:\VulkanSDK\1.3.224.1\Lib;C:\glfw-3.3.8\lib-vc2022;I:\Source\Code2\Dragonfly\x64\Release;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>Dragonfly.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>I:\Source\Code2\Dragonfly\x64\Release;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <OutputFile>$(OutDir)$(TargetName)$(TargetExt)</OutputFile>
     </Link>
   </ItemDefinitionGroup>
