@@ -50,7 +50,6 @@ namespace Dfl
         };
         export struct GPUInfo
         {
-            bool ChooseOnRank{ false }; // whether to pick the strongest one (based on a ranking system). By default, Dragonfly will initialize the device on DeviceIndex instead
             bool EnableOnscreenRendering{ true }; // if set to false, disables onscreen rendering for this device
             bool EnableRaytracing{ false }; // if set to false, disables raytracing for this device
 
@@ -275,15 +274,6 @@ namespace Dfl
             DFL_API SessionError DFL_CALL InitVulkan();
 
             /// <summary>
-            /// Load the devices available on the machine to the session.
-            /// </summary>
-            /// <returns>
-            /// A `SessionError` error code that could be any of the following:
-            /// <para>- Success, on success</para>
-            /// </returns>
-            DFL_API SessionError DFL_CALL LoadDevices();
-
-            /// <summary>
             /// Initialize a device
             /// </summary>
             /// <param name="info">The GPUInfo struct that contains the information needed to initialize the device</param>
@@ -306,6 +296,7 @@ namespace Dfl
                 return std::string_view(this->Devices[deviceIndex].Name);
             };
 
+            friend SessionError _LoadDevices(Session& session);
             friend DFL_API SessionError DFL_CALL CreateRenderer(Session& session, uint32_t deviceIndex, DflOb::Window& window);
         };
 

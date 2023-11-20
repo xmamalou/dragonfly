@@ -272,6 +272,78 @@ static DflHW::SessionError _InitDebugger(
     return DflHW::SessionError::Success;
 }
 
+// internal for _LoadDevices
+
+template <DflHW::MemoryType type>
+inline void _OrganizeMemory(std::vector<DflHW::DeviceMemory<type>>& memory, const VkPhysicalDeviceMemoryProperties props)
+{
+    uint32_t heapCount = 0;
+    for (uint32_t i = 0; i < props.memoryHeapCount; i++)
+    {
+        if (((props.memoryHeaps[i].flags & VK_MEMORY_HEAP_DEVICE_LOCAL_BIT) && (type == DflHW::MemoryType::Local)) || (!(props.memoryHeaps[i].flags & VK_MEMORY_HEAP_DEVICE_LOCAL_BIT) && (type == DflHW::MemoryType::Shared)))
+        {
+            memory[heapCount].Size = props.memoryHeaps[i].size;
+            memory[heapCount].HeapIndex = props.memoryTypes[i].heapIndex;
+
+            memory[heapCount].IsHostVisible = (props.memoryTypes[i].propertyFlags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) ? true : false;
+
+            heapCount++;
+        }
+    }
+}
+
+void _OrganizeData(Dfl::Hardware::Device& device)
+{
+    VkPhysicalDeviceProperties devProps;
+    vkGetPhysicalDeviceProperties(device.VkPhysicalGPU, &devProps);
+    VkPhysicalDeviceMemoryProperties memProps;
+    vkGetPhysicalDeviceMemoryProperties(device.VkPhysicalGPU, &memProps);
+    VkPhysicalDeviceFeatures devFeats;
+    vkGetPhysicalDeviceFeatures(device.VkPhysicalGPU, &devFeats);
+
+    device.Name = devProps.deviceName;
+
+    int localHeapCount = 0;
+    int sharedHeapCount = 0;
+
+    for (auto heap : memProps.memoryHeaps)
+    {
+        if (heap.flags & VK_MEMORY_HEAP_DEVICE_LOCAL_BIT)
+            localHeapCount++;
+        else
+            sharedHeapCount++;
+    }
+
+    device.LocalHeaps.resize(localHeapCount);
+    device.SharedHeaps.resize(sharedHeapCount);
+
+    _OrganizeMemory(device.LocalHeaps, memProps);
+    _OrganizeMemory(device.SharedHeaps, memProps);
+}
+
+//
+
+DflHW::SessionError DflHW::_LoadDevices(Session& session)
+{
+    uint32_t deviceCount;
+    std::vector<VkPhysicalDevice> devices;
+    vkEnumeratePhysicalDevices(session.VkInstance, &deviceCount, nullptr);
+    if (deviceCount == 0)
+        return SessionError::VkNoDevicesError;
+    devices.resize(deviceCount);
+    session.Devices.resize(deviceCount); // we now reserve space for both the physical GPUs and the ones Dragonfly understands
+    vkEnumeratePhysicalDevices(session.VkInstance, &deviceCount, devices.data());
+
+    for (uint32_t i = 0; i < deviceCount; i++)
+    {
+        session.Devices[i].VkPhysicalGPU = devices[i];
+
+        _OrganizeData(session.Devices[i]);
+    }
+
+    return SessionError::Success;
+}
+
 //
 
 DflHW::SessionError DflHW::Session::InitVulkan()
@@ -352,79 +424,11 @@ DflHW::SessionError DflHW::Session::InitVulkan()
     if (err != SessionError::Success)
         vkDestroyInstance(this->VkInstance, nullptr);
 
+    err = _LoadDevices(*this);
+    if (err != SessionError::Success)
+        vkDestroyInstance(this->VkInstance, nullptr);
+
     return err;
-}
-
-// internal for LoadDevices
-
-template <DflHW::MemoryType type>
-inline void _OrganizeMemory(std::vector<DflHW::DeviceMemory<type>>& memory, const VkPhysicalDeviceMemoryProperties props)
-{
-    uint32_t heapCount = 0;
-    for (uint32_t i = 0; i < props.memoryHeapCount; i++)
-    {
-        if (((props.memoryHeaps[i].flags & VK_MEMORY_HEAP_DEVICE_LOCAL_BIT) && (type == DflHW::MemoryType::Local)) || (!(props.memoryHeaps[i].flags & VK_MEMORY_HEAP_DEVICE_LOCAL_BIT) && (type == DflHW::MemoryType::Shared)))
-        {
-            memory[heapCount].Size = props.memoryHeaps[i].size;
-            memory[heapCount].HeapIndex = props.memoryTypes[i].heapIndex;
-
-            memory[heapCount].IsHostVisible = (props.memoryTypes[i].propertyFlags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) ? true : false;
-
-            heapCount++;
-        }
-    }
-}
-
-void _OrganizeData(Dfl::Hardware::Device& device)
-{
-    VkPhysicalDeviceProperties devProps;
-    vkGetPhysicalDeviceProperties(device.VkPhysicalGPU, &devProps);
-    VkPhysicalDeviceMemoryProperties memProps;
-    vkGetPhysicalDeviceMemoryProperties(device.VkPhysicalGPU, &memProps);
-    VkPhysicalDeviceFeatures devFeats;
-    vkGetPhysicalDeviceFeatures(device.VkPhysicalGPU, &devFeats);
-
-    device.Name = devProps.deviceName;
-
-    int localHeapCount = 0;
-    int sharedHeapCount = 0;
-
-    for (auto heap : memProps.memoryHeaps)
-    {
-        if (heap.flags & VK_MEMORY_HEAP_DEVICE_LOCAL_BIT)
-            localHeapCount++;
-        else
-            sharedHeapCount++;
-    }
-
-    device.LocalHeaps.resize(localHeapCount);
-    device.SharedHeaps.resize(sharedHeapCount);
-
-    _OrganizeMemory(device.LocalHeaps, memProps);
-    _OrganizeMemory(device.SharedHeaps, memProps);
-}
-
-//
-
-DflHW::SessionError DflHW::Session::LoadDevices()
-{
-    uint32_t deviceCount;
-    std::vector<VkPhysicalDevice> devices;
-    vkEnumeratePhysicalDevices(this->VkInstance, &deviceCount, nullptr);
-    if (deviceCount == 0)
-        return SessionError::VkNoDevicesError;
-    devices.resize(deviceCount);
-    this->Devices.resize(deviceCount); // we now reserve space for both the physical GPUs and the ones Dragonfly understands
-    vkEnumeratePhysicalDevices(this->VkInstance, &deviceCount, devices.data());
-
-    for (uint32_t i = 0; i < deviceCount; i++)
-    {
-        this->Devices[i].VkPhysicalGPU = devices[i];
-
-        _OrganizeData(this->Devices[i]);
-    }
-
-    return SessionError::Success;
 }
 
 // internal for InitDevice
