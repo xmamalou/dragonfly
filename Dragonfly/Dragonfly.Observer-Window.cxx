@@ -48,7 +48,7 @@ void DflOb::WindowFunctor::operator() ()
         return;
     }
 
-    glfwWindowHint(GLFW_NO_API, GLFW_TRUE);
+    glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
     glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
 
     this->pGLFWwindow = glfwCreateWindow(
@@ -85,10 +85,10 @@ void DflOb::WindowFunctor::operator() ()
         process->Destroy();
     this->AccessProcess.unlock();
 
+    this->ShouldClose = true;
+
     glfwDestroyWindow(this->pGLFWwindow);
     glfwTerminate();
-
-    this->ShouldClose = true;
 
     return;
 }

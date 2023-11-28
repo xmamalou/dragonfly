@@ -51,7 +51,8 @@ namespace Dfl
         {
         public:
             virtual void operator () (WindowProcessArgs& args) = 0;
-            virtual void Destroy() = 0; // called when the window is closing.
+            // called when the window is closing.
+            virtual void Destroy() = 0; 
         };
 
         /// <summary>Information used for initializing a Window. See reference for details.</summary>
@@ -61,7 +62,7 @@ namespace Dfl
             std::tuple<uint32_t, uint32_t> View{ DefaultResolution }; // currently equivalent to resolution
             bool DoFullscreen{ false };
 
-            bool        DoVsync{ true };
+            bool     DoVsync{ true };
             uint32_t Rate{ 60 }; // Refresh rate, in Hz. Ignored if Vsync is enabled.
 
             std::tuple<int, int> Position{ std::make_tuple(0, 0) }; // Relative to the screen space
