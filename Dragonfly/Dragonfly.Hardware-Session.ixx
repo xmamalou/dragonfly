@@ -177,7 +177,7 @@ namespace Dfl
             friend class  Session;
             friend SessionError _GetRenderResources(SharedRenderResources& Resources, const Device& device, const VkInstance& instance, const DflOb::Window& window);
             friend SessionError _GetQueues(std::vector<VkDeviceQueueCreateInfo>& infos, Device& device);
-            friend SessionError _CreateSwapchain(RenderingSurface& surface);
+            //friend SessionError _CreateSwapchain(SharedRenderResources& resources);
             friend DFL_API SessionError DFL_CALL CreateRenderer(Session& session, uint32_t deviceIndex, DflOb::Window& window);
         };
 
@@ -225,6 +225,8 @@ namespace Dfl
             std::vector<PhysicsSim>            Simulations{ };
 
             std::vector<VkDisplayKHR> Displays{ }; // the displays the device is connected to. Filled only if device is activated.
+
+            std::tuple<uint32_t, uint32_t, uint32_t> MaxGroups{ 0, 0, 0 }; // max amount of groups the device supports
 
             std::mutex* pUsageMutex{ nullptr };
         };

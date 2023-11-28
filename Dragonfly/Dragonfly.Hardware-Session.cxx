@@ -77,28 +77,28 @@ inline VkExtent2D _MakeExtent(const std::tuple<uint32_t, uint32_t>& resolution, 
     return extent;
 }
 
-DflHW::SessionError DflHW::_CreateSwapchain(DflHW::RenderingSurface& surface)
+DflHW::SessionError _CreateSwapchain(DflHW::SharedRenderResources& resources)
 {
     VkSwapchainCreateInfoKHR swapchainInfo;
     VkColorSpaceKHR colorSpace;
     swapchainInfo.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
     swapchainInfo.pNext = nullptr;
     swapchainInfo.flags = 0;
-    swapchainInfo.oldSwapchain = surface.pSharedResources->Swapchain;
-    swapchainInfo.surface = surface.pSharedResources->Surface;
+    swapchainInfo.oldSwapchain = resources.Swapchain;
+    swapchainInfo.surface = resources.Surface;
     swapchainInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
-    swapchainInfo.imageFormat = (_DoesSupportSRGB(colorSpace, surface.pSharedResources->Formats)) ? VK_FORMAT_B8G8R8A8_SRGB : surface.pSharedResources->Formats[0].format;
+    swapchainInfo.imageFormat = (_DoesSupportSRGB(colorSpace, resources.Formats)) ? VK_FORMAT_B8G8R8A8_SRGB : resources.Formats[0].format;
     swapchainInfo.imageColorSpace = colorSpace;
     swapchainInfo.imageArrayLayers = 1;
     swapchainInfo.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
     swapchainInfo.clipped = VK_TRUE;
     swapchainInfo.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
-    swapchainInfo.presentMode = (_DoesSupportMailbox(surface.pSharedResources->PresentModes)) ? VK_PRESENT_MODE_MAILBOX_KHR : VK_PRESENT_MODE_FIFO_KHR;
-    swapchainInfo.imageExtent = _MakeExtent(surface.pSharedResources->AssociatedWindow->Resolution(), surface.pSharedResources->Capabilities);
-    swapchainInfo.minImageCount = surface.pSharedResources->Capabilities.minImageCount + 1;
-    swapchainInfo.preTransform = surface.pSharedResources->Capabilities.currentTransform;
+    swapchainInfo.presentMode = (_DoesSupportMailbox(resources.PresentModes)) ? VK_PRESENT_MODE_MAILBOX_KHR : VK_PRESENT_MODE_FIFO_KHR;
+    swapchainInfo.imageExtent = _MakeExtent(resources.AssociatedWindow->Resolution(), resources.Capabilities);
+    swapchainInfo.minImageCount = resources.Capabilities.minImageCount + 1;
+    swapchainInfo.preTransform = resources.Capabilities.currentTransform;
 
-    auto error = vkCreateSwapchainKHR(surface.pSharedResources->GPU, &swapchainInfo, nullptr, &surface.pSharedResources->Swapchain);
+    auto error = vkCreateSwapchainKHR(resources.GPU, &swapchainInfo, nullptr, &resources.Swapchain);
     switch (error)
     {
     case VK_SUCCESS:
@@ -133,24 +133,17 @@ void DflHW::RenderingSurface::operator() (DflOb::WindowProcessArgs& args)
             this->pMutex->unlock();
             break;
         }
-        this->pMutex->unlock();
-        /*this->Error = _CreateSwapchain(*this);
-        if (this->Error != DflHW::SessionError::Success)
+        //this->pMutex->unlock();
+        
+        this->Error = _CreateSwapchain(*this->pSharedResources);
+        if(this->Error != DflHW::SessionError::Success)
         {
             this->State = DflHW::RenderingState::Fail;
             this->pMutex->unlock();
             break;
         }
-        this->pMutex->unlock();
-
-        this->Error = DflHW::SessionError::Success;
-
-        uint32_t imageCount;
-        vkGetSwapchainImagesKHR(this->pSharedResources->GPU, this->pSharedResources->Swapchain, &imageCount, nullptr);
-        this->pSharedResources->SwapchainImages.resize(imageCount);
-        vkGetSwapchainImagesKHR(this->pSharedResources->GPU, this->pSharedResources->Swapchain, &imageCount, this->pSharedResources->SwapchainImages.data());*/
-        this->Error = DflHW::SessionError::Success;
         this->State = DflHW::RenderingState::Loop;
+        this->pMutex->unlock();
         break;
 
     case DflHW::RenderingState::Fail:
@@ -319,6 +312,8 @@ void _OrganizeData(Dfl::Hardware::Device& device)
 
     _OrganizeMemory(device.LocalHeaps, memProps);
     _OrganizeMemory(device.SharedHeaps, memProps);
+
+    device.MaxGroups = std::make_tuple(devProps.limits.maxComputeWorkGroupCount[0], devProps.limits.maxComputeWorkGroupCount[1], devProps.limits.maxComputeWorkGroupCount[2]);
 }
 
 //
