@@ -116,6 +116,7 @@ DflHW::SessionError _CreateSwapchain(DflHW::SharedRenderResources& resources)
 
 void DflHW::RenderingSurface::operator() (DflOb::WindowProcessArgs& args)
 {
+    uint32_t imageCount = 0;
     switch (this->State)
     {
     case DflHW::RenderingState::Init:
@@ -125,12 +126,12 @@ void DflHW::RenderingSurface::operator() (DflOb::WindowProcessArgs& args)
         cmdPoolInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
         cmdPoolInfo.queueFamilyIndex = this->pSharedResources->AssignedQueue.FamilyIndex;
 
-        this->pMutex->lock();
+        this->pSharedResources->pDeviceMutex->lock();
         if (vkCreateCommandPool(this->pSharedResources->GPU, &cmdPoolInfo, nullptr, &(this->pSharedResources->CmdPool)) != VK_SUCCESS)
         {
             this->Error = DflHW::SessionError::VkComPoolInitError;
             this->State = DflHW::RenderingState::Fail;
-            this->pMutex->unlock();
+            this->pSharedResources->pDeviceMutex->unlock();
             break;
         }
         //this->pMutex->unlock();
@@ -139,15 +140,20 @@ void DflHW::RenderingSurface::operator() (DflOb::WindowProcessArgs& args)
         if(this->Error != DflHW::SessionError::Success)
         {
             this->State = DflHW::RenderingState::Fail;
-            this->pMutex->unlock();
+            this->pSharedResources->pDeviceMutex->unlock();
             break;
         }
+       
+        vkGetSwapchainImagesKHR(this->pSharedResources->GPU, this->pSharedResources->Swapchain, &imageCount, nullptr);
+        this->pSharedResources->SwapchainImages.resize(imageCount);
+        vkGetSwapchainImagesKHR(this->pSharedResources->GPU, this->pSharedResources->Swapchain, &imageCount, this->pSharedResources->SwapchainImages.data());
+
         this->State = DflHW::RenderingState::Loop;
-        this->pMutex->unlock();
+        this->pSharedResources->pDeviceMutex->unlock();
         break;
 
     case DflHW::RenderingState::Fail:
-        this->pMutex->lock();
+        this->pSharedResources->pDeviceMutex->lock();
         if (this->pSharedResources->Swapchain != VK_NULL_HANDLE)
         {
             vkDeviceWaitIdle(this->pSharedResources->GPU);
@@ -155,7 +161,7 @@ void DflHW::RenderingSurface::operator() (DflOb::WindowProcessArgs& args)
         }
         if(this->pSharedResources->CmdPool != VK_NULL_HANDLE)
             vkDestroyCommandPool(this->pSharedResources->GPU, this->pSharedResources->CmdPool, nullptr);
-        this->pMutex->unlock();
+        this->pSharedResources->pDeviceMutex->unlock();
         this->State = DflHW::RenderingState::Dead;
         break;
 
@@ -170,7 +176,7 @@ void DflHW::RenderingSurface::operator() (DflOb::WindowProcessArgs& args)
 
 void DflHW::RenderingSurface::Destroy()
 {
-    (this->pMutex)->lock();
+    this->pSharedResources->pDeviceMutex->lock();
     if (this->pSharedResources->Swapchain != VK_NULL_HANDLE)
     {
         vkDeviceWaitIdle(this->pSharedResources->GPU);
@@ -178,7 +184,7 @@ void DflHW::RenderingSurface::Destroy()
     }
     if (this->pSharedResources->CmdPool != VK_NULL_HANDLE)
         vkDestroyCommandPool(this->pSharedResources->GPU, this->pSharedResources->CmdPool, nullptr);
-    (this->pMutex)->unlock();
+    this->pSharedResources->pDeviceMutex->unlock();
 };
 
 DflHW::Session::Session(const SessionInfo& info) : GeneralInfo(info)
@@ -487,7 +493,7 @@ DflHW::SessionError DflHW::_GetQueues(
     props.resize(queueFamilies);
     vkGetPhysicalDeviceQueueFamilyProperties(device.VkPhysicalGPU, &queueFamilies, props.data());
     
-    int requiredQueues = static_cast<uint32_t>(device.Surfaces.size()) + static_cast<uint32_t>(device.Simulations.size()) + 1;
+    uint32_t requiredQueues = static_cast<uint32_t>(device.Surfaces.size()) + static_cast<uint32_t>(device.Simulations.size()) + 1;
     // ^ Why + 1? If the user doesn't want any sims or any rendering, we assume that they may, at least
     // want to use the device for some kind of computational work.
     for (uint32_t i = 0; i < queueFamilies; i++)
@@ -606,7 +612,7 @@ DflHW::SessionError DflHW::Session::InitDevice(const GPUInfo& info)
     for (uint32_t i = 0; i < info.pDstWindows.size(); i++)
     {
         device.Surfaces[i].pSharedResources = std::unique_ptr<DflHW::SharedRenderResources>::unique_ptr(new DflHW::SharedRenderResources);
-        device.Surfaces[i].pMutex = &this->DeviceMutex;
+        device.Surfaces[i].pSharedResources->pDeviceMutex = &this->DeviceMutex;
         auto& resources = device.Surfaces[i].pSharedResources;
         auto error = _GetRenderResources(*resources, device, this->VkInstance, *info.pDstWindows[i]);
         if(error < DflHW::SessionError::Success)
@@ -666,72 +672,16 @@ DflHW::SessionError DflHW::Session::InitDevice(const GPUInfo& info)
         return SessionError::VkDeviceInitError;
     }
 
-    // we will now get the device queues
-
     uint32_t i = 0;
-    uint32_t amountOfQueuesClaimed = 0;
-    for(auto& surface : device.Surfaces)
+    for (auto& surface : device.Surfaces)
     {
-        do
-        {
-            if (i > device.QueueFamilies.size())
-                break;
-
-            if (!(device.QueueFamilies[i].QueueType & static_cast<uint32_t>(QueueType::Graphics)))
-            {
-                i++;
-                amountOfQueuesClaimed = 0;
-                continue;
-            }
-
-            if (amountOfQueuesClaimed > device.QueueFamilies[i].QueueCount)
-            {
-                i++;
-                amountOfQueuesClaimed = 0;
-                continue;
-            }
-
-            break;
-        } while (true);
-
-        if (i > device.QueueFamilies.size())
-            break;
-
-        vkGetDeviceQueue(device.VkGPU, device.QueueFamilies[i].Index, amountOfQueuesClaimed, &surface.pSharedResources->AssignedQueue.hQueue);
-        surface.pSharedResources->AssignedQueue.FamilyIndex = device.QueueFamilies[i].Index;
+        QueueFamily& family = device.QueueFamilies[i];
+        vkGetDeviceQueue(device.VkGPU, family.Index, family.UsedQueues, &surface.pSharedResources->AssignedQueue.hQueue);
+        surface.pSharedResources->AssignedQueue.FamilyIndex = family.Index;
+        family.UsedQueues++;
+        if(family.UsedQueues >= family.QueueCount)
+            i++;
         surface.pSharedResources->GPU = device.VkGPU;
-        amountOfQueuesClaimed++;
-    }
-
-    for (auto& simulation : device.Simulations)
-    {
-        do
-        {
-            if (i > device.QueueFamilies.size())
-                break;
-
-            if (!(device.QueueFamilies[i].QueueType & static_cast<uint32_t>(QueueType::Simulation)))
-            {
-                i++;
-                amountOfQueuesClaimed = 0;
-                continue;
-            }
-
-            if (amountOfQueuesClaimed > device.QueueFamilies[i].QueueCount)
-            {
-                i++;
-                amountOfQueuesClaimed = 0;
-                continue;
-            }
-
-            break;
-        } while (true);
-
-        if (i > device.QueueFamilies.size())
-            break;
-
-        vkGetDeviceQueue(device.VkGPU, device.QueueFamilies[i].Index, amountOfQueuesClaimed, &simulation.AssignedQueue.hQueue);
-        amountOfQueuesClaimed++;
     }
 
     return DflHW::SessionError::Success;

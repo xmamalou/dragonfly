@@ -160,12 +160,13 @@ namespace Dfl
             std::vector<VkPresentModeKHR>   PresentModes;
 
             DflOb::Window* AssociatedWindow{ nullptr };
+
+            std::mutex* pDeviceMutex{ nullptr };
         };
 
         class RenderingSurface : public DflOb::WindowProcess
         {
             std::unique_ptr<SharedRenderResources> pSharedResources;
-            std::mutex* pMutex;
 
             RenderingState State{ RenderingState::Init };
             SessionError   Error{ SessionError::ThreadNotReadyWarning };
@@ -192,6 +193,8 @@ namespace Dfl
             uint32_t QueueCount{ 0 };
             int      QueueType{ 0 };
             bool     CanPresent{ false };
+
+            uint32_t UsedQueues{ 0 };
         };
 
         enum class MemoryType
