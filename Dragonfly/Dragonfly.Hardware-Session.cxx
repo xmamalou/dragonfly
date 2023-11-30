@@ -19,6 +19,7 @@ module;
 #include <iostream>
 #include <vector>
 #include <optional>
+#include <thread>
 
 #include <Windows.h>
 #define VK_USE_PLATFORM_WIN32_KHR
@@ -709,7 +710,7 @@ Dfl::Hardware::SessionError Dfl::Hardware::CreateRenderer(Session& session, uint
 
     DflOb::PushProcess(surface, window);
     while (surface.Error == DflHW::SessionError::ThreadNotReadyWarning)
-        Sleep(50);
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
     error = surface.Error;
 
     return error;
