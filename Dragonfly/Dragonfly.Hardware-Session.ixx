@@ -164,13 +164,18 @@ namespace Dfl
             std::mutex* pDeviceMutex{ nullptr };
         };
 
+        typedef void* (*RenderNode)(SharedRenderResources& resources, SessionError& error);
+
         class RenderingSurface : public DflOb::WindowProcess
         {
             std::unique_ptr<SharedRenderResources> pSharedResources;
 
             RenderingState State{ RenderingState::Init };
+            RenderNode     pRenderNode{ nullptr };
             SessionError   Error{ SessionError::ThreadNotReadyWarning };
         public:
+            RenderingSurface();
+
             void operator () (DflOb::WindowProcessArgs& args);
             void Destroy();
 

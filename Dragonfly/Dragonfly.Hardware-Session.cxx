@@ -39,6 +39,8 @@ void DflHW::DebugProcess::Destroy ()
 
 };
 
+// INTERNAL FOR INIT NODE
+
 inline bool _DoesSupportSRGB(VkColorSpaceKHR& colorSpace, const std::vector<VkSurfaceFormatKHR>& formats)
 {
     for (auto& format : formats)
@@ -114,64 +116,65 @@ DflHW::SessionError _CreateSwapchain(DflHW::SharedRenderResources& resources)
     return DflHW::SessionError::Success;
 };
 
+//
+
+void* _FailNode(DflHW::SharedRenderResources& resources, DflHW::SessionError& error)
+{
+    std::cout << "";
+    return _FailNode;
+}
+
+void* _LoopNode(DflHW::SharedRenderResources& resources, DflHW::SessionError& error)
+{
+    std::cout << "";
+    return _LoopNode;
+}
+
+void* _InitNode(DflHW::SharedRenderResources& resources, DflHW::SessionError& error)
+{
+    VkCommandPoolCreateInfo cmdPoolInfo;
+    cmdPoolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
+    cmdPoolInfo.pNext = nullptr;
+    cmdPoolInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
+    cmdPoolInfo.queueFamilyIndex = resources.AssignedQueue.FamilyIndex;
+
+    resources.pDeviceMutex->lock();
+    if (vkCreateCommandPool(resources.GPU, &cmdPoolInfo, nullptr, &resources.CmdPool) != VK_SUCCESS)
+    {
+        error = DflHW::SessionError::VkComPoolInitError;
+        resources.pDeviceMutex->unlock();
+        return _FailNode;
+    }
+    //this->pMutex->unlock();
+
+    error = _CreateSwapchain(resources);
+    if (error != DflHW::SessionError::Success)
+    {
+        resources.pDeviceMutex->unlock();
+        return _FailNode;
+    }
+
+    uint32_t imageCount = 0;
+    vkGetSwapchainImagesKHR(resources.GPU, resources.Swapchain, &imageCount, nullptr);
+    resources.SwapchainImages.resize(imageCount);
+    vkGetSwapchainImagesKHR(resources.GPU, resources.Swapchain, &imageCount, resources.SwapchainImages.data());
+
+    resources.pDeviceMutex->unlock();
+
+    return _LoopNode;
+}
+
+//
+
+DflHW::RenderingSurface::RenderingSurface()
+{
+    this->pRenderNode = _InitNode;
+}
+
 void DflHW::RenderingSurface::operator() (DflOb::WindowProcessArgs& args)
 {
-    uint32_t imageCount = 0;
-    switch (this->State)
-    {
-    case DflHW::RenderingState::Init:
-        VkCommandPoolCreateInfo cmdPoolInfo;
-        cmdPoolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
-        cmdPoolInfo.pNext = nullptr;
-        cmdPoolInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
-        cmdPoolInfo.queueFamilyIndex = this->pSharedResources->AssignedQueue.FamilyIndex;
-
-        this->pSharedResources->pDeviceMutex->lock();
-        if (vkCreateCommandPool(this->pSharedResources->GPU, &cmdPoolInfo, nullptr, &(this->pSharedResources->CmdPool)) != VK_SUCCESS)
-        {
-            this->Error = DflHW::SessionError::VkComPoolInitError;
-            this->State = DflHW::RenderingState::Fail;
-            this->pSharedResources->pDeviceMutex->unlock();
-            break;
-        }
-        //this->pMutex->unlock();
-        
-        this->Error = _CreateSwapchain(*this->pSharedResources);
-        if(this->Error != DflHW::SessionError::Success)
-        {
-            this->State = DflHW::RenderingState::Fail;
-            this->pSharedResources->pDeviceMutex->unlock();
-            break;
-        }
-       
-        vkGetSwapchainImagesKHR(this->pSharedResources->GPU, this->pSharedResources->Swapchain, &imageCount, nullptr);
-        this->pSharedResources->SwapchainImages.resize(imageCount);
-        vkGetSwapchainImagesKHR(this->pSharedResources->GPU, this->pSharedResources->Swapchain, &imageCount, this->pSharedResources->SwapchainImages.data());
-
-        this->State = DflHW::RenderingState::Loop;
-        this->pSharedResources->pDeviceMutex->unlock();
-        break;
-
-    case DflHW::RenderingState::Fail:
-        this->pSharedResources->pDeviceMutex->lock();
-        if (this->pSharedResources->Swapchain != VK_NULL_HANDLE)
-        {
-            vkDeviceWaitIdle(this->pSharedResources->GPU);
-            vkDestroySwapchainKHR(this->pSharedResources->GPU, this->pSharedResources->Swapchain, nullptr);
-        }
-        if(this->pSharedResources->CmdPool != VK_NULL_HANDLE)
-            vkDestroyCommandPool(this->pSharedResources->GPU, this->pSharedResources->CmdPool, nullptr);
-        this->pSharedResources->pDeviceMutex->unlock();
-        this->State = DflHW::RenderingState::Dead;
-        break;
-
-    case DflHW::RenderingState::Dead:
-        break;
-
-    case DflHW::RenderingState::Loop:
-        std::cout << "";
-        break;
-    }
+    DflHW::RenderNode node = (DflHW::RenderNode)this->pRenderNode(*this->pSharedResources, this->Error);
+    this->pRenderNode = node;
 };
 
 void DflHW::RenderingSurface::Destroy()
