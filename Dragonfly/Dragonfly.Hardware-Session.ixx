@@ -86,6 +86,7 @@ namespace Dfl
             VkNoSurfacePresentModesError = -0x4605,
             VkNoAvailableQueuesError = -0x4701,
             VkComPoolInitError = -0x4702,
+            VkInsufficientQueuesError = -0x4703,
             VkSwapchainInitError = -0x4801,
             VkSwapchainSurfaceLostError = -0x4802,
             VkSwapchainWindowUnavailableError = -0x4803,
@@ -123,8 +124,8 @@ namespace Dfl
         enum class QueueType
         {
             Graphics = 1,
-            Simulation = 2, // Simulation = Compute + Transfer. We consider those two essential for a queue that does sims.
-            ComputeOnly = 4
+            Compute = 2, // Simulation = Compute + Transfer. We consider those two essential for a queue that does sims.
+            Transfer = 4
         };
 
         struct Queue
@@ -229,8 +230,9 @@ namespace Dfl
             std::vector<DeviceMemory<MemoryType::Local>> LocalHeaps{ };
             std::vector<DeviceMemory<MemoryType::Shared>> SharedHeaps{ };
 
-            std::vector<RenderingSurface> Surfaces{ }; // the surfaces the device is told to render to. Not equivalent to Vulkan surfaces (may concern offscreen surfaces)
+            std::vector<RenderingSurface>      Surfaces{ }; // the surfaces the device is told to render to. Not equivalent to Vulkan surfaces (may concern offscreen surfaces)
             std::vector<PhysicsSim>            Simulations{ };
+            Queue                              TransferQueue{ };
 
             std::vector<VkDisplayKHR> Displays{ }; // the displays the device is connected to. Filled only if device is activated.
 

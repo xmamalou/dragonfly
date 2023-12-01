@@ -497,15 +497,19 @@ DflHW::SessionError DflHW::_GetQueues(
     props.resize(queueFamilies);
     vkGetPhysicalDeviceQueueFamilyProperties(device.VkPhysicalGPU, &queueFamilies, props.data());
     
-    uint32_t requiredQueues = static_cast<uint32_t>(device.Surfaces.size()) + static_cast<uint32_t>(device.Simulations.size()) + 1;
-    // ^ Why + 1? If the user doesn't want any sims or any rendering, we assume that they may, at least
-    // want to use the device for some kind of computational work.
+    uint32_t graphicsQueues = static_cast<uint32_t>(device.Surfaces.size());
+    uint32_t simulationQueues = static_cast<uint32_t>(device.Simulations.size());
+    uint32_t transferQueues = 1;
+    // ^ Why this one? This queue is going to be used for transfer operations.
     for (uint32_t i = 0; i < queueFamilies; i++)
     {
         QueueFamily family; // this is used for caching
 
+        uint32_t untakenQueues = props[i].queueCount;
+
         VkDeviceQueueCreateInfo info = {};
-        if ((props[i].queueFlags & VK_QUEUE_GRAPHICS_BIT) && (device.Surfaces.size() != 0))
+        info.queueCount = 0;
+        if ((props[i].queueFlags & VK_QUEUE_GRAPHICS_BIT) && (graphicsQueues > 0))
         {
             family.QueueType |= static_cast<int>(DflHW::QueueType::Graphics);
 
@@ -524,63 +528,93 @@ DflHW::SessionError DflHW::_GetQueues(
                     family.CanPresent = true;
             }
 
-            // a lot of times, graphics queues also support computations, so we gotta check for this too
-            // since computational queues are going to be used for simulations, transfer capabilities are 
-            // also a requirement
-            if ((props[i].queueFlags & VK_QUEUE_COMPUTE_BIT) && (props[i].queueFlags & VK_QUEUE_TRANSFER_BIT))
-            {
-                forNextQueue -= static_cast<uint32_t>(device.Simulations.size()) + 1;
-                family.QueueType |= static_cast<int>(DflHW::QueueType::Simulation);
-            }
-            // ^ Instead of declaring another variable, we do the trick of passing the info of the availability of a computation queue 
-            // down by reducing the surfaces that aren't supported for presentation by the current queue. 
-            // Dragonfly does not use the amount of "passed over" surfaces explicitly for any other reason than to know 
-            // how many queues there are left to claim, so there's not really an issue using this "hack"
-
             info.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
             info.pNext = nullptr;
             info.flags = 0;
             info.queueFamilyIndex = i;
-                // v why requiredQueues - SimulationsSize? Because we do not implicitly assume that the queue family also supports computations
-                // If it does, then forNextQueue is reduced by SimulationsSize, so:
-                // (n - p) - (m - p) = n - m, in other words, we request all requiredQueues (minus the actual forNextQueues)
-                // This also works even when p > m, as seen above.
-            info.queueCount = (static_cast<int>(props[i].queueCount) >= (requiredQueues - forNextQueue - static_cast<int>(device.Simulations.size()))) ? (requiredQueues - forNextQueue - 1) : props[i].queueCount;
+            info.queueCount += (untakenQueues >= graphicsQueues) ? (graphicsQueues - forNextQueue) : untakenQueues;
 
-            requiredQueues -= info.queueCount;
-
-            infos.push_back(info);
+            untakenQueues -= info.queueCount;
+            graphicsQueues -= info.queueCount;
         }
-        else if ((props[i].queueFlags & VK_QUEUE_COMPUTE_BIT) && (props[i].queueFlags & VK_QUEUE_TRANSFER_BIT))
+
+        if (untakenQueues <= 0)
         {
-            // if the above "failed" (the family doesn't support graphics), then we got to check if it's an exclusively 
-            // computational family
-            // since such queues are going to be used for simulations, transfer capabilities are a requirement
+            family.QueueCount = info.queueCount;
+            family.Index = i;
+            device.QueueFamilies.push_back(family);
+            infos.push_back(info);
+            continue;
+        }
+        
+        if ((props[i].queueFlags & VK_QUEUE_COMPUTE_BIT) && (simulationQueues > 0))
+        {
+            uint32_t queueCount = (untakenQueues >= simulationQueues) ? simulationQueues : untakenQueues;
+
+            family.QueueType |= static_cast<int>(DflHW::QueueType::Compute);
 
             info.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
             info.pNext = nullptr;
             info.flags = 0;
             info.queueFamilyIndex = i;
-            info.queueCount = (props[i].queueCount >= static_cast<uint32_t>(device.Simulations.size())) ? static_cast<uint32_t>(device.Simulations.size()) : props[i].queueCount;
+            info.queueCount += queueCount;
 
-            requiredQueues -= info.queueCount;
-
-            infos.push_back(info);
+            untakenQueues -= queueCount;
+            simulationQueues -= queueCount;
         }
+
+        if (untakenQueues <= 0)
+        {
+            family.QueueCount = info.queueCount;
+            family.Index = i;
+            device.QueueFamilies.push_back(family);
+            infos.push_back(info);
+            continue;
+        }
+        
+        if ((props[i].queueFlags & VK_QUEUE_TRANSFER_BIT) && (transferQueues > 0))
+        {
+            family.QueueType |= static_cast<int>(DflHW::QueueType::Transfer);
+
+            info.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
+            info.pNext = nullptr;
+            info.flags = 0;
+            info.queueFamilyIndex = i;
+            info.queueCount += transferQueues;
+
+            transferQueues = 0;
+
+            untakenQueues--;
+        }
+
+        if (untakenQueues <= 0)
+        {
+            family.QueueCount = info.queueCount;
+            family.Index = i;
+            device.QueueFamilies.push_back(family);
+            infos.push_back(info);
+            continue;
+        }
+
+        if(info.queueCount != 0)
+            infos.push_back(info);
 
         family.QueueCount = info.queueCount;
         family.Index = i;
         // ^ we only consider that a queue Family has as many queues as we told it we want. This will also help 
         // with requesting the actual queue handles themselves later
 
-        device.QueueFamilies.push_back(family);
+        if(family.QueueCount != 0)
+            device.QueueFamilies.push_back(family);
 
-        if (requiredQueues <= 0)
+        if ((graphicsQueues + simulationQueues) <= 0)
             break;
     }
 
-    if (requiredQueues > 0)
-        return DflHW::SessionError::VkInsufficientQueuesWarning;
+    // since Dragonfly always checks first whether a family supports graphics, we can assume that if we have
+    // not filled all the graphics queues, then we cannot use the device
+    if(graphicsQueues > 0)
+        return DflHW::SessionError::VkInsufficientQueuesError;
 
     return DflHW::SessionError::Success;
 }
@@ -680,12 +714,51 @@ DflHW::SessionError DflHW::Session::InitDevice(const GPUInfo& info)
     for (auto& surface : device.Surfaces)
     {
         QueueFamily& family = device.QueueFamilies[i];
-        vkGetDeviceQueue(device.VkGPU, family.Index, family.UsedQueues, &surface.pSharedResources->AssignedQueue.hQueue);
-        surface.pSharedResources->AssignedQueue.FamilyIndex = family.Index;
+        if (family.QueueType & static_cast<int>(DflHW::QueueType::Graphics))
+        {
+
+            vkGetDeviceQueue(device.VkGPU, family.Index, family.UsedQueues, &surface.pSharedResources->AssignedQueue.hQueue);
+            surface.pSharedResources->AssignedQueue.FamilyIndex = family.Index;
+            surface.pSharedResources->GPU = device.VkGPU;
+        }
+        else
+        {
+            i++;
+            continue;
+        }
         family.UsedQueues++;
         if(family.UsedQueues >= family.QueueCount)
             i++;
-        surface.pSharedResources->GPU = device.VkGPU;
+    }
+
+    for (auto& sim : device.Simulations)
+    {
+        QueueFamily& family = device.QueueFamilies[i];
+        if (family.QueueType & static_cast<int>(DflHW::QueueType::Compute))
+        {
+            vkGetDeviceQueue(device.VkGPU, family.Index, family.UsedQueues, &sim.AssignedQueue.hQueue);
+            sim.AssignedQueue.FamilyIndex = family.Index;
+        }
+        else
+        {
+            i++;
+            continue;
+        }
+        family.UsedQueues++;
+        if (family.UsedQueues >= family.QueueCount)
+            i++;
+    }
+    
+    while (device.TransferQueue.hQueue == VK_NULL_HANDLE)
+    {
+        QueueFamily& family = device.QueueFamilies[i];
+        if(family.QueueType & static_cast<int>(DflHW::QueueType::Transfer))
+        {
+            vkGetDeviceQueue(device.VkGPU, family.Index, family.UsedQueues, &device.TransferQueue.hQueue);
+            device.TransferQueue.FamilyIndex = family.Index;
+        }
+        else
+            i++;
     }
 
     return DflHW::SessionError::Success;
