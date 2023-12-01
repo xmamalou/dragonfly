@@ -21,6 +21,7 @@ module;
 #include <thread>
 #include <vector>
 #include <mutex>
+#include <chrono>
 
 #include <Windows.h>
 
@@ -92,6 +93,9 @@ namespace Dfl
 
             GLFWwindow* pGLFWwindow{ nullptr };
             HWND        hWin32Window{ nullptr };
+
+            long                          FrameTime{ 0 }; // in milliseconds
+            std::chrono::microseconds     LastFrameTime{ 0 };
 
             WindowError Error{ WindowError::ThreadNotReadyWarning };
             bool        ShouldClose{ false };

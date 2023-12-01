@@ -20,6 +20,8 @@ module;
 #include <tuple>
 #include <memory>
 #include <string>
+#include <chrono>
+#include <thread>
 
 #include <GLFW/glfw3.h>
 #define GLFW_EXPOSE_NATIVE_WIN32
@@ -69,15 +71,24 @@ void DflOb::WindowFunctor::operator() ()
     this->hWin32Window = glfwGetWin32Window(this->pGLFWwindow);
 
     this->ShouldClose = false;
-
+    
+    this->FrameTime = 1000000/this->Info.Rate;
+    std::cout << "Frame Time: " << this->FrameTime << std::endl;
+    auto currentFrameTimeStart = std::chrono::high_resolution_clock::now();
+    auto currentFrameTimeFinal = std::chrono::high_resolution_clock::now();
     while ((!glfwWindowShouldClose(this->pGLFWwindow)) && (!this->ShouldClose))
     {
+        currentFrameTimeStart = std::chrono::high_resolution_clock::now();
         glfwPollEvents();
         this->AccessProcess.lock();
         for (auto process : this->Info.pProcesses)
             (*process)(this->Arguments);
         this->AccessProcess.unlock();
-        Sleep(1000/this->Info.Rate);
+        currentFrameTimeFinal = std::chrono::high_resolution_clock::now();
+        this->LastFrameTime = std::chrono::duration_cast<std::chrono::microseconds>(currentFrameTimeFinal - currentFrameTimeStart);
+        std::this_thread::sleep_for(std::chrono::microseconds(this->FrameTime)/2 - this->LastFrameTime);
+        currentFrameTimeFinal = std::chrono::high_resolution_clock::now();
+        this->LastFrameTime = std::chrono::duration_cast<std::chrono::microseconds>(currentFrameTimeFinal - currentFrameTimeStart);
     }
 
     this->AccessProcess.lock();
@@ -114,7 +125,7 @@ DflOb::WindowError DflOb::Window::OpenWindow() noexcept
         {
             this->Thread = std::thread::thread(std::ref(this->Functor));
         }
-        catch (std::system_error& e)
+        catch (...)
         {
             return WindowError::ThreadCreationError;
         }
