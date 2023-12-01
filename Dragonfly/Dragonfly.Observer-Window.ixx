@@ -21,6 +21,7 @@ module;
 #include <thread>
 #include <vector>
 #include <mutex>
+#include <atomic>
 #include <chrono>
 
 #include <Windows.h>
@@ -97,8 +98,8 @@ namespace Dfl
             long                          FrameTime{ 0 }; // in milliseconds
             std::chrono::microseconds     LastFrameTime{ 0 };
 
-            WindowError Error{ WindowError::ThreadNotReadyWarning };
-            bool        ShouldClose{ false };
+            std::atomic<WindowError> Error{ WindowError::ThreadNotReadyWarning };
+            std::atomic_bool         ShouldClose{ false };
 
             std::mutex        AccessProcess;
             WindowProcessArgs Arguments;
