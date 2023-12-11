@@ -17,9 +17,7 @@
 module;
 
 #include <iostream>
-#include <tuple>
 #include <memory>
-#include <string>
 #include <chrono>
 #include <thread>
 
@@ -33,19 +31,12 @@ module Dragonfly.Observer:Window;
 
 namespace DflOb = Dfl::Observer;
 
-DflOb::WindowFunctor::WindowFunctor(const WindowInfo& info) : Info(info), Error(DflOb::WindowError::ThreadNotReadyWarning)
-{
-}
+DflOb::WindowFunctor::WindowFunctor(const WindowInfo& info) : Info(info){}
 
-DflOb::WindowFunctor::~WindowFunctor()
-{
-    
-}
+DflOb::WindowFunctor::~WindowFunctor(){}
 
-void DflOb::WindowFunctor::operator() ()
-{
-    if (!glfwInit())
-    {
+void DflOb::WindowFunctor::operator() (){
+    if (!glfwInit()){
         this->Error = DflOb::WindowError::APIInitError;
         return;
     }
@@ -54,14 +45,13 @@ void DflOb::WindowFunctor::operator() ()
     glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
 
     this->pGLFWwindow = glfwCreateWindow(
-        (std::get<0>(this->Info.Resolution) == 0) ? DflOb::DefaultWidth : std::get<0>(this->Info.Resolution),
-        (std::get<1>(this->Info.Resolution) == 0) ? DflOb::DefaultHeight : std::get<1>(this->Info.Resolution),
+        (this->Info.Resolution[0] == 0) ? DflOb::DefaultWidth : this->Info.Resolution[0],
+        (this->Info.Resolution[1] == 0) ? DflOb::DefaultHeight : this->Info.Resolution[1],
         (this->Info.WindowTitle.empty()) ? "Dragonfly App" : this->Info.WindowTitle.data(),
         (this->Info.DoFullscreen) ? glfwGetPrimaryMonitor() : nullptr,
         nullptr);
 
-    if (this->pGLFWwindow == nullptr)
-    {
+    if (this->pGLFWwindow == nullptr){
         this->Error = DflOb::WindowError::WindowInitError;
         return;
     }
@@ -73,20 +63,24 @@ void DflOb::WindowFunctor::operator() ()
     this->ShouldClose = false;
     
     this->FrameTime = 1000000/this->Info.Rate;
-    std::cout << "Frame Time: " << this->FrameTime << std::endl;
+
     auto currentFrameTimeStart = std::chrono::high_resolution_clock::now();
     auto currentFrameTimeFinal = std::chrono::high_resolution_clock::now();
-    while ((!glfwWindowShouldClose(this->pGLFWwindow)) && (!this->ShouldClose))
-    {
+    while (!glfwWindowShouldClose(this->pGLFWwindow)){
         currentFrameTimeStart = std::chrono::high_resolution_clock::now();
+
         glfwPollEvents();
+
         this->AccessProcess.lock();
-        for (auto process : this->Info.pProcesses)
+        for(auto process : this->Info.pProcesses)
             (*process)(this->Arguments);
         this->AccessProcess.unlock();
+
         currentFrameTimeFinal = std::chrono::high_resolution_clock::now();
         this->LastFrameTime = std::chrono::duration_cast<std::chrono::microseconds>(currentFrameTimeFinal - currentFrameTimeStart);
+
         std::this_thread::sleep_for(std::chrono::microseconds(this->FrameTime)/2 - this->LastFrameTime);
+
         currentFrameTimeFinal = std::chrono::high_resolution_clock::now();
         this->LastFrameTime = std::chrono::duration_cast<std::chrono::microseconds>(currentFrameTimeFinal - currentFrameTimeStart);
     }
@@ -106,41 +100,42 @@ void DflOb::WindowFunctor::operator() ()
 
 // Window stuff
 
-DflOb::Window::Window(const WindowInfo& createInfo) : Functor(createInfo)
-{
-}
+DflOb::Window::Window(const WindowInfo& createInfo) noexcept : Functor(createInfo){}
 
-DflOb::Window::~Window()
-{
+DflOb::Window::~Window() noexcept{
     this->Functor.ShouldClose = true;
     this->Thread.join();
-    this->Functor.~WindowFunctor();
 }
 
-DflOb::WindowError DflOb::Window::OpenWindow() noexcept
-{
-    if (this->Functor.hWin32Window == nullptr)
+DflOb::WindowError DflOb::Window::InitWindow() noexcept{
+    try{ this->Thread = std::thread::thread(std::ref(this->Functor)); }
+    catch (...){ return WindowError::ThreadCreationError; }
+
+    while(this->Functor.Error == DflOb::WindowError::ThreadNotReadyWarning) std::this_thread::sleep_for(std::chrono::milliseconds(10));
+
+    return this->Functor.Error;
+}
+
+inline bool DflOb::Window::IsOnscreen() const noexcept{
+    // we don't mess with the visibility of windows created with GLFW
+    // so we know that if it's a GLFW window, it's visible
+    if (this->Functor.pGLFWwindow != nullptr)
+        return true;
+    else if (this->Functor.hWin32Window != nullptr)
     {
-        try
-        {
-            this->Thread = std::thread::thread(std::ref(this->Functor));
-        }
-        catch (...)
-        {
-            return WindowError::ThreadCreationError;
-        }
-        while(this->Functor.Error == DflOb::WindowError::ThreadNotReadyWarning)
-            Sleep(50); // we are waiting for the window to be ready
-        return this->Functor.Error;
-    }
-    // we don't need to do anything if the above doesn't hold true
+        LONG status = 0;
+        GetWindowLong(this->Functor.hWin32Window, status);
 
-    return WindowError::Success;
+        return (status & WS_VISIBLE) ? true : false;
+    }
+
+    return false;
 }
 
-inline void DflOb::PushProcess(WindowProcess& process, Window& window)
-{
+// Global stuff
+
+inline void DflOb::PushProcess(WindowProcess& process, Window& window) noexcept{
     window.Functor.AccessProcess.lock();
-    window.Functor.Info.pProcesses.push_back(&process);
+    window.Functor.Info.pProcesses.push_back(& process);
     window.Functor.AccessProcess.unlock();
 };
