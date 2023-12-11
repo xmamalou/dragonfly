@@ -1,8 +1,6 @@
 // This is a dummy project, used for testing
 
 #include <iostream>
-#include <tuple>
-#include <optional>
 
 import Dragonfly;
 
@@ -10,13 +8,14 @@ int main()
 {
     Dfl::Observer::WindowInfo info =
     {
-        .Resolution{ std::make_tuple(1920, 1080) },
+        .Resolution{ { 1920, 1080 } },
         .DoFullscreen{ false },
+        .Rate{ 60 },
         .WindowTitle{ "Mama Mia, Papa pia, I got-a the diarrhoeaaaaaa!!!" },
     };
     Dfl::Observer::Window window(info);
 
-    if (window.OpenWindow() < Dfl::Observer::WindowError::Success)
+    if (window.InitWindow() < Dfl::Observer::WindowError::Success)
         return 1;
 
     Dfl::Hardware::SessionInfo sesInfo = {
@@ -26,25 +25,31 @@ int main()
     };
 
     Dfl::Hardware::Session session(sesInfo);
-    if (session.InitVulkan() < Dfl::Hardware::SessionError::Success)
+    if (session.InitSession() < Dfl::Hardware::SessionError::Success)
         return 1;
 
-    std::cout << "You have " << session.DeviceCount() << " devices in your system." << std::endl;
-    std::cout << "Your first device's name is: " << session.DeviceName(0) << std::endl;
+    std::cout << "You have " << session.DeviceCount() << " devices in your system.\n";
+    
+    auto hDevice = session.Device(0);
 
     Dfl::Hardware::GPUInfo gpuInfo = {
-        .DeviceIndex = 0,
-        .pDstWindows{ {&window} },
+        .EnableOnscreenRendering{ true },
+        .EnableRaytracing{ false },
+        .VkInstance{ hDevice.Instance },
+        .VkPhysicalGPU{ hDevice.GPU },
+        .pDstWindows{&window},
     };
+    Dfl::Hardware::Device device(gpuInfo);
 
-    if (session.InitDevice(gpuInfo) < Dfl::Hardware::SessionError::Success)
+    std::cout << "\nYour device's name is " << device.DeviceName() << "\n";
+
+    if (device.InitDevice() < Dfl::Hardware::DeviceError::Success)
+        return 1;
+    
+    if (Dfl::Hardware::CreateRenderer(device, window) < Dfl::Hardware::DeviceError::Success)
         return 1;
 
-    if (Dfl::Hardware::CreateRenderer(session, 0, window) < Dfl::Hardware::SessionError::Success)
-        return 1;
-
-    while (window.CloseStatus() == false)
-    {
+    while (window.CloseStatus() == false){
         std::cout << "";
     }
 
