@@ -13,13 +13,12 @@
    See the License for the specific language governing permissions and
    limitations under the License.
 */
-module;
 
 export module Dragonfly.Hardware;
 
 export import :Memory;
 export import :Session;
-
+export import :Device;
 
 namespace Dfl
 {
