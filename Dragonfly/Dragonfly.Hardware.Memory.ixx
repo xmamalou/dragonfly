@@ -1,0 +1,58 @@
+/*
+   Copyright 2023 Christopher-Marios Mamaloukas
+
+   Licensed under the Apache License, Version 2.0 (the "License");
+   you may not use this file except in compliance with the License.
+   You may obtain a copy of the License at
+
+       http://www.apache.org/licenses/LICENSE-2.0
+
+   Unless required by applicable law or agreed to in writing, software
+   distributed under the License is distributed on an "AS IS" BASIS,
+   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+   See the License for the specific language governing permissions and
+   limitations under the License.
+*/
+
+module;
+
+#include "Dragonfly.h"
+
+#include <vector>
+
+#include <vulkan/vulkan.hpp>
+
+export module Dragonfly.Hardware.Memory;
+
+namespace Dfl{
+    namespace Hardware{
+        export struct MemoryInfo {
+            const VkPhysicalDevice PhysicalDevice;
+            const VkDevice         Device;
+            const VkQueue          Queue;
+
+        };
+
+        struct MemoryBlock {
+            VkCommandBuffer CmdBuffer{ nullptr };
+            VkDeviceMemory  AllocatedMemory{ nullptr };
+            uint32_t        Size{ 0 };
+        };
+
+        export class Memory {
+            const VkPhysicalDevice          PhysicalGPU{ nullptr };
+            const VkDevice                  GPU{ nullptr };
+            const VkQueue                   TransferQueue{ nullptr };
+
+            const uint32_t                  MaxAllocsAllowed{ 0 };
+                  uint32_t                  AllocsMade{ 0 };
+                  VkCommandPool             CmdPool{ nullptr };
+
+                  VkDeviceMemory            StageMemory{ nullptr }; // stage memory is assigned to a visible memory heap and is, usually, small
+                  std::vector<MemoryBlock>  MemoryBlocks{};
+        public:
+            DFL_API DFL_CALL Memory(const MemoryInfo& info) noexcept;
+        };
+        
+    }
+}
