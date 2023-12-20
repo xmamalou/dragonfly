@@ -16,4 +16,4 @@
 
 export module Dragonfly.Observer;
 
-export import :Window;
+export import Dragonfly.Observer.Window;
