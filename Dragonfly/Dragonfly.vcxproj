@@ -70,6 +70,9 @@
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <CodeAnalysisRuleSet>AllRules.ruleset</CodeAnalysisRuleSet>
+  </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
@@ -135,30 +138,41 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="Dragonfly.Graphics-Image.cxx" />
-    <ClCompile Include="Dragonfly.Graphics-Image.ixx" />
-    <ClCompile Include="Dragonfly.Graphics-Space.cxx" />
-    <ClCompile Include="Dragonfly.Graphics-Space.ixx" />
-    <ClCompile Include="Dragonfly.Graphics.ixx" />
-    <ClCompile Include="Dragonfly.Hardware-Memory.cxx" />
-    <ClCompile Include="Dragonfly.Hardware-Memory.ixx" />
-    <ClCompile Include="Dragonfly.Hardware-Session.cxx" />
-    <ClCompile Include="Dragonfly.Hardware-Session.ixx" />
+    <ClCompile Include="Dragonfly.Generics-MetaFunctions.ixx" />
+    <ClCompile Include="Dragonfly.Generics.ixx" />
+    <ClCompile Include="Dragonfly.Graphics.ixx">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include="Dragonfly.Graphics.Renderer.cxx">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include="Dragonfly.Graphics.Renderer.ixx" />
+    <ClCompile Include="Dragonfly.Hardware.Device.ixx" />
+    <ClCompile Include="Dragonfly.Hardware.Memory.cxx" />
+    <ClCompile Include="Dragonfly.Hardware.Memory.ixx" />
+    <ClCompile Include="Dragonfly.Hardware.Session.cxx" />
+    <ClCompile Include="Dragonfly.Hardware.Session.ixx" />
     <ClCompile Include="Dragonfly.Hardware.ixx" />
-    <ClCompile Include="Dragonfly.Observer-Window.cxx" />
-    <ClCompile Include="Dragonfly.Observer-Window.ixx" />
-    <ClCompile Include="Dragonfly.ixx" />
+    <ClCompile Include="Dragonfly.Harwdare.Device.cxx" />
+    <ClCompile Include="Dragonfly.Observer.Window.cxx" />
+    <ClCompile Include="Dragonfly.Observer.Window.ixx" />
+    <ClCompile Include="Dragonfly.ixx">
+      <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCppModule</CompileAs>
+    </ClCompile>
     <ClCompile Include="Dragonfly.Observer.ixx" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Dragonfly.h" />
   </ItemGroup>
   <ItemGroup>
-    <FxCompile Include="Shaders\TestFragShader.hlsl">
+    <FxCompile Include="Shaders\TestFragShader.glsl">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
     </FxCompile>
-    <FxCompile Include="Shaders\TestVertexShader.hlsl">
+    <FxCompile Include="Shaders\TestVertexShader.glsl">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
     </FxCompile>
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
