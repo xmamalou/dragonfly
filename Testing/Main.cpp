@@ -1,21 +1,18 @@
-// This is a dummy project, used for testing
+﻿// This is a dummy project, used for testing
 
 #include <iostream>
 
 import Dragonfly;
 
-int main()
-{
-    Dfl::Observer::WindowInfo info =
-    {
+int main(){
+    Dfl::Observer::WindowInfo winInfo = {
         .Resolution{ { 1920, 1080 } },
         .DoFullscreen{ false },
         .Rate{ 60 },
-        .WindowTitle{ "Mama Mia, Papa pia, I got-a the diarrhoeaaaaaa!!!" },
+        .WindowTitle{ u8"Χαίρε Κόσμε!" },
     };
-    Dfl::Observer::Window window(info);
-
-    if (window.InitWindow() < Dfl::Observer::WindowError::Success)
+    Dfl::Observer::Window window(winInfo);
+    if (window.GetErrorCode() < Dfl::Observer::WindowError::Success)
         return 1;
 
     Dfl::Hardware::SessionInfo sesInfo = {
@@ -23,35 +20,33 @@ int main()
         .AppVersion{ Dfl::MakeVersion(0, 0, 1) },
         .DoDebug{ true }
     };
-
     Dfl::Hardware::Session session(sesInfo);
-    if (session.InitSession() < Dfl::Hardware::SessionError::Success)
+    if (session.GetErrorCode() < Dfl::Hardware::SessionError::Success)
         return 1;
 
-    std::cout << "You have " << session.DeviceCount() << " devices in your system.\n";
-    
-    auto hDevice = session.Device(0);
+    std::cout << "You have " << session.GetDeviceNum() << " devices in your system.\n";
 
-    Dfl::Hardware::GPUInfo gpuInfo = {
-        .EnableOnscreenRendering{ true },
-        .EnableRaytracing{ false },
-        .VkInstance{ hDevice.Instance },
-        .VkPhysicalGPU{ hDevice.GPU },
-        .pDstWindows{&window},
+    Dfl::Hardware::DeviceInfo gpuInfo = {
+        .phSession{ &session },
+        .DeviceIndex{ 0 },
     };
     Dfl::Hardware::Device device(gpuInfo);
-
-    std::cout << "\nYour device's name is " << device.DeviceName() << "\n";
-
-    if (device.InitDevice() < Dfl::Hardware::DeviceError::Success)
-        return 1;
-    
-    if (Dfl::Hardware::CreateRenderer(device, window) < Dfl::Hardware::DeviceError::Success)
+    if (device.GetErrorCode() < Dfl::Hardware::DeviceError::Success)
         return 1;
 
-    while (window.CloseStatus() == false){
+    std::cout << "\nYour device's name is " << device.GetCharacteristics().Name << "\n";
+
+    Dfl::Graphics::RendererInfo renderInfo = {
+        .pAssocDevice{ &device },
+        .pAssocWindow{ &window },
+    };
+    Dfl::Graphics::Renderer renderer(renderInfo);
+    if (renderer.GetErrorCode() < Dfl::Graphics::RendererError::Success)
+        return 1;
+
+    while (window.GetCloseStatus() == false){
         std::cout << "";
     }
 
     return 0;
-}
+};
