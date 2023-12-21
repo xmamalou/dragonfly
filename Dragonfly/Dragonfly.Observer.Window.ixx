@@ -56,8 +56,8 @@ namespace Dfl{
         export struct WindowProcessArgs{
             const WindowInfo* pInfo{ nullptr };
 
-            const long long LastFrameTime{ 0 }; // actual frame time
-            const long long CurrentTime{ 0 }; // time since start of the window loop
+                  long long LastFrameTime{ 0 }; // actual frame time
+                  long long CurrentTime{ 0 }; // time since start of the window loop
         
         private:
                           WindowProcessArgs(const WindowInfo& info);
