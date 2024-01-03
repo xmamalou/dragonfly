@@ -96,7 +96,7 @@ namespace Dfl{
                     const SessionInfo              GetInfo() const noexcept { return *this->GeneralInfo; }
                     const Processor                GetCPU() const noexcept { return this->CPU; }
                     const uint64_t                 GetMemory() const noexcept { return this->Memory; }
-                    const uint64_t                 GetDeviceNum() const noexcept { return this->Instance.hDevices.size(); }
+                    const uint64_t                 GetDeviceCount() const noexcept { return this->Instance.hDevices.size(); }
 
             friend class
                           Device;
