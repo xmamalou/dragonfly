@@ -25,6 +25,7 @@ module;
 
 module Dragonfly.Graphics.Renderer;
 
+import Dragonfly.Generics;
 import Dragonfly.Observer.Window;
 
 namespace DflGr = Dfl::Graphics;
@@ -127,7 +128,7 @@ static inline void* INT_FailNode(
           DflGr::RenderData&&   additionalData,
           DflGr::Swapchain&     swapchain,
           DflGr::RendererError& error) {
-    std::cout << "Lol\n";
+    std::cout << "";
     return INT_FailNode;
 };
 
@@ -136,7 +137,7 @@ static inline void* INT_LoopNode(
           DflGr::RenderData&&   additionalData,
           DflGr::Swapchain&     swapchain,
           DflGr::RendererError& error) {
-    std::cout << "Yay\n";
+    std::cout << "";
     return INT_LoopNode;
 };
 
@@ -172,7 +173,7 @@ static inline void* INT_InitNode(
                     swapchain.Capabilities,
                     swapchain.Formats,
                     swapchain.PresentModes,
-                    swapchain,
+                    swapchain.hSwapchain,
                     newSwapchain)) != DflGr::RendererError::Success) {
         additionalData.pMutex->unlock();
         return INT_FailNode;
@@ -192,20 +193,62 @@ static inline void* INT_InitNode(
         &imageCount,
         swapchain.hSwapchainImages.data());
 
-    additionalData.pMutex->lock();
+    additionalData.pMutex->unlock();
 
     return INT_LoopNode;
 };
 
 //
 
-// Intternal for constructor
+// Internal for constructor
+
+static Dfl::Hardware::Queue INT_GetQueue(
+    const VkDevice&                                device,
+    const std::vector<Dfl::Hardware::QueueFamily>& families,
+    uint32_t*                                      pLeastClaimedQueue) {
+    VkQueue  queue{ nullptr };
+    uint32_t familyIndex{ 0 };
+    for (uint32_t i{ 0 }; i < families.size(); ++i) {
+        if (!(families[i].QueueType & Dfl::Hardware::QueueType::Graphics)) {
+            continue;
+        }
+
+        /*
+        * The way Dragonfly searches for queues is this:
+        * If it finds a queue family of the type it wants, it first
+        * checks what value pFamilyQueue[i], where i the family index,
+        * has. This value is, essentially, the index of the queue that has
+        * been claimed the least. If the value exceeds (or is equal to)
+        * the number of queues in the family, it resets it to 0.
+        * This is a quick way to ensure that work is distributed evenly
+        * between queues and that no queue is overworked.
+        */
+        if (pLeastClaimedQueue[i] >= families[i].QueueCount) {
+            pLeastClaimedQueue[i] = 0;
+        }
+
+        familyIndex = i;
+        vkGetDeviceQueue(
+            device,
+            i,
+            pLeastClaimedQueue[i],
+            &queue
+        );
+        pLeastClaimedQueue[i]++;
+        break;
+    }
+
+    return { queue, familyIndex };
+};
 
 static DflGr::Swapchain INT_GetRenderResources(
-    const VkInstance&              instance,
-    const VkPhysicalDevice&        hPhysDevice,
-    const HWND&                    hWindow,
-    const std::array< uint32_t, 2> resolution) {
+    const VkInstance&                              instance,
+    const VkPhysicalDevice&                        hPhysDevice,
+    const VkDevice&                                hDevice,
+    const HWND&                                    hWindow,
+    const std::array< uint32_t, 2>&                resolution,
+    const std::vector<Dfl::Hardware::QueueFamily>& families,
+          uint32_t*                                pLeastClaimedQueue) {
     if (hPhysDevice == nullptr)
         throw DflGr::RendererError::NullHandleError;
 
@@ -266,7 +309,10 @@ static DflGr::Swapchain INT_GetRenderResources(
     return {
     nullptr, {},
     surface, resolution, capabs, formats, modes,
-    nullptr
+    nullptr, INT_GetQueue(
+                hDevice,
+                families,
+                pLeastClaimedQueue)
     };
 };
 
@@ -275,10 +321,13 @@ static DflGr::Swapchain INT_GetRenderResources(
 DflGr::Renderer::Renderer(const RendererInfo& info)
 try : pInfo(new RendererInfo(info)),
       pSwapchain(new Swapchain(INT_GetRenderResources(
-                                    info.pAssocDevice->pInfo->phSession->Instance.hInstance,
+                                    info.pAssocDevice->pInfo->pSession->Instance,
                                     info.pAssocDevice->hPhysicalDevice,
+                                    info.pAssocDevice->GPU,
                                     info.pAssocWindow->GetHandle(),
-                                    info.pAssocWindow->Functor.pInfo->Resolution))) {
+                                    info.pAssocWindow->Functor.pInfo->Resolution,
+                                    info.pAssocDevice->GPU.Families, 
+                                    info.pAssocDevice->GPU.pLeastClaimedQueue.get()))) {
     this->pRenderNode = (RenderNode)INT_InitNode;
     DflOb::PushProcess(*this, *this->pInfo->pAssocWindow);
 }
@@ -287,7 +336,7 @@ catch (DflGr::RendererError e) { this->Error = e; }
 DflGr::Renderer::~Renderer() {
     if (this->pSwapchain->hSurface != nullptr) {
         vkDestroySurfaceKHR(
-            this->pInfo->pAssocDevice->pInfo->phSession->Instance,
+            this->pInfo->pAssocDevice->pInfo->pSession->Instance,
             this->pSwapchain->hSurface,
             nullptr);
     }
@@ -295,9 +344,9 @@ DflGr::Renderer::~Renderer() {
 
 void DflGr::Renderer::operator() (const DflOb::WindowProcessArgs& args) {
     DflGr::RenderNode node{ reinterpret_cast<DflGr::RenderNode>(this->pRenderNode(
-                                                                    this->pInfo->pAssocDevice->GPU.hDevice,
+                                                                    this->pInfo->pAssocDevice->GPU,
                                                                     { &this->pInfo->pAssocDevice->UsageMutex,
-                                                                      0
+                                                                      this->pSwapchain->AssignedQueue.familyIndex
                                                                     },
                                                                     *this->pSwapchain,
                                                                     this->Error)) };

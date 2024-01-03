@@ -57,6 +57,8 @@ namespace Dfl {
             VkUnknownQueueTypeWarning         = 0x4701,
         };
 
+        
+
         struct Swapchain {
             VkSwapchainKHR                  hSwapchain{ nullptr };
             std::vector<VkImage>            hSwapchainImages{ };
@@ -69,6 +71,7 @@ namespace Dfl {
             std::vector<VkPresentModeKHR>   PresentModes;
 
             VkCommandPool                   hCmdPool{ nullptr };
+            DflHW::Queue                    AssignedQueue;
             // ^ why is this here, even though command pools are per family? The reason is that command pools need to be
             // used only by the thread that created them. Hence, it is not safe to allocate one command pool per family, but rather
             // per thread.
