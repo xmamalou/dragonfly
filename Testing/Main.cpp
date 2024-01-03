@@ -24,11 +24,12 @@ int main(){
     if (session.GetErrorCode() < Dfl::Hardware::SessionError::Success)
         return 1;
 
-    std::cout << "You have " << session.GetDeviceNum() << " devices in your system.\n";
+    std::cout << "You have " << session.GetDeviceCount() << " devices in your system.\n";
 
     Dfl::Hardware::DeviceInfo gpuInfo = {
-        .phSession{ &session },
+        .pSession{ &session },
         .DeviceIndex{ 0 },
+        .RenderOptions{ Dfl::Hardware::RenderOptions::Raytracing },
     };
     Dfl::Hardware::Device device(gpuInfo);
     if (device.GetErrorCode() < Dfl::Hardware::DeviceError::Success)
