@@ -13,7 +13,6 @@
    See the License for the specific language governing permissions and
    limitations under the License.
 */
-
 module;
 
 #include "Dragonfly.h"
@@ -24,12 +23,12 @@ module;
 
 export module Dragonfly.Hardware.Memory;
 
+import Dragonfly.Hardware.Device;
+
 namespace Dfl{
     namespace Hardware{
         export struct MemoryInfo {
-            const VkPhysicalDevice PhysicalDevice;
-            const VkDevice         Device;
-            const VkQueue          Queue;
+            const Device* pDevice;
 
         };
 
@@ -42,7 +41,7 @@ namespace Dfl{
         export class Memory {
             const VkPhysicalDevice          PhysicalGPU{ nullptr };
             const VkDevice                  GPU{ nullptr };
-            const VkQueue                   TransferQueue{ nullptr };
+            const Dfl::Hardware::Queue      TransferQueue{ nullptr };
 
             const uint32_t                  MaxAllocsAllowed{ 0 };
                   uint32_t                  AllocsMade{ 0 };
