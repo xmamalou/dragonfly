@@ -42,7 +42,7 @@ namespace Dfl {
         };
 
         export struct DeviceInfo {
-            const Session*                    phSession{ }; // the session handles that the device is associated to
+            const Session*                    pSession{ }; // the session the device belongs to
             const uint32_t                    DeviceIndex{ 0 }; // the index of the device in the session's device list
 
             const uint32_t                    RenderersNumber{ 1 };
@@ -50,7 +50,7 @@ namespace Dfl {
             const uint32_t                    SimulationsNumber{ 1 };
         };
 
-        export enum class [[nodiscard]] DeviceError {
+        export enum class [[ nodiscard ]] DeviceError {
             Success                           = 0,
             // errors
             NullHandleError                   = -0x1001,
@@ -64,39 +64,35 @@ namespace Dfl {
             VkInsufficientQueuesWarning       = 0x4702,
         };
 
-        enum class QueueType : unsigned int {
-            Graphics = 1, // implicitly assumes presentation support as well
-            Compute = 2, 
-            Transfer = 4
-        };
-
-        struct Queue {
-            VkQueue  hQueue{ nullptr };
-            uint32_t FamilyIndex{ 0 };
-
-            bool     IsShared{ false };
-        };
-
-        struct PhysicsSim{
-            Queue AssignedQueue;
-        };
-
-        struct QueueFamily{
-            uint32_t     Index{ 0 };
-            uint32_t     QueueCount{ 0 };
-            Dfl::BitFlag QueueType{ 0 };
-        };
-
-        enum class MemoryType{
+        enum class MemoryType : unsigned int {
             Local,
             Shared
         };
 
         template < MemoryType type >
-        struct DeviceMemory{
+        struct DeviceMemory {
             VkDeviceSize Size{ 0 };
             uint32_t     HeapIndex{ 0 };
             bool         IsHostVisible{ false };
+            bool         IsHostCoherent{ false };
+            bool         IsHostCached{ false };
+        };
+
+        export enum class QueueType : unsigned int {
+            Graphics = 1,
+            Compute  = 2,
+            Transfer = 4,
+        };
+
+        export struct QueueFamily {
+            uint32_t     Index{ 0 };
+            uint32_t     QueueCount{ 0 };
+            Dfl::BitFlag QueueType{ 0 };
+        };
+
+        export struct Queue {
+            VkQueue  queue;
+            uint32_t familyIndex;
         };
 
         export struct DeviceCharacteristics {
@@ -109,12 +105,11 @@ namespace Dfl {
         };
 
         struct DeviceHandles {
-            VkDevice                 hDevice{ nullptr };
-            std::vector<QueueFamily> Families{ };
-            
-            std::vector<Queue>       UsedQueues{ };
+            VkDevice                    hDevice{ nullptr };
+            std::vector<QueueFamily>    Families{ };
+            std::unique_ptr<uint32_t[]> pLeastClaimedQueue{ nullptr };
 
-                                     operator VkDevice() const { return this->hDevice; }
+            operator VkDevice() const { return this->hDevice; }
         };
 
         export class Device {
@@ -136,6 +131,11 @@ namespace Dfl {
             
             friend class
                           Dfl::Graphics::Renderer;
+            friend class
+                          Memory;
         };
     }
 }
+
+module :private;
+

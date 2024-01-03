@@ -49,6 +49,10 @@ static inline void INT_OrganizeMemory(
 
             memory[heapCount].IsHostVisible = 
                 props.memoryTypes[i].propertyFlags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT ? true : false;
+            memory[heapCount].IsHostCoherent =
+                props.memoryTypes[i].propertyFlags & VK_MEMORY_PROPERTY_HOST_COHERENT_BIT ? true : false;
+            memory[heapCount].IsHostCached = 
+                props.memoryTypes[i].propertyFlags & VK_MEMORY_PROPERTY_HOST_CACHED_BIT ? true : false;
 
             heapCount++;
         }
@@ -90,9 +94,10 @@ static DflHW::DeviceCharacteristics INT_OrganizeData(const VkPhysicalDevice& dev
     int sharedHeapCount{ 0 };
 
     for (auto heap : memProps.memoryHeaps){
-        if (heap.flags & VK_MEMORY_HEAP_DEVICE_LOCAL_BIT){
+        if (heap.flags & VK_MEMORY_HEAP_DEVICE_LOCAL_BIT &&
+            heap.size != 0){
             localHeapCount++;
-        }else{
+        }else if (heap.size != 0){
             sharedHeapCount++;
         }
     }
@@ -207,7 +212,7 @@ static DflHW::DeviceError INT_GetQueues(
     return DflHW::DeviceError::Success;
 };
 
-const std::array< const char*, 4 > extensions{
+static const std::array< const char*, 4 > extensions{
     VK_KHR_SWAPCHAIN_EXTENSION_NAME,
     VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME,
     VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME,
@@ -258,7 +263,7 @@ static DflHW::DeviceHandles INT_InitDevice(
        .pQueueCreateInfos{ queueInfo.data() },
        .enabledLayerCount{ 0 },
        .ppEnabledLayerNames{ nullptr },
-       .enabledExtensionCount{ rendererNum > 1 ? (
+       .enabledExtensionCount{ rendererNum > 0 ? (
                                renderOptions & DflHW::RenderOptions::Raytracing ?
                                     static_cast<uint32_t>(extensions.size()) : 1) : 0 },
        .ppEnabledExtensionNames{ extensions.data() },
@@ -286,9 +291,7 @@ static DflHW::DeviceHandles INT_InitDevice(
 
     delete[] priorities;
 
-    std::vector<DflHW::Queue> usedQueues{ rendererNum + simNum + 1 };
-
-    return { gpu, queueFamilies, usedQueues };
+    return { gpu, queueFamilies, std::make_unique<uint32_t[]>(queueFamilies.size())};
 };
 
 //
@@ -296,16 +299,16 @@ static DflHW::DeviceHandles INT_InitDevice(
 DflHW::Device::Device(const DeviceInfo& info) 
 try : pInfo( new DeviceInfo(info) ), 
       pCharacteristics( new DeviceCharacteristics( INT_OrganizeData(
-                                                     info.DeviceIndex < info.phSession->Instance.hDevices.size() ?
-                                                         info.phSession->Instance.hDevices[info.DeviceIndex] 
+                                                     info.DeviceIndex < info.pSession->Instance.hDevices.size() ?
+                                                         info.pSession->Instance.hDevices[info.DeviceIndex] 
                                                        : nullptr) ) ),
-      hPhysicalDevice(info.DeviceIndex < info.phSession->Instance.hDevices.size() ?
-                        info.phSession->Instance.hDevices[info.DeviceIndex]
+      hPhysicalDevice(info.DeviceIndex < info.pSession->Instance.hDevices.size() ?
+                        info.pSession->Instance.hDevices[info.DeviceIndex]
                       : nullptr),
       GPU( INT_InitDevice(
-                info.phSession->Instance,
-                info.DeviceIndex < info.phSession->Instance.hDevices.size() ?
-                    info.phSession->Instance.hDevices[info.DeviceIndex]
+                info.pSession->Instance,
+                info.DeviceIndex < info.pSession->Instance.hDevices.size() ?
+                    info.pSession->Instance.hDevices[info.DeviceIndex]
                     : nullptr,
                 info.RenderOptions,
                 info.RenderersNumber,
