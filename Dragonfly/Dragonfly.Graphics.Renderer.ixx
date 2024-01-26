@@ -27,6 +27,7 @@ export module Dragonfly.Graphics.Renderer;
 
 import Dragonfly.Observer.Window;
 import Dragonfly.Hardware.Device;
+import Dragonfly.Hardware.Memory;
 
 namespace DflOb = Dfl::Observer;
 namespace DflHW = Dfl::Hardware;
@@ -34,8 +35,8 @@ namespace DflHW = Dfl::Hardware;
 namespace Dfl {
     namespace Graphics {
         export struct RendererInfo {
-            DflHW::Device* pAssocDevice{ nullptr };
-            DflOb::Window* pAssocWindow{ nullptr };
+            DflHW::Device* const pAssocDevice{ nullptr };
+            DflOb::Window* const pAssocWindow{ nullptr };
         };
 
         export enum class [[ nodiscard ]] RendererError {
@@ -71,7 +72,7 @@ namespace Dfl {
             std::vector<VkPresentModeKHR>   PresentModes;
 
             VkCommandPool                   hCmdPool{ nullptr };
-            DflHW::Queue                    AssignedQueue;
+            DflHW::Queue                    AssignedQueue{ };
             // ^ why is this here, even though command pools are per family? The reason is that command pools need to be
             // used only by the thread that created them. Hence, it is not safe to allocate one command pool per family, but rather
             // per thread.
@@ -101,6 +102,9 @@ namespace Dfl {
             DFL_API                     DFL_CALL ~Renderer();
 
                     const RendererError          GetErrorCode() const noexcept { return this->Error; }
+
+            friend 
+            class         Dfl::Hardware::Memory;
 
         protected:
             void operator()(const DflOb::WindowProcessArgs& args);

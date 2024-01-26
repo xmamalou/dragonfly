@@ -205,11 +205,20 @@ static inline void* INT_InitNode(
 static Dfl::Hardware::Queue INT_GetQueue(
     const VkDevice&                                device,
     const std::vector<Dfl::Hardware::QueueFamily>& families,
-    uint32_t*                                      pLeastClaimedQueue) {
+          std::vector<bool>&                       areFamiliesUsed,
+          uint32_t*                                pLeastClaimedQueue) {
     VkQueue  queue{ nullptr };
     uint32_t familyIndex{ 0 };
-    for (uint32_t i{ 0 }; i < families.size(); ++i) {
-        if (!(families[i].QueueType & Dfl::Hardware::QueueType::Graphics)) {
+    uint32_t amountOfClaimedGoal{ 0 };
+    while (familyIndex <= families.size()) {
+        if (familyIndex == families.size()) {
+            amountOfClaimedGoal++;
+            familyIndex = 0;
+            continue;
+        }
+
+        if (!(families[familyIndex].QueueType & Dfl::Hardware::QueueType::Graphics)) {
+            familyIndex++;
             continue;
         }
 
@@ -222,21 +231,26 @@ static Dfl::Hardware::Queue INT_GetQueue(
         * the number of queues in the family, it resets it to 0.
         * This is a quick way to ensure that work is distributed evenly
         * between queues and that no queue is overworked.
+        * 
+        * Note that this does not check whether the queues of the appropriate
+        * type indeed exist, since this condition should be verified already
+        * from device creation.
         */
-        if (pLeastClaimedQueue[i] >= families[i].QueueCount) {
-            pLeastClaimedQueue[i] = 0;
+        if (pLeastClaimedQueue[familyIndex] >= families[familyIndex].QueueCount) {
+            pLeastClaimedQueue[familyIndex] = 0;
         }
 
-        familyIndex = i;
         vkGetDeviceQueue(
             device,
-            i,
-            pLeastClaimedQueue[i],
+            familyIndex,
+            pLeastClaimedQueue[familyIndex],
             &queue
         );
-        pLeastClaimedQueue[i]++;
+        pLeastClaimedQueue[familyIndex]++;
         break;
     }
+
+    areFamiliesUsed[familyIndex] = true;
 
     return { queue, familyIndex };
 };
@@ -248,7 +262,8 @@ static DflGr::Swapchain INT_GetRenderResources(
     const HWND&                                    hWindow,
     const std::array< uint32_t, 2>&                resolution,
     const std::vector<Dfl::Hardware::QueueFamily>& families,
-          uint32_t*                                pLeastClaimedQueue) {
+          uint32_t*                                pLeastClaimedQueue,
+          std::vector<bool>&                       areFamiliesUsed) {
     if (hPhysDevice == nullptr)
         throw DflGr::RendererError::NullHandleError;
 
@@ -312,6 +327,7 @@ static DflGr::Swapchain INT_GetRenderResources(
     nullptr, INT_GetQueue(
                 hDevice,
                 families,
+                areFamiliesUsed,
                 pLeastClaimedQueue)
     };
 };
@@ -319,15 +335,16 @@ static DflGr::Swapchain INT_GetRenderResources(
 // 
 
 DflGr::Renderer::Renderer(const RendererInfo& info)
-try : pInfo(new RendererInfo(info)),
-      pSwapchain(new Swapchain(INT_GetRenderResources(
+try : pInfo( new RendererInfo(info) ),
+      pSwapchain(new Swapchain( INT_GetRenderResources(
                                     info.pAssocDevice->pInfo->pSession->Instance,
                                     info.pAssocDevice->hPhysicalDevice,
                                     info.pAssocDevice->GPU,
                                     info.pAssocWindow->GetHandle(),
                                     info.pAssocWindow->Functor.pInfo->Resolution,
                                     info.pAssocDevice->GPU.Families, 
-                                    info.pAssocDevice->GPU.pLeastClaimedQueue.get()))) {
+                                    info.pAssocDevice->GPU.pLeastClaimedQueue.get(),
+                                    info.pAssocDevice->pTracker->AreFamiliesUsed) ) ) {
     this->pRenderNode = (RenderNode)INT_InitNode;
     DflOb::PushProcess(*this, *this->pInfo->pAssocWindow);
 }
@@ -346,7 +363,7 @@ void DflGr::Renderer::operator() (const DflOb::WindowProcessArgs& args) {
     DflGr::RenderNode node{ reinterpret_cast<DflGr::RenderNode>(this->pRenderNode(
                                                                     this->pInfo->pAssocDevice->GPU,
                                                                     { &this->pInfo->pAssocDevice->UsageMutex,
-                                                                      this->pSwapchain->AssignedQueue.familyIndex
+                                                                      this->pSwapchain->AssignedQueue.FamilyIndex
                                                                     },
                                                                     *this->pSwapchain,
                                                                     this->Error)) };
