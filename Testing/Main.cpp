@@ -4,8 +4,8 @@
 
 import Dragonfly;
 
-int main(){
-    Dfl::Observer::WindowInfo winInfo = {
+int main() {
+    const Dfl::Observer::WindowInfo winInfo{
         .Resolution{ { 1920, 1080 } },
         .DoFullscreen{ false },
         .Rate{ 60 },
@@ -15,7 +15,7 @@ int main(){
     if (window.GetErrorCode() < Dfl::Observer::WindowError::Success)
         return 1;
 
-    Dfl::Hardware::SessionInfo sesInfo = {
+    const Dfl::Hardware::SessionInfo sesInfo{
         .AppName{ "My super app" },
         .AppVersion{ Dfl::MakeVersion(0, 0, 1) },
         .DoDebug{ true }
@@ -26,7 +26,7 @@ int main(){
 
     std::cout << "You have " << session.GetDeviceCount() << " devices in your system.\n";
 
-    Dfl::Hardware::DeviceInfo gpuInfo = {
+    const Dfl::Hardware::DeviceInfo gpuInfo{
         .pSession{ &session },
         .DeviceIndex{ 0 },
         .RenderOptions{ Dfl::Hardware::RenderOptions::Raytracing },
@@ -37,12 +37,29 @@ int main(){
 
     std::cout << "\nYour device's name is " << device.GetCharacteristics().Name << "\n";
 
-    Dfl::Graphics::RendererInfo renderInfo = {
+    const Dfl::Graphics::RendererInfo renderInfo{
         .pAssocDevice{ &device },
         .pAssocWindow{ &window },
     };
     Dfl::Graphics::Renderer renderer(renderInfo);
     if (renderer.GetErrorCode() < Dfl::Graphics::RendererError::Success)
+        return 1;
+
+    const Dfl::Hardware::MemoryInfo memoryInfo{
+        .pDevice{ &device },
+        .Size{ 1000 }
+    };
+    Dfl::Hardware::Memory memory(memoryInfo);
+    if (memory.GetErrorCode() < Dfl::Hardware::MemoryError::Success)
+        return 1;
+
+    const Dfl::Hardware::BufferInfo buffInfo{
+        .MemoryBlock{ &memory },
+        .Size{ 10 },
+        .Options{ Dfl::NoOptions }
+    };
+    Dfl::Hardware::Buffer buffer(buffInfo);
+    if (buffer.GetErrorCode() < Dfl::Hardware::BufferError::Success)
         return 1;
 
     while (window.GetCloseStatus() == false){
