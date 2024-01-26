@@ -64,12 +64,12 @@ namespace Dfl {
             VkInsufficientQueuesWarning       = 0x4702,
         };
 
-        enum class MemoryType : unsigned int {
+        export enum class MemoryType : unsigned int {
             Local,
             Shared
         };
 
-        template < MemoryType type >
+        export template < MemoryType type >
         struct DeviceMemory {
             VkDeviceSize Size{ 0 };
             uint32_t     HeapIndex{ 0 };
@@ -91,8 +91,8 @@ namespace Dfl {
         };
 
         export struct Queue {
-            VkQueue  queue;
-            uint32_t familyIndex;
+            VkQueue  hQueue{ nullptr };
+            uint32_t FamilyIndex{ 0 };
         };
 
         export struct DeviceCharacteristics {
@@ -101,20 +101,36 @@ namespace Dfl {
             std::vector<DeviceMemory<MemoryType::Local>>  LocalHeaps{ };
             std::vector<DeviceMemory<MemoryType::Shared>> SharedHeaps{ };
 
+            std::array<uint32_t, 2>                       MaxViewport{ {0, 0} };
+            std::array<uint32_t, 2>                       MaxSampleCount{ {0, 0} }; // {colour, depth}
+
             std::array<uint32_t, 3>                       MaxGroups{ {0, 0, 0} }; // max amount of groups the device supports
+            uint64_t                                      MaxAllocations{ 0 };
+
+            uint64_t                                      MaxDrawIndirectCount{ 0 };
+        };
+
+        struct DeviceTracker {
+            uint64_t          Allocations{ 0 };
+            uint64_t          IndirectDraws{ 0 };
+
+            std::vector<bool> AreFamiliesUsed{ };
         };
 
         struct DeviceHandles {
             VkDevice                    hDevice{ nullptr };
             std::vector<QueueFamily>    Families{ };
             std::unique_ptr<uint32_t[]> pLeastClaimedQueue{ nullptr };
+            bool                        WithTimelineSems{ false };
+            bool                        WithRTX{ false };
 
-            operator VkDevice() const { return this->hDevice; }
+                                        operator VkDevice() const { return this->hDevice; }
         };
 
         export class Device {
             const std::unique_ptr<const DeviceInfo>             pInfo{ };
             const std::unique_ptr<const DeviceCharacteristics>  pCharacteristics{ };
+            const std::unique_ptr<      DeviceTracker>          pTracker{ };
             const VkPhysicalDevice                              hPhysicalDevice{ nullptr };
             const DeviceHandles                                 GPU{ };
 
@@ -133,6 +149,8 @@ namespace Dfl {
                           Dfl::Graphics::Renderer;
             friend class
                           Memory;
+            friend class 
+                          Buffer;
         };
     }
 }

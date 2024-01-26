@@ -107,10 +107,33 @@ static DflHW::DeviceCharacteristics INT_OrganizeData(const VkPhysicalDevice& dev
     INT_OrganizeMemory(localHeaps, memProps);
     INT_OrganizeMemory(sharedHeaps, memProps);
 
+    uint32_t currentCheck{ 0x40 }; // represents VkSampleCountFlagBits elements
+    uint32_t maxColourSamples{ 0 };
+    uint32_t maxDepthSamples{ 0 };
+    for (uint32_t i = 0; i < 7; i++) {
+        if (devProps.limits.framebufferColorSampleCounts & currentCheck) {
+            maxColourSamples = currentCheck;
+            break;
+        }
+        currentCheck >>= 1;
+    }
+    currentCheck = 0x40;
+    for (uint32_t i = 0; i < 7; i++) {
+        if (devProps.limits.framebufferDepthSampleCounts & currentCheck) {
+            maxDepthSamples = currentCheck;
+            break;
+        }
+        currentCheck >>= 1;
+    }
+
     return {
         std::string(devProps.deviceName),
         localHeaps, sharedHeaps,
-        { devProps.limits.maxComputeWorkGroupCount[0], devProps.limits.maxComputeWorkGroupCount[1], devProps.limits.maxComputeWorkGroupCount[2] } };
+        { devProps.limits.maxViewportDimensions[0], devProps.limits.maxViewportDimensions[1] },
+        { maxColourSamples, maxDepthSamples },
+        { devProps.limits.maxComputeWorkGroupCount[0], devProps.limits.maxComputeWorkGroupCount[1], devProps.limits.maxComputeWorkGroupCount[2] },
+        devProps.limits.maxMemoryAllocationCount,
+        devProps.limits.maxDrawIndirectCount };
 };
 
 static inline std::vector<DflHW::QueueFamily> INT_OrganizeQueues(
@@ -212,11 +235,17 @@ static DflHW::DeviceError INT_GetQueues(
     return DflHW::DeviceError::Success;
 };
 
-static const std::array< const char*, 4 > extensions{
+static const std::array< const char*, 2 > extensionsNoRT{
+    VK_KHR_SWAPCHAIN_EXTENSION_NAME,
+    VK_KHR_TIMELINE_SEMAPHORE_EXTENSION_NAME
+};
+
+static const std::array< const char*, 5 > extensionsWithRT{
     VK_KHR_SWAPCHAIN_EXTENSION_NAME,
     VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME,
     VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME,
-    VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME
+    VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME,
+    VK_KHR_TIMELINE_SEMAPHORE_EXTENSION_NAME
 };
 
 //
@@ -234,15 +263,15 @@ static DflHW::DeviceHandles INT_InitDevice(
         throw DflHW::DeviceError::VkDeviceInvalidSession;
     }
 
-    std::vector<DflHW::QueueFamily> queueFamilies = INT_OrganizeQueues(physDevice);
+    std::vector<DflHW::QueueFamily> queueFamilies{ INT_OrganizeQueues(physDevice) };
 
     std::vector<VkDeviceQueueCreateInfo> queueInfo;
     DflHW::DeviceError error{ 0 };
     if ( ( error = INT_GetQueues(
-        queueInfo,
-        rendererNum,
-        simNum,
-        queueFamilies) ) < DflHW::DeviceError::Success ) {
+                    queueInfo,
+                    rendererNum,
+                    simNum,
+                    queueFamilies) ) < DflHW::DeviceError::Success ) {
         throw error;
     }
 
@@ -254,8 +283,34 @@ static DflHW::DeviceHandles INT_InitDevice(
         }
         queueInfo[i].pQueuePriorities = priorities[i];
     }
+    
+    uint32_t extensionCount{ 0 };
+    vkEnumerateDeviceExtensionProperties(
+        physDevice,
+        nullptr,
+        &extensionCount,
+        nullptr);
+    std::vector<VkExtensionProperties> extensions(extensionCount);
+        vkEnumerateDeviceExtensionProperties(
+            physDevice,
+            nullptr,
+            &extensionCount,
+            extensions.data());
 
-    const VkDeviceCreateInfo deviceInfo = {
+    bool doTimelineSemsExist{ false };
+    bool doesRTXExist{ false };
+
+    for( auto& extension : extensions ) {
+        if (!strcmp(extension.extensionName, VK_KHR_TIMELINE_SEMAPHORE_EXTENSION_NAME)) {
+            doTimelineSemsExist = true;
+        }
+
+        if (!strcmp(extension.extensionName, VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME)) {
+            doesRTXExist = true;
+        }
+    }
+
+    const VkDeviceCreateInfo deviceInfo{
        .sType{ VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO },
        .pNext{ nullptr },
        .flags{ 0 },
@@ -263,18 +318,28 @@ static DflHW::DeviceHandles INT_InitDevice(
        .pQueueCreateInfos{ queueInfo.data() },
        .enabledLayerCount{ 0 },
        .ppEnabledLayerNames{ nullptr },
-       .enabledExtensionCount{ rendererNum > 0 ? (
-                               renderOptions & DflHW::RenderOptions::Raytracing ?
-                                    static_cast<uint32_t>(extensions.size()) : 1) : 0 },
-       .ppEnabledExtensionNames{ extensions.data() },
+       .enabledExtensionCount{ doTimelineSemsExist ?
+                                    ( rendererNum > 0 ? 
+                                        ( doesRTXExist && renderOptions & DflHW::RenderOptions::Raytracing ? 
+                                                static_cast<uint32_t>(extensionsWithRT.size()) :
+                                                static_cast<uint32_t>(extensionsNoRT.size()) ) :
+                                        0 ) :
+                                    ( rendererNum > 0 ? 
+                                        ( doesRTXExist && renderOptions & DflHW::RenderOptions::Raytracing ?
+                                                    static_cast<uint32_t>(extensionsWithRT.size()) - 1 :
+                                                    static_cast<uint32_t>(extensionsNoRT.size()) - 1 ) :
+                                        0 ) },
+       .ppEnabledExtensionNames{ doesRTXExist ?
+                                    extensionsWithRT.data() : 
+                                    extensionsNoRT.data() },
     };
 
     VkDevice gpu{ nullptr };
-    switch (VkResult vkError = vkCreateDevice(
+    switch (VkResult vkError{ vkCreateDevice(
         physDevice,
         &deviceInfo,
         nullptr,
-        &gpu)) {
+        &gpu) }) {
     case VK_SUCCESS:
         break;
     case VK_ERROR_EXTENSION_NOT_PRESENT:
@@ -291,7 +356,8 @@ static DflHW::DeviceHandles INT_InitDevice(
 
     delete[] priorities;
 
-    return { gpu, queueFamilies, std::make_unique<uint32_t[]>(queueFamilies.size())};
+    return { gpu, queueFamilies, std::make_unique<uint32_t[]>(queueFamilies.size()), 
+                doTimelineSemsExist, doesRTXExist };
 };
 
 //
@@ -302,6 +368,7 @@ try : pInfo( new DeviceInfo(info) ),
                                                      info.DeviceIndex < info.pSession->Instance.hDevices.size() ?
                                                          info.pSession->Instance.hDevices[info.DeviceIndex] 
                                                        : nullptr) ) ),
+      pTracker( new DeviceTracker() ),
       hPhysicalDevice(info.DeviceIndex < info.pSession->Instance.hDevices.size() ?
                         info.pSession->Instance.hDevices[info.DeviceIndex]
                       : nullptr),
@@ -312,7 +379,8 @@ try : pInfo( new DeviceInfo(info) ),
                     : nullptr,
                 info.RenderOptions,
                 info.RenderersNumber,
-                info.SimulationsNumber) ) { }
+                info.SimulationsNumber) ) {
+    this->pTracker->AreFamiliesUsed.resize(this->GPU.Families.size());}
 catch (DeviceError e) { this->Error = e; }
 
 
