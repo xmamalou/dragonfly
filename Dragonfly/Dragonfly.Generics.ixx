@@ -31,28 +31,30 @@ namespace Dfl {
     export class BitFlag {
         unsigned int flag{ 0 };
     public:
-                 BitFlag ( ) {}
+                            BitFlag ( ) {}
         template< Bitable N >
-                 BitFlag ( N num ) { this->flag = static_cast<unsigned int>(num); }
+                            BitFlag ( N num ) { this->flag = static_cast<unsigned int>(num); }
 
         // assignment
 
         template< Bitable N >
-              BitFlag&     operator= ( const N num ) { this->flag = static_cast<unsigned int>(num); return *this; }
+              BitFlag&      operator= ( const N num ) { this->flag = static_cast<unsigned int>(num); return *this; }
         template< Bitable N >
-              BitFlag&     operator|= ( const N num ) { this->flag |= static_cast<unsigned int>(num); return *this; }
+              BitFlag&      operator|= ( const N num ) { this->flag |= static_cast<unsigned int>(num); return *this; }
         template< Bitable N >
-              BitFlag&     operator&= ( const N num ) { this->flag &= static_cast<unsigned int>(num); return *this; }
+              BitFlag&      operator&= ( const N num ) { this->flag &= static_cast<unsigned int>(num); return *this; }
 
         // bitwise
 
         template< Bitable N >
-              BitFlag      operator| ( const N num ) const { return BitFlag(this->flag | static_cast<unsigned int>(num)); }
+              BitFlag       operator| ( const N num ) const { return BitFlag(this->flag | static_cast<unsigned int>(num)); }
         template< Bitable N >
-              BitFlag      operator& ( const N num ) const { return BitFlag(this->flag & static_cast<unsigned int>(num)); }
+              BitFlag       operator& ( const N num ) const { return BitFlag(this->flag & static_cast<unsigned int>(num)); }
 
         // conversions
 
-                           operator unsigned int () { return this->flag; }
+                            operator       unsigned int () { return this->flag; }
+
+         const unsigned int GetValue() const { return this->flag; }
     };
 }
