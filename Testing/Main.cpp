@@ -1,20 +1,51 @@
 ﻿// This is a dummy project, used for testing
 
 #include <iostream>
+#include <thread>
+
+#include <atomic>
 
 import Dragonfly;
 
-int main() {
+class Rendering {
+    Dfl::Hardware::Device* const pDevice{ nullptr };
+
+    std::atomic<bool>            Close{ false };
+public:
+    Rendering(Dfl::Hardware::Device* const pDevice);
+
+          void operator() ();
+    const bool ShouldClose() const noexcept { return this->Close; };
+};
+
+Rendering::Rendering(Dfl::Hardware::Device* const pDevice) : pDevice(pDevice) {}
+
+void Rendering::operator() () {
     const Dfl::Observer::WindowInfo winInfo{
-        .Resolution{ { 1920, 1080 } },
-        .DoFullscreen{ false },
-        .Rate{ 60 },
-        .WindowTitle{ u8"Χαίρε Κόσμε!" },
+       .Resolution{ { 1920, 1080 } },
+       .DoFullscreen{ false },
+       .Rate{ 60 },
+       .WindowTitle{ u8"Χαίρε Κόσμε!" },
     };
     Dfl::Observer::Window window(winInfo);
-    if (window.GetErrorCode() < Dfl::Observer::WindowError::Success)
-        return 1;
+    if (window.GetErrorCode() < Dfl::Observer::WindowError::Success) {
+        throw 1;
+    }
+    
+    const Dfl::Graphics::RendererInfo renderInfo{
+        .pAssocDevice{ this->pDevice },
+        .pAssocWindow{ &window },
+    };
+    Dfl::Graphics::Renderer renderer(renderInfo);
+    if (renderer.GetErrorCode() < Dfl::Graphics::RendererError::Success)
+        throw 1;
 
+    while (( this->Close = window.GetCloseStatus()) == false) {
+        renderer();
+    }
+}
+
+int main() {
     const Dfl::Hardware::SessionInfo sesInfo{
         .AppName{ "My super app" },
         .AppVersion{ Dfl::MakeVersion(0, 0, 1) },
@@ -37,34 +68,32 @@ int main() {
 
     std::cout << "\nYour device's name is " << device.GetCharacteristics().Name << "\n";
 
-    const Dfl::Graphics::RendererInfo renderInfo{
-        .pAssocDevice{ &device },
-        .pAssocWindow{ &window },
-    };
-    Dfl::Graphics::Renderer renderer(renderInfo);
-    if (renderer.GetErrorCode() < Dfl::Graphics::RendererError::Success)
-        return 1;
-
-    const Dfl::Hardware::MemoryInfo memoryInfo{
+    const Dfl::Memory::BlockInfo memoryInfo{
         .pDevice{ &device },
         .Size{ 1000 }
     };
-    Dfl::Hardware::Memory memory(memoryInfo);
-    if (memory.GetErrorCode() < Dfl::Hardware::MemoryError::Success)
+    Dfl::Memory::Block memory(memoryInfo);
+    if (memory.GetErrorCode() < Dfl::Memory::BlockError::Success)
         return 1;
 
-    const Dfl::Hardware::BufferInfo buffInfo{
-        .MemoryBlock{ &memory },
-        .Size{ 10 },
+    const Dfl::Memory::BufferInfo bufferInfo{
+        .pMemoryBlock{ &memory },
+        .Size{ 100 },
         .Options{ Dfl::NoOptions }
     };
-    Dfl::Hardware::Buffer buffer(buffInfo);
-    if (buffer.GetErrorCode() < Dfl::Hardware::BufferError::Success)
+    Dfl::Memory::Buffer buffer(bufferInfo);
+    if (buffer.GetErrorCode() < Dfl::Memory::BufferError::Success)
         return 1;
 
-    while (window.GetCloseStatus() == false){
-        std::cout << "";
+    Rendering render(&device);
+
+    std::thread renderThread(std::ref(render));
+
+    while (render.ShouldClose() == false){
+        printf("");
     }
+
+    renderThread.join();
 
     return 0;
 };
