@@ -142,25 +142,28 @@
     <ClCompile Include="Dragonfly.Generics.ixx" />
     <ClCompile Include="Dragonfly.Graphics.ixx">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</ExcludedFromBuild>
     </ClCompile>
     <ClCompile Include="Dragonfly.Graphics.Renderer.cxx">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</ExcludedFromBuild>
     </ClCompile>
     <ClCompile Include="Dragonfly.Graphics.Renderer.ixx" />
     <ClCompile Include="Dragonfly.Hardware.Device.ixx" />
-    <ClCompile Include="Dragonfly.Hardware.Memory.cxx" />
-    <ClCompile Include="Dragonfly.Hardware.Memory.ixx" />
     <ClCompile Include="Dragonfly.Hardware.Session.cxx" />
     <ClCompile Include="Dragonfly.Hardware.Session.ixx" />
     <ClCompile Include="Dragonfly.Hardware.ixx" />
     <ClCompile Include="Dragonfly.Harwdare.Device.cxx" />
+    <ClCompile Include="Dragonfly.Memory.Block.cxx" />
+    <ClCompile Include="Dragonfly.Memory.Block.ixx" />
+    <ClCompile Include="Dragonfly.Memory.Buffer.cxx" />
+    <ClCompile Include="Dragonfly.Memory.ixx" />
     <ClCompile Include="Dragonfly.Observer.Window.cxx" />
     <ClCompile Include="Dragonfly.Observer.Window.ixx" />
     <ClCompile Include="Dragonfly.ixx">
       <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsCppModule</CompileAs>
     </ClCompile>
     <ClCompile Include="Dragonfly.Observer.ixx" />
+    <ClCompile Include="Dragonfly.Memory.Buffer.ixx" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Dragonfly.h" />
