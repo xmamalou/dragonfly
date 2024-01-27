@@ -16,6 +16,7 @@
 
 module;
 
+#include <array>
 #include <iostream>
 #include <vector>
 #include <thread>
@@ -105,8 +106,9 @@ static DflHW::SessionError INT_LoadDevices(
     return DflHW::SessionError::Success;
 }
 
-const std::vector<const char*> expectedLayers{
-    "VK_LAYER_KHRONOS_validation"};
+const std::array<const char*, 1> expectedLayers{
+    "VK_LAYER_KHRONOS_validation"
+ };
 
 //
 
@@ -138,14 +140,16 @@ static DflHW::SessionHandles INT_InitSession(const DflHW::SessionInfo& info){
         vkEnumerateInstanceLayerProperties(&count, layerProperties.data());
 
         // check desired layer availability
-        for (const char* layer : expectedLayers)
+        for (auto& layer : expectedLayers)
         {
             for (uint32_t i{ 0 }; i < count; i++)
             {
-                if (strcmp(layerProperties[i].layerName, layer) == 0)
+                if (strcmp(layerProperties[i].layerName, layer) == 0) {
                     break;
-                if (++i == count)
+                }
+                if ( i == count - 1) {
                     throw DflHW::SessionError::VkNoExpectedLayersError;
+                }
             }
         }
     }
