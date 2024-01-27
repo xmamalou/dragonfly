@@ -24,6 +24,7 @@ export module Dragonfly;
 
 export import Dragonfly.Generics;
 export import Dragonfly.Hardware;
+export import Dragonfly.Memory;
 export import Dragonfly.Observer;
 export import Dragonfly.Graphics;
 
