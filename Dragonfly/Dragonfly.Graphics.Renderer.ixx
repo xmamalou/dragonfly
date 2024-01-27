@@ -27,7 +27,6 @@ export module Dragonfly.Graphics.Renderer;
 
 import Dragonfly.Observer.Window;
 import Dragonfly.Hardware.Device;
-import Dragonfly.Hardware.Memory;
 
 namespace DflOb = Dfl::Observer;
 namespace DflHW = Dfl::Hardware;
@@ -85,30 +84,24 @@ namespace Dfl {
             uint32_t                 QueueFamilyIndex;
         };
 
-        typedef void* (*RenderNode)(
-                            const VkDevice&      device,
-                                  RenderData&&   additionalData,
-                                  Swapchain&     swapchain,
-                                  RendererError& error);
+        enum class RenderState {
+            Initialize,
+            Loop,
+            Fail
+        };
 
-        export class Renderer : public DflOb::WindowProcess {
+        export class Renderer {
             const std::unique_ptr<const RendererInfo>    pInfo;
             const std::unique_ptr<Swapchain>             pSwapchain;
 
-                  RenderNode                             pRenderNode{ nullptr };
-                  RendererError                          Error{ RendererError::ThreadNotReadyWarning };
+                  RenderState                            State{ RenderState::Initialize };
+                  RendererError                          Error{ RendererError::Success };
         public:
             DFL_API                     DFL_CALL Renderer(const RendererInfo& info);
             DFL_API                     DFL_CALL ~Renderer();
 
+            DFL_API       void          DFL_CALL operator () ();
                     const RendererError          GetErrorCode() const noexcept { return this->Error; }
-
-            friend 
-            class         Dfl::Hardware::Memory;
-
-        protected:
-            void operator()(const DflOb::WindowProcessArgs& args);
-            void Destroy();
         };
     }
 }

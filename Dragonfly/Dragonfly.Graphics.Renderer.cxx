@@ -17,17 +17,22 @@ module;
 
 #include <iostream>
 #include <vector>
+#include <thread>
+#include <chrono>
 
 #define WIN32_LEAN_AND_MEAN
 #include <Windows.h>
 #define VK_USE_PLATFORM_WIN32_KHR
 #include <vulkan/vulkan.h>
 
+#include <GLFW/glfw3.h>
+
 module Dragonfly.Graphics.Renderer;
 
 import Dragonfly.Generics;
 import Dragonfly.Observer.Window;
 
+namespace DflHW = Dfl::Hardware;
 namespace DflGr = Dfl::Graphics;
 namespace DflOb = Dfl::Observer;
 
@@ -123,44 +128,37 @@ static inline DflGr::RendererError INT_CreateSwapchain(
 
 //
 
-static inline void* INT_FailNode(
-    const VkDevice&             device,
-          DflGr::RenderData&&   additionalData,
-          DflGr::Swapchain&     swapchain,
-          DflGr::RendererError& error) {
+static inline void INT_FailNode(
+                const VkDevice&             pDevice,
+                      DflGr::Swapchain&     swapchain,
+                      DflGr::RendererError& error) {
     std::cout << "";
-    return INT_FailNode;
 };
 
-static inline void* INT_LoopNode(
-    const VkDevice&             device,
-          DflGr::RenderData&&   additionalData,
-          DflGr::Swapchain&     swapchain,
-          DflGr::RendererError& error) {
+static inline void INT_LoopNode(
+                  const VkDevice&             pDevice,
+                        DflGr::Swapchain&     swapchain,
+                        DflGr::RendererError& error) {
     std::cout << "";
-    return INT_LoopNode;
 };
 
 static inline void* INT_InitNode(
-    const VkDevice&             device,
-          DflGr::RenderData&&   additionalData,
-          DflGr::Swapchain&     swapchain,
-          DflGr::RendererError& error) {
+                  const VkDevice&             device,
+                        DflGr::Swapchain&     swapchain,
+                        DflGr::RendererError& error) {
     const VkCommandPoolCreateInfo cmdPoolInfo = {
         .sType{ VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO },
         .pNext{ nullptr},
         .flags{ VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT },
-        .queueFamilyIndex{ additionalData.QueueFamilyIndex }
+        .queueFamilyIndex{ swapchain.AssignedQueue.FamilyIndex }
     };
 
-    additionalData.pMutex->lock();
     if (vkCreateCommandPool(
         device,
         &cmdPoolInfo,
         nullptr,
         &swapchain.hCmdPool) != VK_SUCCESS) {
         error = DflGr::RendererError::VkComPoolInitError;
-        additionalData.pMutex->unlock();
         return INT_FailNode;
     }
     //this->pMutex->unlock();
@@ -175,7 +173,6 @@ static inline void* INT_InitNode(
                     swapchain.PresentModes,
                     swapchain.hSwapchain,
                     newSwapchain)) != DflGr::RendererError::Success) {
-        additionalData.pMutex->unlock();
         return INT_FailNode;
     }
     swapchain.hSwapchain = newSwapchain;
@@ -192,10 +189,6 @@ static inline void* INT_InitNode(
         swapchain,
         &imageCount,
         swapchain.hSwapchainImages.data());
-
-    additionalData.pMutex->unlock();
-
-    return INT_LoopNode;
 };
 
 //
@@ -205,8 +198,8 @@ static inline void* INT_InitNode(
 static Dfl::Hardware::Queue INT_GetQueue(
     const VkDevice&                                device,
     const std::vector<Dfl::Hardware::QueueFamily>& families,
-          std::vector<bool>&                       areFamiliesUsed,
-          uint32_t*                                pLeastClaimedQueue) {
+          std::vector<uint32_t>&                   areFamiliesUsed,
+          std::vector<uint32_t>&                   leastClaimedQueue) {
     VkQueue  queue{ nullptr };
     uint32_t familyIndex{ 0 };
     uint32_t amountOfClaimedGoal{ 0 };
@@ -236,21 +229,21 @@ static Dfl::Hardware::Queue INT_GetQueue(
         * type indeed exist, since this condition should be verified already
         * from device creation.
         */
-        if (pLeastClaimedQueue[familyIndex] >= families[familyIndex].QueueCount) {
-            pLeastClaimedQueue[familyIndex] = 0;
+        if (leastClaimedQueue[familyIndex] >= families[familyIndex].QueueCount) {
+            leastClaimedQueue[familyIndex] = 0;
         }
 
         vkGetDeviceQueue(
             device,
             familyIndex,
-            pLeastClaimedQueue[familyIndex],
+            leastClaimedQueue[familyIndex],
             &queue
         );
-        pLeastClaimedQueue[familyIndex]++;
+        leastClaimedQueue[familyIndex]++;
         break;
     }
 
-    areFamiliesUsed[familyIndex] = true;
+    areFamiliesUsed[familyIndex]++;
 
     return { queue, familyIndex };
 };
@@ -262,8 +255,8 @@ static DflGr::Swapchain INT_GetRenderResources(
     const HWND&                                    hWindow,
     const std::array< uint32_t, 2>&                resolution,
     const std::vector<Dfl::Hardware::QueueFamily>& families,
-          uint32_t*                                pLeastClaimedQueue,
-          std::vector<bool>&                       areFamiliesUsed) {
+          std::vector<uint32_t>&                   leastClaimedQueue,
+          std::vector<uint32_t>&                   areFamiliesUsed) {
     if (hPhysDevice == nullptr)
         throw DflGr::RendererError::NullHandleError;
 
@@ -328,7 +321,7 @@ static DflGr::Swapchain INT_GetRenderResources(
                 hDevice,
                 families,
                 areFamiliesUsed,
-                pLeastClaimedQueue)
+                leastClaimedQueue)
     };
 };
 
@@ -341,51 +334,56 @@ try : pInfo( new RendererInfo(info) ),
                                     info.pAssocDevice->hPhysicalDevice,
                                     info.pAssocDevice->GPU,
                                     info.pAssocWindow->GetHandle(),
-                                    info.pAssocWindow->Functor.pInfo->Resolution,
+                                    info.pAssocWindow->pInfo->Resolution,
                                     info.pAssocDevice->GPU.Families, 
-                                    info.pAssocDevice->GPU.pLeastClaimedQueue.get(),
+                                    info.pAssocDevice->pTracker->LeastClaimedQueue,
                                     info.pAssocDevice->pTracker->AreFamiliesUsed) ) ) {
-    this->pRenderNode = (RenderNode)INT_InitNode;
-    DflOb::PushProcess(*this, *this->pInfo->pAssocWindow);
+    
 }
 catch (DflGr::RendererError e) { this->Error = e; }
 
 DflGr::Renderer::~Renderer() {
+    auto& pDevice = this->pInfo->pAssocDevice;
+    vkDeviceWaitIdle(pDevice->GPU);
+    pDevice->pUsageMutex->lock();
+    if (this->pSwapchain->hSwapchain != VK_NULL_HANDLE) {
+        vkDestroySwapchainKHR(
+            pDevice->GPU,
+            *this->pSwapchain,
+            nullptr);
+    }
+    if (this->pSwapchain->hCmdPool != VK_NULL_HANDLE) {
+        vkDestroyCommandPool(
+            pDevice->GPU,
+            this->pSwapchain->hCmdPool,
+            nullptr);
+    }
+
     if (this->pSwapchain->hSurface != nullptr) {
         vkDestroySurfaceKHR(
             this->pInfo->pAssocDevice->pInfo->pSession->Instance,
             this->pSwapchain->hSurface,
             nullptr);
     }
+    pDevice->pUsageMutex->unlock();
 }
 
-void DflGr::Renderer::operator() (const DflOb::WindowProcessArgs& args) {
-    DflGr::RenderNode node{ reinterpret_cast<DflGr::RenderNode>(this->pRenderNode(
-                                                                    this->pInfo->pAssocDevice->GPU,
-                                                                    { &this->pInfo->pAssocDevice->UsageMutex,
-                                                                      this->pSwapchain->AssignedQueue.FamilyIndex
-                                                                    },
-                                                                    *this->pSwapchain,
-                                                                    this->Error)) };
-    this->pRenderNode = node;
-};
-
-void DflGr::Renderer::Destroy() {
-    auto& pDevice = this->pInfo->pAssocDevice;
-
-    pDevice->UsageMutex.lock();
-    if (this->pSwapchain->hSwapchain != VK_NULL_HANDLE) {
-        vkDeviceWaitIdle(pDevice->GPU);
-        vkDestroySwapchainKHR(
+void DflGr::Renderer::operator() () {
+    this->pInfo->pAssocWindow->PollEvents();
+    switch (this->State) {
+    case RenderState::Initialize:
+        INT_InitNode(
             this->pInfo->pAssocDevice->GPU,
             *this->pSwapchain,
-            nullptr);
+            this->Error);
+        this->State = ( this->Error < RendererError::Success ) ? RenderState::Fail : RenderState::Loop;
+        break;
+    case RenderState::Loop:
+        printf("");
+        break;
+    case RenderState::Fail:
+        printf("FAILURE");
+        break;
     }
-    if (this->pSwapchain->hCmdPool != VK_NULL_HANDLE) {
-        vkDestroyCommandPool(
-            this->pInfo->pAssocDevice->GPU,
-            this->pSwapchain->hCmdPool,
-            nullptr);
-    }
-    this->pInfo->pAssocDevice->UsageMutex.unlock();
+    std::this_thread::sleep_for(std::chrono::microseconds(1000000/this->pInfo->pAssocWindow->pInfo->Rate));
 };
