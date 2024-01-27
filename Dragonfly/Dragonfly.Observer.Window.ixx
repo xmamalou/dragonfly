@@ -22,9 +22,6 @@ module;
 #include <array>
 #include <thread>
 #include <vector>
-#include <mutex>
-#include <atomic>
-#include <chrono>
 
 #define WIN32_LEAN_AND_MEAN
 #include <Windows.h>
@@ -42,39 +39,8 @@ namespace Dfl{
 
         export enum class [[nodiscard]] WindowError {
             Success = 0,
-            ThreadCreationError = -0x1001,
-            APIInitError = -0x3101,
-            WindowInitError = -0x3201,
-
-            // warnings
-
-            ThreadNotReadyWarning = 0x1001
-        };
-
-        struct WindowInfo;
-
-        export struct WindowProcessArgs{
-            const WindowInfo* pInfo{ nullptr };
-
-                  long long LastFrameTime{ 0 }; // actual frame time
-                  long long CurrentTime{ 0 }; // time since start of the window loop
-        
-        private:
-                          WindowProcessArgs(const WindowInfo& info);
-
-            friend class
-            WindowFunctor;
-        };
-
-        export class WindowProcess {
-        protected:
-            // called when the window runs, every frame.
-            virtual void          operator() (const WindowProcessArgs& args)   = 0;
-            // called when the window is closing.
-            virtual void          Destroy()                                    = 0; 
-
-            friend class
-                    WindowFunctor;
+            GlfwAPIInitError = -0x3101,
+            GlfwWindowInitError = -0x3201,
         };
 
         export struct WindowInfo {
@@ -88,65 +54,38 @@ namespace Dfl{
             std::array<int, 2>              Position{ {0, 0} }; // Relative to the screen space
             std::basic_string_view<char8_t> WindowTitle{ u8"Dragonfly App" };
 
-            std::vector<WindowProcess*>     pProcesses{ }; // these execute on the window thread, per frame
-
             //Dfl::Graphics::Image& icon;
 
             const HWND                      hWindow{ nullptr }; // instead of creating a new window, set this to render to children windows
         };
 
-        class WindowFunctor
-        {
-            const std::unique_ptr<WindowInfo>        pInfo{ nullptr };
-            const std::unique_ptr<WindowProcessArgs> pArguments{ nullptr };
+        struct WindowHandles {
+                  GLFWwindow* const pGLFWwindow{ nullptr };
+            const HWND              hWin32Window{ nullptr };
 
-                  GLFWwindow*                        pGLFWwindow{ nullptr };
-                  HWND                               hWin32Window{ nullptr };
-
-                  bool                               ShouldClose{ false };
-                  WindowError                        Error{ WindowError::ThreadNotReadyWarning };
-
-                  std::mutex                         AccessProcess;
-        public:
-                                         WindowFunctor(const WindowInfo& info);
-                                         ~WindowFunctor();
-
-                           void          operator() ();
-            
-            friend class
-                           Dfl::Graphics::Renderer;
-            friend class
-                           Window;
-            friend 
-            DFL_API inline void DFL_CALL PushProcess(WindowProcess& process, Window& window) noexcept;
+                                    operator GLFWwindow* () { return this->pGLFWwindow; }
         };
 
         export class Window
         {
-            WindowFunctor Functor;
-            std::thread   Thread{ };
-        public:
-            DFL_API                                          DFL_CALL Window(const WindowInfo& createInfo);
-            DFL_API                                          DFL_CALL ~Window() noexcept;
+                    const  std::unique_ptr<const WindowInfo>          pInfo{ nullptr };
+                    const  WindowHandles                              Handles{ };
 
-                           const WindowError                          GetErrorCode() const noexcept { return this->Functor.Error; }
+                           WindowError                                Error{ WindowError::Success };
+
+            DFL_API inline void                              DFL_CALL PollEvents();
+        public:
+            DFL_API                                          DFL_CALL Window(const WindowInfo& info);
+            DFL_API                                          DFL_CALL ~Window();
+
+                           const WindowError                          GetErrorCode() const noexcept { return this->Error; }
                            
-                           const WindowInfo                           GetCurrentInfo() const noexcept { return *this->Functor.pInfo; }
-                           const HWND                                 GetHandle() const noexcept { return this->Functor.hWin32Window; }
-                           const bool                                 GetCloseStatus() const noexcept { return this->Functor.ShouldClose; }
+                           const WindowInfo                           GetCurrentInfo() const noexcept { return *this->pInfo; }
+                           const HWND                                 GetHandle() const noexcept { return this->Handles.hWin32Window; }
+            DFL_API inline const bool                        DFL_CALL GetCloseStatus() const noexcept;
             
             friend class
                                  Dfl::Graphics::Renderer;
-            friend 
-            DFL_API inline       void                        DFL_CALL PushProcess(WindowProcess& process, Window& window) noexcept;
         };
-
-        export DFL_API inline void DFL_CALL PushProcess(WindowProcess& process, Window& window) noexcept;
     }
 }
-
-inline void Dfl::Observer::PushProcess(WindowProcess& process, Window& window) noexcept {
-    window.Functor.AccessProcess.lock();
-    window.Functor.pInfo->pProcesses.push_back(&process);
-    window.Functor.AccessProcess.unlock();
-};

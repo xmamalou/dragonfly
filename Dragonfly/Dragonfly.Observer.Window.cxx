@@ -31,90 +31,45 @@ module Dragonfly.Observer.Window;
 
 namespace DflOb = Dfl::Observer;
 
-DflOb::WindowProcessArgs::WindowProcessArgs(const WindowInfo& info) 
-    : pInfo(&info) { }
-
-DflOb::WindowFunctor::WindowFunctor(const WindowInfo& info) 
-    : pInfo(new WindowInfo(info)),
-      pArguments(new WindowProcessArgs(info)) { }
-
-DflOb::WindowFunctor::~WindowFunctor( ) { }
-
-void DflOb::WindowFunctor::operator() ( ) {
-    if (!glfwInit()) {
-        this->Error = DflOb::WindowError::APIInitError;
-        return;
-    }
-
-    glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-    glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
-
-    if ( (this->pGLFWwindow = glfwCreateWindow(
-                                this->pInfo->Resolution[0] == 0  ? DflOb::DefaultWidth 
-                                                                 : this->pInfo->Resolution[0],
-                                this->pInfo->Resolution[1] == 0  ? DflOb::DefaultHeight 
-                                                                 : this->pInfo->Resolution[1],
-                                this->pInfo->WindowTitle.empty() ? "Dragonfly App" 
-                                                                 : (const char*)this->pInfo->WindowTitle.data(),
-                                this->pInfo->DoFullscreen        ? glfwGetPrimaryMonitor() 
-                                                                 : nullptr,
-                                nullptr)) == nullptr ){
-        this->Error = DflOb::WindowError::WindowInitError;
-        return;
-    }
-
-    this->Error = DflOb::WindowError::Success;
-    this->hWin32Window = glfwGetWin32Window(const_cast<GLFWwindow*>(this->pGLFWwindow));
-    this->ShouldClose = false;
-
-    this->pArguments->CurrentTime = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now().time_since_epoch()).count();
-    auto currentFrameTimeInit{ std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now().time_since_epoch()) };
-    auto currentFrameTimePoint{ std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now().time_since_epoch()) };
-    while ( !glfwWindowShouldClose(const_cast<GLFWwindow*>(this->pGLFWwindow)) ){
-        this->pArguments->CurrentTime = (currentFrameTimePoint - currentFrameTimeInit).count();
-
-        glfwPollEvents();
-
-        this->AccessProcess.lock();
-        for(auto process : this->pInfo->pProcesses)
-            (*process)( *(this->pArguments) );
-        this->AccessProcess.unlock();
-
-        currentFrameTimePoint = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now().time_since_epoch());
-        this->pArguments->LastFrameTime = (currentFrameTimePoint - currentFrameTimeInit).count() - this->pArguments->CurrentTime;
-
-        if( this->pInfo->DoVsync ){
-            std::this_thread::sleep_for(std::chrono::microseconds(1000000/this->pInfo->Rate -this->pArguments->LastFrameTime));
-
-            currentFrameTimePoint = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now().time_since_epoch());
-            this->pArguments->LastFrameTime = (currentFrameTimePoint - currentFrameTimeInit).count() - this->pArguments->CurrentTime;
-        }
-    }
-
-    this->AccessProcess.lock();
-    for (auto& process : this->pInfo->pProcesses)
-        process->Destroy();
-    this->AccessProcess.unlock();
-    this->ShouldClose = true;
-
-    glfwDestroyWindow(const_cast<GLFWwindow*>(this->pGLFWwindow));
-    glfwTerminate();
-
-    return;
-}
+// this is required to not terminate GLFW whilst multiple windows are 
+// in use and may not go out of scope simultaneously
+uint32_t INT_GLB_GlfwAPIInits{ 0 }; 
 
 // Window stuff
 
-DflOb::Window::Window(const WindowInfo& createInfo)
-try : Functor(createInfo),
-      Thread(std::ref(this->Functor)) {
-    while (this->Functor.Error == DflOb::WindowError::ThreadNotReadyWarning) {
-        std::this_thread::sleep_for(std::chrono::milliseconds(10));
-    };     
+inline void DflOb::Window::PollEvents() {
+    glfwPollEvents();
 }
-catch (...) { this->Functor.Error = WindowError::ThreadCreationError; }
 
-DflOb::Window::~Window() noexcept{
-    this->Functor.ShouldClose = true;
-    this->Thread.join();
+DflOb::WindowHandles INT_GetHandles(const DflOb::WindowInfo info) {
+    if ( !glfwInit() ) {
+        throw DflOb::WindowError::GlfwAPIInitError;
+    };
+
+    INT_GLB_GlfwAPIInits++;
+    glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
+    GLFWwindow* const window{ glfwCreateWindow(
+                                    info.Resolution[0],
+                                    info.Resolution[1],
+                                    (const char*)info.WindowTitle.data(),
+                                    (info.DoFullscreen) ? glfwGetPrimaryMonitor() : nullptr,
+                                    nullptr) };
+
+    return { window, glfwGetWin32Window(window) };
+}
+
+DflOb::Window::Window(const WindowInfo& info)
+try : pInfo( new WindowInfo(info) ),
+      Handles( INT_GetHandles(info) ) {  
+}
+catch (WindowError e) { this->Error = e; }
+
+DflOb::Window::~Window() {
+    glfwDestroyWindow(this->Handles.pGLFWwindow);
+    INT_GLB_GlfwAPIInits--;
+    if( INT_GLB_GlfwAPIInits == 0 ) { glfwTerminate(); }
+}
+
+inline const bool DflOb::Window::GetCloseStatus() const noexcept {
+    return glfwWindowShouldClose(this->Handles.pGLFWwindow);
 }
