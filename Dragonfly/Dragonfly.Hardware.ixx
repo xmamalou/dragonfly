@@ -17,7 +17,6 @@ module;
 
 export module Dragonfly.Hardware;
 
-export import Dragonfly.Hardware.Memory;
 export import Dragonfly.Hardware.Session;
 export import Dragonfly.Hardware.Device;
 
