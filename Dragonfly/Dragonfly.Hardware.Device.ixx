@@ -33,9 +33,12 @@ import Dragonfly.Observer.Window;
 
 namespace DflOb  = Dfl::Observer;
 
+namespace Dfl { namespace Hardware { class Device; } }
 namespace Dfl { namespace Graphics { class Renderer; } }
 
 namespace Dfl {
+    namespace Memory { class Block; class Buffer; }
+
     namespace Hardware {
         export enum class RenderOptions : unsigned int{
             Raytracing = 1,
@@ -91,40 +94,40 @@ namespace Dfl {
         };
 
         export struct Queue {
-            VkQueue  hQueue{ nullptr };
-            uint32_t FamilyIndex{ 0 };
+            const VkQueue  hQueue{ nullptr };
+            const uint32_t FamilyIndex{ 0 };
         };
 
         export struct DeviceCharacteristics {
-            std::string                                   Name{ "Placeholder GPU Name" };
+            const std::string                                   Name{ "Placeholder GPU Name" };
 
-            std::vector<DeviceMemory<MemoryType::Local>>  LocalHeaps{ };
-            std::vector<DeviceMemory<MemoryType::Shared>> SharedHeaps{ };
+            const std::vector<DeviceMemory<MemoryType::Local>>  LocalHeaps{ };
+            const std::vector<DeviceMemory<MemoryType::Shared>> SharedHeaps{ };
 
-            std::array<uint32_t, 2>                       MaxViewport{ {0, 0} };
-            std::array<uint32_t, 2>                       MaxSampleCount{ {0, 0} }; // {colour, depth}
+            const std::array<uint32_t, 2>                       MaxViewport{ {0, 0} };
+            const std::array<uint32_t, 2>                       MaxSampleCount{ {0, 0} }; // {colour, depth}
 
-            std::array<uint32_t, 3>                       MaxGroups{ {0, 0, 0} }; // max amount of groups the device supports
-            uint64_t                                      MaxAllocations{ 0 };
+            const std::array<uint32_t, 3>                       MaxGroups{ {0, 0, 0} }; // max amount of groups the device supports
+            const uint64_t                                      MaxAllocations{ 0 };
 
-            uint64_t                                      MaxDrawIndirectCount{ 0 };
+            const uint64_t                                      MaxDrawIndirectCount{ 0 };
         };
 
         struct DeviceTracker {
-            uint64_t          Allocations{ 0 };
-            uint64_t          IndirectDraws{ 0 };
+            uint64_t                    Allocations{ 0 };
+            uint64_t                    IndirectDraws{ 0 };
 
-            std::vector<bool> AreFamiliesUsed{ };
+            std::vector<uint32_t>       LeastClaimedQueue{ };
+            std::vector<uint32_t>       AreFamiliesUsed{ };
         };
 
         struct DeviceHandles {
-            VkDevice                    hDevice{ nullptr };
-            std::vector<QueueFamily>    Families{ };
-            std::unique_ptr<uint32_t[]> pLeastClaimedQueue{ nullptr };
-            bool                        WithTimelineSems{ false };
-            bool                        WithRTX{ false };
+            const VkDevice                    hDevice{ nullptr };
+            const std::vector<QueueFamily>    Families{ };
+            const bool                        WithTimelineSems{ false };
+            const bool                        WithRTX{ false };
 
-                                        operator VkDevice() const { return this->hDevice; }
+                                              operator VkDevice() const { return this->hDevice; }
         };
 
         export class Device {
@@ -136,7 +139,7 @@ namespace Dfl {
 
                   DeviceError                                   Error{ DeviceError::Success };
 
-                  std::mutex                                    UsageMutex;
+                  std::unique_ptr<std::mutex>                   pUsageMutex;
         public:
             DFL_API                             DFL_CALL  Device(const DeviceInfo& info);
             DFL_API                             DFL_CALL  ~Device();
@@ -148,9 +151,9 @@ namespace Dfl {
             friend class
                           Dfl::Graphics::Renderer;
             friend class
-                          Memory;
+                          Dfl::Memory::Block;
             friend class 
-                          Buffer;
+                          Dfl::Memory::Buffer;
         };
     }
 }

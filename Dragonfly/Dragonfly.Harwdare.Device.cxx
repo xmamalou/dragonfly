@@ -138,9 +138,9 @@ static DflHW::DeviceCharacteristics INT_OrganizeData(const VkPhysicalDevice& dev
 
 static inline std::vector<DflHW::QueueFamily> INT_OrganizeQueues(
     const VkPhysicalDevice&                device) {
-    std::vector<DflHW::QueueFamily> queueFamilies;
+    std::vector<DflHW::QueueFamily>      queueFamilies;
     std::vector<VkQueueFamilyProperties> props;
-    uint32_t queueFamilyCount{ 0 };
+    uint32_t                             queueFamilyCount{ 0 };
     vkGetPhysicalDeviceQueueFamilyProperties(
         device,
         &queueFamilyCount,
@@ -356,8 +356,7 @@ static DflHW::DeviceHandles INT_InitDevice(
 
     delete[] priorities;
 
-    return { gpu, queueFamilies, std::make_unique<uint32_t[]>(queueFamilies.size()), 
-                doTimelineSemsExist, doesRTXExist };
+    return { gpu, queueFamilies, doTimelineSemsExist, doesRTXExist };
 };
 
 //
@@ -379,18 +378,20 @@ try : pInfo( new DeviceInfo(info) ),
                     : nullptr,
                 info.RenderOptions,
                 info.RenderersNumber,
-                info.SimulationsNumber) ) {
-    this->pTracker->AreFamiliesUsed.resize(this->GPU.Families.size());}
+                info.SimulationsNumber) ),
+      pUsageMutex( new std::mutex() ) {
+    this->pTracker->LeastClaimedQueue.resize(this->GPU.Families.size());
+    this->pTracker->AreFamiliesUsed.resize(this->GPU.Families.size()); }
 catch (DeviceError e) { this->Error = e; }
 
 
 DflHW::Device::~Device(){
-    this->UsageMutex.lock();
+    this->pUsageMutex->lock();
     if ( this->GPU.hDevice != nullptr ){
         vkDeviceWaitIdle(this->GPU.hDevice);
         vkDestroyDevice(this->GPU.hDevice, nullptr);
     }
-    this->UsageMutex.unlock();
+    this->pUsageMutex->unlock();
 };
 
 // internal for InitDevice
