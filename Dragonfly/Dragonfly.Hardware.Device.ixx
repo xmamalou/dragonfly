@@ -32,6 +32,7 @@ import Dragonfly.Hardware.Session;
 import Dragonfly.Observer.Window;
 
 namespace DflOb  = Dfl::Observer;
+namespace DflGen = Dfl::Generics;
 
 namespace Dfl { namespace Hardware { class Device; } }
 namespace Dfl { namespace Graphics { class Renderer; } }
@@ -49,7 +50,7 @@ namespace Dfl {
             const uint32_t                    DeviceIndex{ 0 }; // the index of the device in the session's device list
 
             const uint32_t                    RenderersNumber{ 1 };
-            const Dfl::BitFlag                RenderOptions{ 0 };
+            const DflGen::BitFlag             RenderOptions{ 0 };
             const uint32_t                    SimulationsNumber{ 1 };
         };
 
@@ -88,9 +89,9 @@ namespace Dfl {
         };
 
         export struct QueueFamily {
-            uint32_t     Index{ 0 };
-            uint32_t     QueueCount{ 0 };
-            Dfl::BitFlag QueueType{ 0 };
+            uint32_t        Index{ 0 };
+            uint32_t        QueueCount{ 0 };
+            DflGen::BitFlag QueueType{ 0 };
         };
 
         export struct Queue {

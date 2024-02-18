@@ -26,6 +26,8 @@ export module Dragonfly.Memory.Buffer;
 import Dragonfly.Generics;
 import Dragonfly.Memory.Block;
 
+namespace DflGen = Dfl::Generics;
+
 namespace Dfl {
     namespace Memory {
         export enum class [[ nodiscard ]] BufferError {
@@ -46,7 +48,7 @@ namespace Dfl {
             const Block*                              pMemoryBlock{ nullptr };
             const uint64_t                            Size{ 0 };
 
-            const Dfl::BitFlag                        Options{ 0 };
+            const DflGen::BitFlag                     Options{ 0 };
         };
 
         struct BufferHandles {

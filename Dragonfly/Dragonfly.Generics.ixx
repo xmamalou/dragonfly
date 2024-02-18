@@ -23,38 +23,40 @@ export module Dragonfly.Generics;
 export import :MetaFunctions;
 
 namespace Dfl {
-    class BitFlag;
+    namespace Generics {
+        class BitFlag;
 
-    export template< typename I >
-    concept Bitable = std::is_enum_v< I > || std::is_integral_v< I > || SameType< BitFlag, I >;
+        export template< typename I >
+        concept Bitable = std::is_enum_v< I > || std::is_integral_v< I > || SameType< BitFlag, I >;
 
-    export class BitFlag {
-        unsigned int flag{ 0 };
-    public:
-                            BitFlag ( ) {}
-        template< Bitable N >
-                            BitFlag ( N num ) { this->flag = static_cast<unsigned int>(num); }
+        export class BitFlag {
+            unsigned int flag{ 0 };
+        public:
+                                BitFlag ( ) {}
+            template< Bitable N >
+                                BitFlag ( N num ) { this->flag = static_cast<unsigned int>(num); }
 
-        // assignment
+            // assignment
 
-        template< Bitable N >
-              BitFlag&      operator= ( const N num ) { this->flag = static_cast<unsigned int>(num); return *this; }
-        template< Bitable N >
-              BitFlag&      operator|= ( const N num ) { this->flag |= static_cast<unsigned int>(num); return *this; }
-        template< Bitable N >
-              BitFlag&      operator&= ( const N num ) { this->flag &= static_cast<unsigned int>(num); return *this; }
+            template< Bitable N >
+                  BitFlag&      operator= ( const N num ) { this->flag = static_cast<unsigned int>(num); return *this; }
+            template< Bitable N >
+                  BitFlag&      operator|= ( const N num ) { this->flag |= static_cast<unsigned int>(num); return *this; }
+            template< Bitable N >
+                  BitFlag&      operator&= ( const N num ) { this->flag &= static_cast<unsigned int>(num); return *this; }
 
-        // bitwise
+            // bitwise
 
-        template< Bitable N >
-              BitFlag       operator| ( const N num ) const { return BitFlag(this->flag | static_cast<unsigned int>(num)); }
-        template< Bitable N >
-              BitFlag       operator& ( const N num ) const { return BitFlag(this->flag & static_cast<unsigned int>(num)); }
+            template< Bitable N >
+                  BitFlag       operator| ( const N num ) const { return BitFlag(this->flag | static_cast<unsigned int>(num)); }
+            template< Bitable N >
+                  BitFlag       operator& ( const N num ) const { return BitFlag(this->flag & static_cast<unsigned int>(num)); }
 
-        // conversions
+            // conversions
 
-                            operator       unsigned int () { return this->flag; }
+                                operator       unsigned int () { return this->flag; }
 
-         const unsigned int GetValue() const { return this->flag; }
-    };
+             const unsigned int GetValue() const { return this->flag; }
+        };
+    }
 }

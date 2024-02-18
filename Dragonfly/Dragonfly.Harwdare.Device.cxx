@@ -27,8 +27,9 @@ module Dragonfly.Hardware.Device;
 
 import Dragonfly.Observer;
 
-namespace DflOb = Dfl::Observer;
-namespace DflHW = Dfl::Hardware;
+namespace DflOb  = Dfl::Observer;
+namespace DflHW  = Dfl::Hardware;
+namespace DflGen = Dfl::Generics;
 
 // Internal for Device constructor
 
@@ -253,7 +254,7 @@ static const std::array< const char*, 5 > extensionsWithRT{
 static DflHW::DeviceHandles INT_InitDevice(
     const VkInstance&                      instance,
     const VkPhysicalDevice&                physDevice,
-    const Dfl::BitFlag&                    renderOptions,
+    const DflGen::BitFlag&                 renderOptions,
     const uint32_t                         rendererNum,
     const uint32_t                         simNum){
     if (instance == nullptr)
