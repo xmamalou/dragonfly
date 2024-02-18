@@ -115,7 +115,7 @@
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpplatest</LanguageStandard>
       <AdditionalIncludeDirectories>%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <AdditionalModuleDependencies>$(SolutionDir)Dragonfly\x64\Debug\Dragonfly.ixx.ifc;$(SolutionDir)Dragonfly\x64\Debug\Dragonfly.Observer.ixx.ifc;$(SolutionDir)Dragonfly\x64\Debug\Dragonfly.Observer.Window.ixx.ifc;$(SolutionDir)Dragonfly\x64\Debug\Dragonfly.Hardware.ixx.ifc;$(SolutionDir)Dragonfly\x64\Debug\Dragonfly.Hardware.Session.ixx.ifc;$(SolutionDir)Dragonfly\x64\Debug\Dragonfly.Hardware.Device.ixx.ifc;$(SolutionDir)Dragonfly\x64\Debug\Dragonfly.Hardware.Memory.ixx.ifc;$(SolutionDir)Dragonfly\x64\Debug\Dragonfly.Graphics.ixx.ifc;$(SolutionDir)Dragonfly\x64\Debug\Dragonfly.Graphics.Renderer.ixx.ifc;$(SolutionDir)Dragonfly\x64\Debug\Dragonfly.Generics.ixx.ifc;$(SolutionDir)Dragonfly\x64\Debug\Dragonfly.Generics-MetaFunctions.ixx.ifc;%(AdditionalModuleDependencies)</AdditionalModuleDependencies>
+      <AdditionalModuleDependencies>$(SolutionDir)Dragonfly\x64\Debug\Dragonfly.ixx.ifc;$(SolutionDir)Dragonfly\x64\Debug\Dragonfly.Observer.ixx.ifc;$(SolutionDir)Dragonfly\x64\Debug\Dragonfly.Observer.Window.ixx.ifc;$(SolutionDir)Dragonfly\x64\Debug\Dragonfly.Hardware.ixx.ifc;$(SolutionDir)Dragonfly\x64\Debug\Dragonfly.Hardware.Session.ixx.ifc;$(SolutionDir)Dragonfly\x64\Debug\Dragonfly.Hardware.Device.ixx.ifc;$(SolutionDir)Dragonfly\x64\Debug\Dragonfly.Memory.ixx.ifc;$(SolutionDir)Dragonfly\x64\Debug\Dragonfly.Memory.Block.ixx.ifc;$(SolutionDir)Dragonfly\x64\Debug\Dragonfly.Memory.Buffer.ixx.ifc;$(SolutionDir)Dragonfly\x64\Debug\Dragonfly.Graphics.ixx.ifc;$(SolutionDir)Dragonfly\x64\Debug\Dragonfly.Graphics.Renderer.ixx.ifc;$(SolutionDir)Dragonfly\x64\Debug\Dragonfly.Generics.ixx.ifc;$(SolutionDir)Dragonfly\x64\Debug\Dragonfly.Generics-MetaFunctions.ixx.ifc;%(AdditionalModuleDependencies)</AdditionalModuleDependencies>
       <ScanSourceForModuleDependencies>true</ScanSourceForModuleDependencies>
     </ClCompile>
     <Link>
@@ -136,8 +136,9 @@
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpplatest</LanguageStandard>
       <AdditionalIncludeDirectories>%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <AdditionalModuleDependencies>$(SolutionDir)Dragonfly\x64\Release\Dragonfly.ixx.ifc;%(AdditionalModuleDependencies)</AdditionalModuleDependencies>
+      <AdditionalModuleDependencies>$(SolutionDir)Dragonfly\x64\Release\Dragonfly.ixx.ifc;$(SolutionDir)Dragonfly\x64\Release\Dragonfly.Observer.ixx.ifc;$(SolutionDir)Dragonfly\x64\Release\Dragonfly.Observer.Window.ixx.ifc;$(SolutionDir)Dragonfly\x64\Release\Dragonfly.Hardware.ixx.ifc;$(SolutionDir)Dragonfly\x64\Release\Dragonfly.Hardware.Session.ixx.ifc;$(SolutionDir)Dragonfly\x64\Release\Dragonfly.Hardware.Device.ixx.ifc;$(SolutionDir)Dragonfly\x64\Release\Dragonfly.Memory.ixx.ifc;$(SolutionDir)Dragonfly\x64\Release\Dragonfly.Memory.Block.ixx.ifc;$(SolutionDir)Dragonfly\x64\Release\Dragonfly.Memory.Buffer.ixx.ifc;$(SolutionDir)Dragonfly\x64\Release\Dragonfly.Graphics.ixx.ifc;$(SolutionDir)Dragonfly\x64\Release\Dragonfly.Graphics.Renderer.ixx.ifc;$(SolutionDir)Dragonfly\x64\Release\Dragonfly.Generics.ixx.ifc;$(SolutionDir)Dragonfly\x64\Release\Dragonfly.Generics-MetaFunctions.ixx.ifc;%(AdditionalModuleDependencies)</AdditionalModuleDependencies>
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
+      <EnableFiberSafeOptimizations>true</EnableFiberSafeOptimizations>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>

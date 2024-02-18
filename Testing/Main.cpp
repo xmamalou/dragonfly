@@ -22,10 +22,11 @@ Rendering::Rendering(Dfl::Hardware::Device* const pDevice) : pDevice(pDevice) {}
 
 void Rendering::operator() () {
     const Dfl::Observer::WindowInfo winInfo{
-       .Resolution{ { 1920, 1080 } },
+       .Resolution{ Dfl::Observer::DefaultResolution },
        .DoFullscreen{ false },
-       .Rate{ 60 },
-       .WindowTitle{ u8"Χαίρε Κόσμε!" },
+       .DoVsync{ true }, 
+       .Rate{ Dfl::Observer::DefaultRate },
+       .WindowTitle{ L"Χαίρε Κόσμε!" },
     };
     Dfl::Observer::Window window(winInfo);
     if (window.GetErrorCode() < Dfl::Observer::WindowError::Success) {
@@ -40,8 +41,8 @@ void Rendering::operator() () {
     if (renderer.GetErrorCode() < Dfl::Graphics::RendererError::Success)
         throw 1;
 
-    while (( this->Close = window.GetCloseStatus()) == false) {
-        renderer();
+    while ( ( this->Close = window.GetCloseStatus() ) == false) {
+        renderer.Cycle();
     }
 }
 
