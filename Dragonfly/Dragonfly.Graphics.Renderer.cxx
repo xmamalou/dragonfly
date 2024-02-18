@@ -25,7 +25,6 @@ module;
 #define VK_USE_PLATFORM_WIN32_KHR
 #include <vulkan/vulkan.h>
 
-#include <GLFW/glfw3.h>
 
 module Dragonfly.Graphics.Renderer;
 
@@ -75,6 +74,7 @@ static inline VkExtent2D INT_MakeExtent(const std::array<uint32_t, 2>& resolutio
 
 static inline DflGr::RendererError INT_CreateSwapchain(
     const VkDevice&                        device,
+    const bool&                            doVsync,
     const VkSurfaceKHR&                    surface,
     const std::array< uint32_t, 2 >&       targetRes,
     const VkSurfaceCapabilitiesKHR&        capabs,
@@ -101,7 +101,7 @@ static inline DflGr::RendererError INT_CreateSwapchain(
         .pQueueFamilyIndices{ nullptr },
         .preTransform{ capabs.currentTransform },
         .compositeAlpha{ VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR },
-        .presentMode{ INT_DoesSupportMailbox(modes) ?
+        .presentMode{ INT_DoesSupportMailbox(modes) && doVsync ?
                         VK_PRESENT_MODE_MAILBOX_KHR 
                       : VK_PRESENT_MODE_FIFO_KHR },
         .clipped{ VK_TRUE },
@@ -144,6 +144,7 @@ static inline void INT_LoopNode(
 
 static inline void* INT_InitNode(
                   const VkDevice&             device,
+                  const bool&                 doVsync,
                         DflGr::Swapchain&     swapchain,
                         DflGr::RendererError& error) {
     const VkCommandPoolCreateInfo cmdPoolInfo = {
@@ -166,6 +167,7 @@ static inline void* INT_InitNode(
     VkSwapchainKHR newSwapchain{ nullptr };
     if ((error = INT_CreateSwapchain(
                     device,
+                    doVsync,
                     swapchain.hSurface,
                     swapchain.TargetRes,
                     swapchain.Capabilities,
@@ -316,7 +318,7 @@ static DflGr::Swapchain INT_GetRenderResources(
 
     return {
     nullptr, {},
-    surface, resolution, capabs, formats, modes,
+    surface, resolution, capabs, formats, modes, INT_DoesSupportMailbox(modes),
     nullptr, INT_GetQueue(
                 hDevice,
                 families,
@@ -368,12 +370,12 @@ DflGr::Renderer::~Renderer() {
     pDevice->pUsageMutex->unlock();
 }
 
-void DflGr::Renderer::operator() () {
-    this->pInfo->pAssocWindow->PollEvents();
+void DflGr::Renderer::Cycle() {
     switch (this->State) {
     case RenderState::Initialize:
         INT_InitNode(
             this->pInfo->pAssocDevice->GPU,
+            this->pInfo->pAssocWindow->pInfo->DoVsync,
             *this->pSwapchain,
             this->Error);
         this->State = ( this->Error < RendererError::Success ) ? RenderState::Fail : RenderState::Loop;
@@ -382,8 +384,9 @@ void DflGr::Renderer::operator() () {
         printf("");
         break;
     case RenderState::Fail:
-        printf("FAILURE");
+        printf("FAILURE\n");
         break;
     }
-    std::this_thread::sleep_for(std::chrono::microseconds(1000000/this->pInfo->pAssocWindow->pInfo->Rate));
+    if (!this->pInfo->pAssocWindow->pInfo->DoVsync || !this->pSwapchain->SupportsMailbox) {
+        std::this_thread::sleep_for(std::chrono::microseconds(1000000/this->pInfo->pAssocWindow->pInfo->Rate)); }
 };

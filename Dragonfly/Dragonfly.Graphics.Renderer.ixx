@@ -66,9 +66,11 @@ namespace Dfl {
             VkSurfaceKHR                    hSurface{ nullptr };
             std::array< uint32_t, 2>        TargetRes{ 0, 0 };
 
-            VkSurfaceCapabilitiesKHR        Capabilities;
+            VkSurfaceCapabilitiesKHR        Capabilities{ 0 };
             std::vector<VkSurfaceFormatKHR> Formats;
             std::vector<VkPresentModeKHR>   PresentModes;
+
+            bool                            SupportsMailbox{ false };
 
             VkCommandPool                   hCmdPool{ nullptr };
             DflHW::Queue                    AssignedQueue{ };
@@ -100,7 +102,7 @@ namespace Dfl {
             DFL_API                     DFL_CALL Renderer(const RendererInfo& info);
             DFL_API                     DFL_CALL ~Renderer();
 
-            DFL_API       void          DFL_CALL operator () ();
+            DFL_API       void          DFL_CALL Cycle();
                     const RendererError          GetErrorCode() const noexcept { return this->Error; }
         };
     }
