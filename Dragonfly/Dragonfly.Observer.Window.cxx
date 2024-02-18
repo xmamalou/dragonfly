@@ -1,4 +1,4 @@
-/*
+﻿/*
    Copyright 2023 Christopher-Marios Mamaloukas
 
    Licensed under the Apache License, Version 2.0 (the "License");
@@ -23,39 +23,69 @@ module;
 
 #define WIN32_LEAN_AND_MEAN
 #include <Windows.h>
-#include <GLFW/glfw3.h>
-#define GLFW_EXPOSE_NATIVE_WIN32
-#include <GLFW/glfw3native.h>
+#include <dwmapi.h>
 
 module Dragonfly.Observer.Window;
 
 namespace DflOb = Dfl::Observer;
 
-// this is required to not terminate GLFW whilst multiple windows are 
-// in use and may not go out of scope simultaneously
-uint32_t INT_GLB_GlfwAPIInits{ 0 }; 
+constexpr BOOL WinVerum = TRUE;
+constexpr BOOL WinFalsum = FALSE;
 
 // Window stuff
 
-inline void DflOb::Window::PollEvents() {
-    glfwPollEvents();
+LRESULT CALLBACK INT_WindowProc(
+                    HWND   hWindow,
+                    UINT   message,
+                    WPARAM wParams,
+                    LPARAM lParams) {
+    switch (message) {
+    case WM_CLOSE:
+        ShowWindow(
+                hWindow,
+                SW_HIDE);
+        break;
+    default: 
+        return DefWindowProc(hWindow, message, wParams, lParams);
+    }
+
+    return false;
 }
 
 DflOb::WindowHandles INT_GetHandles(const DflOb::WindowInfo info) {
-    if ( !glfwInit() ) {
-        throw DflOb::WindowError::GlfwAPIInitError;
+    const WNDCLASSW windowClass{
+        .lpfnWndProc{ INT_WindowProc },
+        .hInstance{ GetModuleHandle( L"Dragonfly" ) },
+        .lpszClassName{ L"DragonflyApp" }
     };
+    RegisterClassW(&windowClass);
+    const HWND window{ CreateWindowExW(
+                            0,
+                            windowClass.lpszClassName,
+                            info.WindowTitle.data(),
+                            WS_OVERLAPPEDWINDOW ^ ( WS_MAXIMIZEBOX | WS_THICKFRAME ),
+                            info.Position[0], info.Position[1],
+                            info.Resolution[0], info.Resolution[1],
+                            nullptr,
+                            nullptr,
+                            GetModuleHandle(L"Dragonfly"),
+                            nullptr) };
 
-    INT_GLB_GlfwAPIInits++;
-    glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-    GLFWwindow* const window{ glfwCreateWindow(
-                                    info.Resolution[0],
-                                    info.Resolution[1],
-                                    (const char*)info.WindowTitle.data(),
-                                    (info.DoFullscreen) ? glfwGetPrimaryMonitor() : nullptr,
-                                    nullptr) };
+    if (window == nullptr) {
+        throw DflOb::WindowError::Win32WindowInitError;
+    }
 
-    return { window, glfwGetWin32Window(window) };
+    DwmSetWindowAttribute(
+        window,
+        DWMWA_USE_IMMERSIVE_DARK_MODE,
+        &WinVerum,
+        sizeof(BOOL));
+
+    ShowWindow(
+        window,
+        SW_NORMAL);
+
+    return { window };
 }
 
 DflOb::Window::Window(const WindowInfo& info)
@@ -65,11 +95,20 @@ try : pInfo( new WindowInfo(info) ),
 catch (WindowError e) { this->Error = e; }
 
 DflOb::Window::~Window() {
-    glfwDestroyWindow(this->Handles.pGLFWwindow);
-    INT_GLB_GlfwAPIInits--;
-    if( INT_GLB_GlfwAPIInits == 0 ) { glfwTerminate(); }
+    DestroyWindow(this->Handles.hWin32Window);
 }
 
 inline const bool DflOb::Window::GetCloseStatus() const noexcept {
-    return glfwWindowShouldClose(this->Handles.pGLFWwindow);
+    BOOL result{ 0 };
+    MSG  windowMessage{ };
+    if ( (result = GetMessageW(
+                        &windowMessage,
+                        this->Handles.hWin32Window,
+                        0x0, 0x0)) == -1 ) {
+        return true;
+    }
+
+    DispatchMessageW(&windowMessage);
+
+    if ( IsWindowVisible(this->Handles.hWin32Window) == FALSE ) { return true; } else { return false; }
 }

@@ -25,7 +25,6 @@ module;
 
 #define WIN32_LEAN_AND_MEAN
 #include <Windows.h>
-#include <GLFW/glfw3.h>
 
 export module Dragonfly.Observer.Window;
 
@@ -37,10 +36,11 @@ namespace Dfl{
         export DFL_API constexpr uint32_t   DefaultHeight{ 1080 };
         export DFL_API const     std::array DefaultResolution{ DefaultWidth, DefaultHeight};
 
+        export DFL_API constexpr uint32_t   DefaultRate{ 60 };
+
         export enum class [[nodiscard]] WindowError {
-            Success = 0,
-            GlfwAPIInitError = -0x3101,
-            GlfwWindowInitError = -0x3201,
+            Success              = 0,
+            Win32WindowInitError = -0x2101,
         };
 
         export struct WindowInfo {
@@ -52,7 +52,7 @@ namespace Dfl{
             uint32_t                        Rate{ 60 };
 
             std::array<int, 2>              Position{ {0, 0} }; // Relative to the screen space
-            std::basic_string_view<char8_t> WindowTitle{ u8"Dragonfly App" };
+            std::basic_string_view<wchar_t> WindowTitle{ L"Dragonfly App" };
 
             //Dfl::Graphics::Image& icon;
 
@@ -60,27 +60,22 @@ namespace Dfl{
         };
 
         struct WindowHandles {
-                  GLFWwindow* const pGLFWwindow{ nullptr };
-            const HWND              hWin32Window{ nullptr };
-
-                                    operator GLFWwindow* () { return this->pGLFWwindow; }
+            const HWND hWin32Window{ nullptr };
         };
 
         export class Window
         {
-                    const  std::unique_ptr<const WindowInfo>          pInfo{ nullptr };
-                    const  WindowHandles                              Handles{ };
+                    const  std::unique_ptr<WindowInfo> pInfo{ nullptr };
+                    const  WindowHandles               Handles{ };
 
-                           WindowError                                Error{ WindowError::Success };
+                           WindowError                 Error{ WindowError::Success };
 
-            DFL_API inline void                              DFL_CALL PollEvents();
         public:
             DFL_API                                          DFL_CALL Window(const WindowInfo& info);
             DFL_API                                          DFL_CALL ~Window();
 
                            const WindowError                          GetErrorCode() const noexcept { return this->Error; }
                            
-                           const WindowInfo                           GetCurrentInfo() const noexcept { return *this->pInfo; }
                            const HWND                                 GetHandle() const noexcept { return this->Handles.hWin32Window; }
             DFL_API inline const bool                        DFL_CALL GetCloseStatus() const noexcept;
             
