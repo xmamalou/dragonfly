@@ -31,3 +31,6 @@ GLFW is *statically* linked.
 
 >[!IMPORTANT]
 > The above dependencies **need** to be included even when not building Dragonfly and just using it, as the import modules actively include them, ***unless*** you include the compiled module files and not the source module files themselves.
+
+>[!NOTE]
+> In some point in the future, I will stop including GLFW as a dependency, as I do not plan to "expand" outside of Windows for this project. Already, the `Window` class has been rewritten to use the Win32 API directly.
