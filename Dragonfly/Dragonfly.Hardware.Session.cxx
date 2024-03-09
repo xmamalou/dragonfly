@@ -224,6 +224,3 @@ DflHW::Session::~Session()
         vkDestroyInstance(this->Instance, nullptr);
     }
 }
-
-
-
