@@ -38,8 +38,9 @@ void Rendering::operator() () {
         .pAssocWindow{ &window },
     };
     Dfl::Graphics::Renderer renderer(renderInfo);
-    if (renderer.GetErrorCode() < Dfl::Graphics::RendererError::Success)
+    if (renderer.GetErrorCode() < Dfl::Graphics::RendererError::Success) {
         throw 1;
+    }
 
     while ( ( this->Close = window.GetCloseStatus() ) == false) {
         renderer.Cycle();
@@ -71,7 +72,7 @@ int main() {
 
     const Dfl::Memory::BlockInfo memoryInfo{
         .pDevice{ &device },
-        .Size{ 1000 }
+        .Size{ Dfl::MakeBinaryPower(10) }
     };
     Dfl::Memory::Block memory(memoryInfo);
     if (memory.GetErrorCode() < Dfl::Memory::BlockError::Success)
