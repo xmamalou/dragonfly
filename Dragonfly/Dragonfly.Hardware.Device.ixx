@@ -76,7 +76,10 @@ namespace Dfl {
         export template < MemoryType type >
         struct DeviceMemory {
             VkDeviceSize Size{ 0 };
+            VkDeviceSize UsedSize{ 0 };
+
             uint32_t     HeapIndex{ 0 };
+
             bool         IsHostVisible{ false };
             bool         IsHostCoherent{ false };
             bool         IsHostCached{ false };
@@ -102,8 +105,8 @@ namespace Dfl {
         export struct DeviceCharacteristics {
             const std::string                                   Name{ "Placeholder GPU Name" };
 
-            const std::vector<DeviceMemory<MemoryType::Local>>  LocalHeaps{ };
-            const std::vector<DeviceMemory<MemoryType::Shared>> SharedHeaps{ };
+                  std::vector<DeviceMemory<MemoryType::Local>>  LocalHeaps{ };
+                  std::vector<DeviceMemory<MemoryType::Shared>> SharedHeaps{ };
 
             const std::array<uint32_t, 2>                       MaxViewport{ {0, 0} };
             const std::array<uint32_t, 2>                       MaxSampleCount{ {0, 0} }; // {colour, depth}
@@ -133,7 +136,7 @@ namespace Dfl {
 
         export class Device {
             const std::unique_ptr<const DeviceInfo>             pInfo{ };
-            const std::unique_ptr<const DeviceCharacteristics>  pCharacteristics{ };
+            const std::unique_ptr<      DeviceCharacteristics>  pCharacteristics{ };
             const std::unique_ptr<      DeviceTracker>          pTracker{ };
             const VkPhysicalDevice                              hPhysicalDevice{ nullptr };
             const DeviceHandles                                 GPU{ };
