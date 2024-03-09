@@ -166,6 +166,7 @@
     <ClCompile Include="Dragonfly.Memory.Buffer.ixx" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="DflWinRT.h" />
     <ClInclude Include="Dragonfly.h" />
   </ItemGroup>
   <ItemGroup>
