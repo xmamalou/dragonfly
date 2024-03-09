@@ -394,6 +394,3 @@ DflHW::Device::~Device(){
     }
     this->pUsageMutex->unlock();
 };
-
-// internal for InitDevice
-
