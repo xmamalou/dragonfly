@@ -18,6 +18,7 @@ module;
 #include "Dragonfly.h"
 
 #include <mutex>
+#include <optional>
 #include <memory>
 
 #include <vulkan/vulkan.h>
@@ -25,8 +26,10 @@ module;
 export module Dragonfly.Memory.Block;
 
 import Dragonfly.Hardware.Device;
+import Dragonfly.Generics;
 
 namespace DflHW = Dfl::Hardware;
+namespace DflGen = Dfl::Generics;
 
 namespace Dfl {
     namespace Memory {
@@ -48,30 +51,41 @@ namespace Dfl {
             const VkDeviceMemory       hMemory{ nullptr };
 
             const VkDeviceMemory       hStageMemory{ nullptr };
+            const VkDeviceSize         StageMemorySize{ 0 };
             const VkBuffer             hStageBuffer{ nullptr };
+
             const bool                 IsStageVisible{ false };
             const void*                StageMemoryMap{ nullptr };
 
             operator VkDeviceMemory () const { return this->hMemory; }
         };
 
-        export constexpr uint64_t StageMemorySize = 1000; // in B
+        // NOTE: The following is only used as a suggestion by the allocator
+        // Actual size of stage memory may vary. There may not even be a stage
+        // memory if there's not enough memory to spare
+        export constexpr uint64_t StageMemorySize{ 1024 }; // in B
 
         export class Block {
             const std::unique_ptr<const BlockInfo>    pInfo{ nullptr };
             const std::unique_ptr<const BlockHandles> pHandles{};
+                  DflGen::BinaryTree<uint32_t>        MemoryLayout;
 
             const DflHW::Queue                        TransferQueue;
                   VkCommandPool                       hCmdPool;
 
-                  std::unique_ptr<std::mutex>         pMutex;
+            const std::unique_ptr<std::mutex>         pMutex;
 
                   BlockError                          Error{ BlockError::Success };
+            
+            DFL_API       std::optional<std::array<uint64_t, 2>> DFL_CALL Alloc(const VkBuffer& buffer);
+            DFL_API       void                                   DFL_CALL Free(
+                                                                            const std::array<uint64_t, 2>& memoryID,
+                                                                            const uint64_t                 size);
         public:
-            DFL_API                   DFL_CALL Block(const BlockInfo& info);
-            DFL_API                   DFL_CALL ~Block();
+            DFL_API                                              DFL_CALL Block(const BlockInfo& info);
+            DFL_API                                              DFL_CALL ~Block();
 
-                    const BlockError           GetErrorCode() const noexcept { return this->Error; }
+                    const BlockError                                      GetErrorCode() const noexcept { return this->Error; }
 
             friend class
                           Buffer;
