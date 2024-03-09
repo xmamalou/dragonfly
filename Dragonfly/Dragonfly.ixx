@@ -32,5 +32,7 @@ namespace Dfl{
     export inline consteval uint32_t MakeVersion(uint32_t major, uint32_t minor, uint32_t patch){ return (major << 16) | (minor << 8) | patch; };
     export        constexpr uint32_t EngineVersion{ MakeVersion(0, 1, 0) };
 
+    export inline consteval uint32_t MakeBinaryPower(uint32_t power) { uint32_t value{ 1 }; while(power > 0) { value *= 2; power--; } return value; }
+
     export        constexpr uint32_t NoOptions{ 0 };
 }
