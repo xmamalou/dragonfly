@@ -21,7 +21,6 @@ module;
 #include <memory>
 #include <array>
 #include <thread>
-#include <vector>
 
 #define WIN32_LEAN_AND_MEAN
 #include <Windows.h>
@@ -39,28 +38,36 @@ namespace Dfl{
         export DFL_API constexpr uint32_t   DefaultRate{ 60 };
 
         export enum class [[nodiscard]] WindowError {
-            Success              = 0,
-            Win32WindowInitError = -0x2101,
+            Success                        = 0,
+            // errors
+            OutOfMemoryError               = -0x1002,
+            Win32WindowInitError           = -0x2101,
+            Win32WindowTitleBarRemoveError = -0x2102,
+            Win32WindowPropertiesError     = -0x2103,
+            Win32HeapAllocationError       = -0x2201
         };
 
         export struct WindowInfo {
-            std::array<uint32_t, 2>         Resolution{ DefaultResolution };
-            std::array<uint32_t, 2>         View{ DefaultResolution }; // currently equivalent to resolution
-            bool                            DoFullscreen{ false };
+                  std::array<uint32_t, 2>         Resolution{ DefaultResolution };
+                  std::array<uint32_t, 2>         View{ DefaultResolution }; // currently equivalent to resolution
+                  bool                            DoFullscreen{ false };
 
-            bool                            DoVsync{ true };
-            uint32_t                        Rate{ 60 };
+                  bool                            DoVsync{ true };
+                  uint32_t                        Rate{ 60 };
 
-            std::array<int, 2>              Position{ {0, 0} }; // Relative to the screen space
-            std::basic_string_view<wchar_t> WindowTitle{ L"Dragonfly App" };
+                  std::array<int, 2>              Position{ {0, 0} }; // Relative to the screen space
+                  std::basic_string_view<wchar_t> WindowTitle{ L"Dragonfly App" };
 
-            //Dfl::Graphics::Image& icon;
+                  bool                            HasTitleBar{ true };
+                  bool                            Extends{ false }; // whether the draw area covers the titlebar as well
 
-            const HWND                      hWindow{ nullptr }; // instead of creating a new window, set this to render to children windows
+            const HWND                            hWindow{ nullptr }; // instead of creating a new window, set this to render to children windows
         };
 
         struct WindowHandles {
-            const HWND hWin32Window{ nullptr };
+            const HWND   hWin32Window{ nullptr };
+            const HANDLE hWin32Props{ nullptr };
+            const void*  pWindowProps{ nullptr };
         };
 
         export class Window
@@ -71,14 +78,15 @@ namespace Dfl{
                            WindowError                 Error{ WindowError::Success };
 
         public:
-            DFL_API                                          DFL_CALL Window(const WindowInfo& info);
-            DFL_API                                          DFL_CALL ~Window();
+            DFL_API                          DFL_CALL Window(const WindowInfo& info);
+            DFL_API                          DFL_CALL ~Window();
 
-                           const WindowError                          GetErrorCode() const noexcept { return this->Error; }
-                           
-                           const HWND                                 GetHandle() const noexcept { return this->Handles.hWin32Window; }
-            DFL_API inline const bool                        DFL_CALL GetCloseStatus() const noexcept;
+                           const WindowError          GetErrorCode() const noexcept { return this->Error; }         
+                           const HWND                 GetHandle() const noexcept { return this->Handles.hWin32Window; }
+            DFL_API inline const bool        DFL_CALL GetCloseStatus() const noexcept;
             
+            DFL_API              void        DFL_CALL SetTitle(const wchar_t* newTitle) const noexcept;
+
             friend class
                                  Dfl::Graphics::Renderer;
         };
