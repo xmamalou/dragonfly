@@ -17,6 +17,9 @@
 module;
 
 #include <type_traits>
+#include <memory>
+#include <optional>
+#include <array>
 
 export module Dragonfly.Generics;
 
@@ -58,5 +61,36 @@ namespace Dfl {
 
              const unsigned int GetValue() const { return this->flag; }
         };
+
+        export template< typename T, uint32_t NodeNumber >
+        class Tree {
+                  T        NodeValue;
+
+                  Tree*    Nodes[NodeNumber];
+                  uint32_t CurrentEmptyNode{ 0 };
+            const uint32_t CurrentDepth{ 0 };
+
+                     Tree(T value, uint32_t depth) : NodeValue(value), CurrentDepth(depth) { }
+        public:
+                     Tree(T value) : NodeValue(value) { }
+                     ~Tree() { for(uint32_t i = 0; i < this->CurrentEmptyNode; i++) { delete this->Nodes[i]; } }
+
+                     operator T () { return this->NodeValue; }
+
+            Tree&    operator[] (const uint32_t node) { if(node < NodeNumber ) { return this->Nodes[node] != nullptr ? *this->Nodes[node] : *this; } else { return *this; } }
+            T&       operator= (const uint32_t value) { this->NodeValue = value; return this->NodeValue; }
+
+            uint32_t GetDepth() const { return this->CurrentDepth; }
+            T        GetValue() const { return this->NodeValue; }
+            bool     HasBranch(uint32_t position) const { return position < NodeNumber ? (position < this->CurrentEmptyNode ? true : false ) : false; }
+
+            void     PushNode(const T& value) { if(this->CurrentEmptyNode < NodeNumber) { this->Nodes[this->CurrentEmptyNode] = new Tree(value, this->CurrentDepth + 1); this->CurrentEmptyNode++; } }
+        };
+
+        export template< typename T >
+        using LinkedList = Tree<T, 1>;
+
+        export template< typename T >
+        using BinaryTree = Tree<T, 2>;
     }
 }
