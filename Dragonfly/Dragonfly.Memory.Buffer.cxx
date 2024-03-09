@@ -18,6 +18,7 @@ module;
 #include "Dragonfly.h"
 
 #include <vector>
+#include <optional>
 
 #include <vulkan/vulkan.h>
 
@@ -191,13 +192,20 @@ static inline DflMem::BufferHandles INT_GetBufferHandles(
 
 DflMem::Buffer::Buffer(const BufferInfo& info)
 try : pInfo( new DflMem::BufferInfo(info) ),
-        Buffers( INT_GetBufferHandles(
-                        info.pMemoryBlock->pInfo->pDevice->GPU,
-                        info.pMemoryBlock->hCmdPool,
-                        info.Size,
-                        info.Options.GetValue(),
-                        info.pMemoryBlock->pInfo->pDevice->pTracker->AreFamiliesUsed,
-                        info.pMemoryBlock->pHandles->hStageBuffer) ) {}
+      Buffers( INT_GetBufferHandles(
+                    info.pMemoryBlock->pInfo->pDevice->GPU,
+                    info.pMemoryBlock->hCmdPool,
+                    info.Size,
+                    info.Options.GetValue(),
+                    info.pMemoryBlock->pInfo->pDevice->pTracker->AreFamiliesUsed,
+                    info.pMemoryBlock->pHandles->hStageBuffer) ) {
+    std::optional<std::array<uint64_t, 2>> id;
+    if ( (id = this->pInfo->pMemoryBlock->Alloc(this->Buffers.hBuffer)).has_value() ) {
+        this->MemoryLayoutID = id.value();
+    } else {
+        this->Error = BufferError::VkMemoryAllocationError;
+    }
+}
 catch (DflMem::BufferError e) { this->Error = e; }
 
 DflMem::Buffer::~Buffer() {
@@ -224,6 +232,8 @@ DflMem::Buffer::~Buffer() {
             this->Buffers.hCPUTransferDone,
             nullptr);
     }
+
+    this->pInfo->pMemoryBlock->Free(this->MemoryLayoutID, this->pInfo->Size);
 
     if (this->Buffers.hBuffer != nullptr) {
         vkDestroyBuffer(
