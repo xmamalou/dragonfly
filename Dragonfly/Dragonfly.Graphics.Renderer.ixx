@@ -60,20 +60,20 @@ namespace Dfl {
         
 
         struct Swapchain {
-            VkSwapchainKHR                  hSwapchain{ nullptr };
-            std::vector<VkImage>            hSwapchainImages{ };
+                  VkSwapchainKHR                  hSwapchain{ nullptr };
+                  std::vector<VkImage>            hSwapchainImages{ };
 
-            VkSurfaceKHR                    hSurface{ nullptr };
-            std::array< uint32_t, 2>        TargetRes{ 0, 0 };
+            const VkSurfaceKHR                    hSurface{ nullptr };
+            const std::array< uint32_t, 2>        TargetRes{ 0, 0 };
 
-            VkSurfaceCapabilitiesKHR        Capabilities{ 0 };
-            std::vector<VkSurfaceFormatKHR> Formats;
-            std::vector<VkPresentModeKHR>   PresentModes;
+            const VkSurfaceCapabilitiesKHR        Capabilities{ 0 };
+            const std::vector<VkSurfaceFormatKHR> Formats;
+            const std::vector<VkPresentModeKHR>   PresentModes;
 
-            bool                            SupportsMailbox{ false };
+            const bool                            SupportsMailbox{ false };
 
-            VkCommandPool                   hCmdPool{ nullptr };
-            DflHW::Queue                    AssignedQueue{ };
+                  VkCommandPool                   hCmdPool{ nullptr };
+            const DflHW::Queue                    AssignedQueue{ };
             // ^ why is this here, even though command pools are per family? The reason is that command pools need to be
             // used only by the thread that created them. Hence, it is not safe to allocate one command pool per family, but rather
             // per thread.
@@ -94,7 +94,7 @@ namespace Dfl {
 
         export class Renderer {
             const std::unique_ptr<const RendererInfo>    pInfo;
-            const std::unique_ptr<Swapchain>             pSwapchain;
+            const std::unique_ptr<      Swapchain>       pSwapchain;
 
                   RenderState                            State{ RenderState::Initialize };
                   RendererError                          Error{ RendererError::Success };
