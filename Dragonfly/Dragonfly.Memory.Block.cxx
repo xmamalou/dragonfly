@@ -18,6 +18,7 @@ module;
 #include <vector>
 #include <array>
 #include <optional>
+#include <mutex>
 
 #include <vulkan/vulkan.h>
 
@@ -26,6 +27,21 @@ module Dragonfly.Memory.Block;
 namespace DflMem = Dfl::Memory;
 namespace DflHW = Dfl::Hardware;
 namespace DflGen = Dfl::Generics;
+
+// GLOBAL STAGE BUFFER STATE
+
+uint64_t       INT_GLB_ReferenceCount{ 0 }; // how many memory blocks there exist
+
+VkDeviceMemory INT_GLB_hStageMemory{ nullptr };
+VkDeviceSize   INT_GLB_StageMemorySize{ 0 };
+VkBuffer       INT_GLB_hStageBuffer{ nullptr };
+
+bool           INT_GLB_IsStageVisible{ false };
+void*          INT_GLB_pStageMemoryMap{ nullptr }; 
+
+std::mutex     INT_GLB_Mutex{ };
+
+// CODE 
 
 std::optional<std::array<uint64_t, 2>> DflMem::Block::Alloc(const VkBuffer& buffer) {
     VkMemoryRequirements requirements;
@@ -193,7 +209,6 @@ static DflMem::BlockHandles INT_GetMemory(
 
     std::optional<uint32_t> mainMemoryIndex{ std::nullopt };
     std::optional<uint32_t> stageMemoryIndex{ std::nullopt };
-    uint64_t                actualStageMemorySize{ 0 };
 
     for (auto& memory : memories) {
         // host invisible memory is best suited as main memory to store data in
@@ -210,9 +225,10 @@ static DflMem::BlockHandles INT_GetMemory(
         // In other words, Dragonfly will prefer host visible memory over any kind of 
         // memory, even if there is more memory to claim from other heaps
         if ( (memory.IsHostVisible || memory.IsHostCached || memory.IsHostCoherent) &&
-              !stageMemoryIndex.has_value() ) {
+              !stageMemoryIndex.has_value() &&
+              INT_GLB_ReferenceCount == 0 ) {
             stageMemoryIndex = memory.HeapIndex;
-            memory.UsedSize += ( actualStageMemorySize = 
+            memory.UsedSize += ( INT_GLB_StageMemorySize =
                                     memory.Size - memory.UsedSize > DflMem::StageMemorySize ? DflMem::StageMemorySize : memory.UsedSize );
         }
 
@@ -232,11 +248,11 @@ static DflMem::BlockHandles INT_GetMemory(
     }
 
     // likewise.
-    if (stageMemoryIndex == std::nullopt) {
+    if (stageMemoryIndex == std::nullopt && INT_GLB_ReferenceCount == 0) {
         for (auto& memory : memories) {
             if (memory.Size - memory.UsedSize > DflMem::StageMemorySize) {
                 stageMemoryIndex = memory.HeapIndex;
-                memory.UsedSize += (actualStageMemorySize =
+                memory.UsedSize += ( INT_GLB_StageMemorySize =
                                         memory.Size - memory.UsedSize > DflMem::StageMemorySize ? DflMem::StageMemorySize : memory.UsedSize);
                 break;
             }
@@ -259,27 +275,30 @@ static DflMem::BlockHandles INT_GetMemory(
         throw DflMem::BlockError::VkMemoryAllocationError;
     }
 
-    VkDeviceMemory stageMemory{ nullptr };
-    // unlike main memory, if we cannot allocate stage memory, we will make due and just skip 
-    // stage memory altogether
-    if( actualStageMemorySize > 0 ) {
-        memInfo.allocationSize = actualStageMemorySize;
-        memInfo.memoryTypeIndex = stageMemoryIndex.value();
-        if ( (error = vkAllocateMemory(
-                            gpu,
-                            &memInfo,
-                            nullptr,
-                            &stageMemory) ) != VK_SUCCESS) {
-            vkFreeMemory(
-                gpu,
-                mainMemory,
-                nullptr
-            );
-            throw DflMem::BlockError::VkMemoryAllocationError;
-        }
-    }
+    totAllocs++;
 
-    totAllocs += actualStageMemorySize > 0 ? 2 : 1;
+    if( INT_GLB_ReferenceCount == 0 ) {
+        // unlike main memory, if we cannot allocate stage memory, we will make due and just skip 
+        // stage memory altogether
+        if( INT_GLB_StageMemorySize > 0 ) {
+            memInfo.allocationSize = INT_GLB_StageMemorySize;
+            memInfo.memoryTypeIndex = stageMemoryIndex.value();
+            if ( (error = vkAllocateMemory(
+                                gpu,
+                                &memInfo,
+                                nullptr,
+                                &INT_GLB_hStageMemory) ) != VK_SUCCESS) {
+                vkFreeMemory(
+                    gpu,
+                    mainMemory,
+                    nullptr
+                );
+                throw DflMem::BlockError::VkMemoryAllocationError;
+            }
+        }
+
+        if( INT_GLB_StageMemorySize > 0 ) { totAllocs++; }
+    }
 
     std::vector<uint32_t> usedFamilies{ };
     for (uint32_t i{ 0 }; i < areFamiliesUsed.size(); i++) {
@@ -288,50 +307,52 @@ static DflMem::BlockHandles INT_GetMemory(
         }
     }
 
-    VkBuffer stageBuff{ nullptr };
-    void*    stageData{ nullptr }; 
-    if (actualStageMemorySize > 0) {
-        const VkBufferCreateInfo bufInfo{
-            .sType{ VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO },
-            .pNext{ nullptr },
-            .flags{ 0 },
-            .size{ actualStageMemorySize },
-            .usage{ VK_BUFFER_USAGE_TRANSFER_SRC_BIT |
-                    VK_BUFFER_USAGE_TRANSFER_DST_BIT },
-            .sharingMode{ VK_SHARING_MODE_EXCLUSIVE }
-        };
+    if(INT_GLB_ReferenceCount == 0) {
+        if (INT_GLB_StageMemorySize > 0) {
+            const VkBufferCreateInfo bufInfo{
+                .sType{ VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO },
+                .pNext{ nullptr },
+                .flags{ 0 },
+                .size{ INT_GLB_StageMemorySize },
+                .usage{ VK_BUFFER_USAGE_TRANSFER_SRC_BIT |
+                        VK_BUFFER_USAGE_TRANSFER_DST_BIT },
+                .sharingMode{ VK_SHARING_MODE_EXCLUSIVE }
+            };
 
-        if ((error = vkCreateBuffer(
-            gpu,
-            &bufInfo,
-            nullptr,
-            &stageBuff)) != VK_SUCCESS) {
-            throw DflMem::BlockError::VkMemoryStageBuffError;
-        }
-        if ((error = vkBindBufferMemory(
-            gpu,
-            stageBuff,
-            stageMemory,
-            0)) != VK_SUCCESS) {
-            throw DflMem::BlockError::VkMemoryStageBuffError;
-        }
-        
-        if (memories[stageMemoryIndex.value()].IsHostVisible) {
-            if ((error = vkMapMemory(
+            if ((error = vkCreateBuffer(
                 gpu,
-                stageMemory,
-                0,
-                DflMem::StageMemorySize,
-                0,
-                &stageData)) != VK_SUCCESS) {
-                throw DflMem::BlockError::VkMemoryMapError;
+                &bufInfo,
+                nullptr,
+                &INT_GLB_hStageBuffer)) != VK_SUCCESS) {
+                throw DflMem::BlockError::VkMemoryStageBuffError;
+            }
+            if ((error = vkBindBufferMemory(
+                gpu,
+                INT_GLB_hStageBuffer,
+                INT_GLB_hStageMemory,
+                0)) != VK_SUCCESS) {
+                throw DflMem::BlockError::VkMemoryStageBuffError;
+            }
+        
+            if ( INT_GLB_IsStageVisible = memories[stageMemoryIndex.value()].IsHostVisible ) {
+                if ((error = vkMapMemory(
+                    gpu,
+                    INT_GLB_hStageMemory,
+                    0,
+                    DflMem::StageMemorySize,
+                    0,
+                    &INT_GLB_pStageMemoryMap)) != VK_SUCCESS) {
+                    throw DflMem::BlockError::VkMemoryMapError;
+                }
             }
         }
     }
 
+    INT_GLB_ReferenceCount++;
+
     return { mainMemory,
-             stageMemory, actualStageMemorySize, stageBuff, 
-             memories[stageMemoryIndex.value()].IsHostVisible, stageData };
+             INT_GLB_hStageMemory, INT_GLB_StageMemorySize, INT_GLB_hStageBuffer, 
+             INT_GLB_IsStageVisible, INT_GLB_pStageMemoryMap };
 };
 
 static inline DflGen::BinaryTree<uint32_t> INT_GetMemoryLayout(const uint32_t initialSize) {
@@ -378,20 +399,24 @@ try : pInfo( new DflMem::BlockInfo(info) ),
             );
         }
 
-        if (this->pHandles->hStageBuffer != nullptr) {
-            vkDestroyBuffer(
-                this->pInfo->pDevice->GPU,
-                this->pHandles->hStageBuffer,
-                nullptr
-            );
-        }
+        INT_GLB_ReferenceCount--;
+        
+        if(INT_GLB_ReferenceCount == 0) {
+            if (INT_GLB_hStageBuffer != nullptr) {
+                vkDestroyBuffer(
+                    this->pInfo->pDevice->GPU,
+                    INT_GLB_hStageBuffer,
+                    nullptr
+                );
+            }
 
-        if (this->pHandles->hStageMemory != nullptr) {
-            vkFreeMemory(
-                this->pInfo->pDevice->GPU,
-                this->pHandles->hStageMemory,
-                nullptr
-            );
+            if (INT_GLB_hStageMemory != nullptr) {
+                vkFreeMemory(
+                    this->pInfo->pDevice->GPU,
+                    INT_GLB_hStageMemory,
+                    nullptr
+                );
+            }
         }
         this->pInfo->pDevice->pUsageMutex->unlock();
         this->Error = DflMem::BlockError::VkMemoryCmdPoolError;
@@ -419,20 +444,24 @@ DflMem::Block::~Block() {
         );
     }
 
-    if (this->pHandles->hStageBuffer != nullptr) {
-        vkDestroyBuffer(
-            this->pInfo->pDevice->GPU,
-            this->pHandles->hStageBuffer,
-            nullptr
-        );
-    }
+    INT_GLB_ReferenceCount--;
 
-    if (this->pHandles->hStageMemory != nullptr) {
-        vkFreeMemory(
-            this->pInfo->pDevice->GPU,
-            this->pHandles->hStageMemory,
-            nullptr
-        );
+    if (INT_GLB_ReferenceCount == 0) {
+        if (INT_GLB_hStageBuffer != nullptr) {
+            vkDestroyBuffer(
+                this->pInfo->pDevice->GPU,
+                INT_GLB_hStageBuffer,
+                nullptr
+            );
+        }
+
+        if (INT_GLB_hStageMemory != nullptr) {
+            vkFreeMemory(
+                this->pInfo->pDevice->GPU,
+                INT_GLB_hStageMemory,
+                nullptr
+            );
+        }
     }
     this->pInfo->pDevice->pUsageMutex->unlock();
     this->pMutex->unlock();
