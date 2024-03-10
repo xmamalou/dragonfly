@@ -48,12 +48,18 @@ static inline void INT_OrganizeMemory(
             memory[heapCount].Size = props.memoryHeaps[i].size;
             memory[heapCount].HeapIndex = props.memoryTypes[i].heapIndex;
 
-            memory[heapCount].IsHostVisible = 
-                props.memoryTypes[i].propertyFlags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT ? true : false;
-            memory[heapCount].IsHostCoherent =
-                props.memoryTypes[i].propertyFlags & VK_MEMORY_PROPERTY_HOST_COHERENT_BIT ? true : false;
-            memory[heapCount].IsHostCached = 
-                props.memoryTypes[i].propertyFlags & VK_MEMORY_PROPERTY_HOST_CACHED_BIT ? true : false;
+            for (uint32_t j{ 0 }; j < VK_MAX_MEMORY_TYPES; j++) {
+                if (props.memoryTypes[j].heapIndex != i) {
+                    continue;
+                }
+                
+                memory[heapCount].IsHostVisible = 
+                    props.memoryTypes[j].propertyFlags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT ? true : false;
+                memory[heapCount].IsHostCoherent =
+                    props.memoryTypes[j].propertyFlags & VK_MEMORY_PROPERTY_HOST_COHERENT_BIT ? true : false;
+                memory[heapCount].IsHostCached = 
+                    props.memoryTypes[j].propertyFlags & VK_MEMORY_PROPERTY_HOST_CACHED_BIT ? true : false;
+            }
 
             heapCount++;
         }
@@ -70,8 +76,14 @@ static inline void INT_OrganizeMemory(
             memory[heapCount].Size = props.memoryHeaps[i].size;
             memory[heapCount].HeapIndex = props.memoryTypes[i].heapIndex;
 
-            memory[heapCount].IsHostVisible =
-                props.memoryTypes[i].propertyFlags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT ? true : false;
+            for (uint32_t j{ 0 }; j < VK_MAX_MEMORY_TYPES; j++ ) { 
+                if (props.memoryTypes[j].heapIndex != i) {
+                    continue;
+                }
+
+                memory[heapCount].IsHostVisible =
+                    props.memoryTypes[j].propertyFlags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT ? true : false;
+            }
 
             heapCount++;
         }
