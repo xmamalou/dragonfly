@@ -63,7 +63,7 @@ namespace Dfl {
         // NOTE: The following is only used as a suggestion by the allocator
         // Actual size of stage memory may vary. There may not even be a stage
         // memory if there's not enough memory to spare
-        export constexpr uint64_t StageMemorySize{ 1024 }; // in B
+        export constexpr uint64_t StageMemorySize{ 16777216 }; // in B
 
         export class Block {
             const std::unique_ptr<const BlockInfo>    pInfo{ nullptr };
