@@ -57,19 +57,10 @@ namespace Dfl{
             VkDebuggerCreationError = -0x4402,
         };
 
-        struct Processor{
-            const uint32_t Count; // amount of processors in the machine
-            const uint64_t Speed; // speed in Hz
-            // ----
-            Processor(uint32_t count, uint64_t speed) : Count(count), Speed(speed) {};
+        export struct Processor{
+            const uint32_t Count{ 0 }; // amount of processors in the machine
+            const uint64_t Speed{ 0 }; // speed in MHz
         };
-
-        /*class DebugProcess : public DflOb::WindowProcess{
-            DflOb::Window* pWindow{ nullptr };
-        public:
-            void operator () (DflOb::WindowProcessArgs& args);
-            void Destroy();
-        };*/
 
         struct SessionHandles {
             VkInstance                    hInstance{ nullptr };
@@ -85,18 +76,18 @@ namespace Dfl{
             const SessionHandles                     Instance{ };
 
             const Processor                          CPU{ 0, 0 };
-            const uint64_t                           Memory{ 0 }; // memory size in B
+            const uint64_t                           Memory{ 0 }; // memory size in MB
                   SessionError                       Error{ SessionError::Success };
         public:
-            DFL_API                       DFL_CALL Session(const SessionInfo& info);
-            DFL_API                       DFL_CALL ~Session();
+            DFL_API                              DFL_CALL  Session(const SessionInfo& info);
+            DFL_API                              DFL_CALL  ~Session();
 
-                    const SessionError             GetErrorCode() const noexcept { return this->Error; }
+                           const SessionError              GetErrorCode() const noexcept { return this->Error; }
                     
-                    const SessionInfo              GetInfo() const noexcept { return *this->GeneralInfo; }
-                    const Processor                GetCPU() const noexcept { return this->CPU; }
-                    const uint64_t                 GetMemory() const noexcept { return this->Memory; }
-                    const uint64_t                 GetDeviceCount() const noexcept { return this->Instance.hDevices.size(); }
+                           const Processor                 GetCPU() const noexcept { return this->CPU; }
+                           const uint64_t                  GetMemory() const noexcept { return this->Memory; }
+                           const uint64_t                  GetDeviceCount() const noexcept { return this->Instance.hDevices.size(); }
+            DFL_API inline const std::string      DFL_CALL GetDeviceName(const uint32_t& index) const noexcept;
 
             friend class
                           Device;

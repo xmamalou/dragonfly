@@ -23,6 +23,8 @@ module;
 
 #define WIN32_LEAN_AND_MEAN
 #include <Windows.h>
+#include <winternl.h>
+#include <powerbase.h>
 #define VK_USE_PLATFORM_WIN32_KHR
 #include <vulkan/vulkan.h>
 
@@ -33,11 +35,58 @@ import Dragonfly.Observer;
 namespace DflHW = Dfl::Hardware;
 namespace DflOb = Dfl::Observer;
 
-static inline uint32_t INT_ProcessorCount(){
+// PROCESSOR_POWER_INFORMATION definition
+
+typedef struct _PROCESSOR_POWER_INFORMATION {
+    ULONG Number;
+    ULONG MaxMhz;
+    ULONG CurrentMhz;
+    ULONG MhzLimit;
+    ULONG MaxIdleState;
+    ULONG CurrentIdleState;
+} PROCESSOR_POWER_INFORMATION, * PPROCESSOR_POWER_INFORMATION;
+
+//
+
+static inline uint32_t INT_GetProcessorCount(){
     SYSTEM_INFO sysInfo;
     GetSystemInfo(&sysInfo);
     return sysInfo.dwNumberOfProcessors;
 };
+
+static inline uint64_t INT_GetProcessorSpeed(const uint32_t& processorCount) {
+    
+    std::vector<PROCESSOR_POWER_INFORMATION> cpuInfos;
+    cpuInfos.resize(processorCount);
+    
+    ULONG size{ processorCount*sizeof(PROCESSOR_POWER_INFORMATION) };
+    
+    NTSTATUS status{ CallNtPowerInformation(
+                        ProcessorInformation,
+                        nullptr,
+                        0,
+                        cpuInfos.data(),
+                        size) };
+
+    if (status != 0) {
+        return 0;
+    }
+
+    return cpuInfos[0].CurrentMhz;
+}
+
+static inline DflHW::Processor INT_GetProcessor() {
+    const uint32_t processorCount{ INT_GetProcessorCount() };
+
+    return { processorCount, INT_GetProcessorSpeed(processorCount) };
+}
+
+static inline uint64_t INT_GetMemory() {
+    MEMORYSTATUSEX memInfo;
+    memInfo.dwLength = sizeof(memInfo);
+    GlobalMemoryStatusEx(&memInfo);
+    return ( memInfo.ullTotalPhys / (1024*1024) );
+}
 
 // internal for InitVulkan
 
@@ -201,7 +250,8 @@ static DflHW::SessionHandles INT_InitSession(const DflHW::SessionInfo& info){
 
 DflHW::Session::Session(const SessionInfo& info) 
 try : GeneralInfo(new SessionInfo(info)), 
-      CPU( INT_ProcessorCount(), 0),
+      CPU( INT_GetProcessor() ),
+      Memory( INT_GetMemory() ),
       Instance( INT_InitSession(info)) { }
 catch (DflHW::SessionError e) { this->Error = e; }
 
@@ -223,4 +273,14 @@ DflHW::Session::~Session()
     if( this->Instance.hInstance != nullptr ){
         vkDestroyInstance(this->Instance, nullptr);
     }
+}
+
+inline const std::string DflHW::Session::GetDeviceName(const uint32_t& index) const noexcept {
+    if(index >= this->Instance.hDevices.size()) {
+        return "N/A";
+    }
+    
+    VkPhysicalDeviceProperties props;
+    vkGetPhysicalDeviceProperties(this->Instance.hDevices[index], &props);
+    return props.deviceName;
 }
