@@ -81,10 +81,10 @@ namespace Dfl {
             T&       operator= (const uint32_t value) { this->NodeValue = value; return this->NodeValue; }
 
             uint32_t GetDepth() const { return this->CurrentDepth; }
-            T        GetValue() const { return this->NodeValue; }
+            T        GetNodeValue() const { return this->NodeValue; }
             bool     HasBranch(uint32_t position) const { return position < NodeNumber ? (position < this->CurrentEmptyNode ? true : false ) : false; }
 
-            void     PushNode(const T& value) { if(this->CurrentEmptyNode < NodeNumber) { this->Nodes[this->CurrentEmptyNode] = new Tree(value, this->CurrentDepth + 1); this->CurrentEmptyNode++; } }
+            void     MakeBranch(const T& value) { if(this->CurrentEmptyNode < NodeNumber) { this->Nodes[this->CurrentEmptyNode] = new Tree(value, this->CurrentDepth + 1); this->CurrentEmptyNode++; } }
         };
 
         export template< typename T >
