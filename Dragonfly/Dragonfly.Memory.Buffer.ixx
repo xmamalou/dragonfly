@@ -32,13 +32,14 @@ namespace DflGen = Dfl::Generics;
 namespace Dfl {
     namespace Memory {
         export enum class [[ nodiscard ]] BufferError {
-            Success                        = 0,
-            VkMemoryAllocationError        = -0x4902,
-            VkBufferAllocError             = -0x4A01,
-            VkBufferSemaphoreCreationError = -0x4A02,
-            VkBufferCmdBufferAllocError    = -0x4A03,
-            VkBufferCmdRecordingError      = -0x4A04,
-            VkBufferEventCreationError     = -0x4A05
+            Success                     = 0,
+            VkMemoryAllocationError     = -0x4902,
+            VkBufferAllocError          = -0x4A01,
+            VkBufferFenceCreationError  = -0x4A02,
+            VkBufferCmdBufferAllocError = -0x4A03,
+            VkBufferCmdRecordingError   = -0x4A04,
+            VkBufferEventCreationError  = -0x4A05,
+            VkBufferWriteError          = -0x4A06,
         };
 
         export enum class BufferUsageOptions {
@@ -58,14 +59,12 @@ namespace Dfl {
 
             // CmdBuffers
 
-            const VkSemaphore     hTransferDoneSem{ nullptr };
-
+            const VkFence         hTransferDoneFence{ nullptr };
             const VkEvent         hCPUTransferDone{ nullptr };
 
-            const VkCommandBuffer hFromStageToMainCmd{ nullptr };
-            const VkCommandBuffer hFromCPUToStage{ nullptr };
+            const VkCommandBuffer hTransferCmdBuff{ nullptr };
 
-            operator const VkBuffer () { return this->hBuffer; }
+                                  operator const VkBuffer () { return this->hBuffer; }
         };
 
         export class Buffer {
@@ -79,6 +78,11 @@ namespace Dfl {
         public:
             DFL_API                   DFL_CALL Buffer(const BufferInfo& info);
             DFL_API                   DFL_CALL ~Buffer();
+
+            DFL_API const BufferError DFL_CALL Write(
+                                                    const void*    pData,
+                                                    const uint64_t size,
+                                                    const uint64_t offset) const noexcept;
 
                     const BufferError          GetErrorCode() const noexcept { return this->Error; }
         };

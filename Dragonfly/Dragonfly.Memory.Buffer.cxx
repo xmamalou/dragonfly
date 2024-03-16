@@ -17,12 +17,17 @@ module;
 
 #include "Dragonfly.h"
 
+#include <algorithm>
 #include <vector>
 #include <optional>
+#include <thread>
+#include <iostream>
 
 #include <vulkan/vulkan.h>
 
 module Dragonfly.Memory.Buffer;
+
+import Debugging;
 
 namespace DflMem = Dfl::Memory;
 
@@ -65,24 +70,24 @@ static inline VkBuffer INT_GetBuffer(
     return buff;
 }
 
-static inline VkSemaphore INT_GetSemaphore(const VkDevice& hGPU) {
-    const VkSemaphoreCreateInfo semInfo{
-        .sType{ VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO },
+static inline VkFence INT_GetFence(const VkDevice& hGPU) {
+    const VkFenceCreateInfo fenceInfo{
+        .sType{ VK_STRUCTURE_TYPE_FENCE_CREATE_INFO },
         .pNext{ nullptr },
         .flags{ 0 }
     };
 
-    VkSemaphore sem{ nullptr };
+    VkFence fence{ nullptr };
     VkResult error{ VK_SUCCESS };
-    if ((error = vkCreateSemaphore(
+    if ((error = vkCreateFence(
                     hGPU,
-                    &semInfo,
+                    &fenceInfo,
                     nullptr,
-                    &sem)) != VK_SUCCESS) {
-        throw DflMem::BufferError::VkBufferSemaphoreCreationError;
+                    &fence)) != VK_SUCCESS) {
+        throw DflMem::BufferError::VkBufferFenceCreationError;
     }
 
-    return sem;
+    return fence;
 }
 
 static inline VkEvent INT_GetEvent(const VkDevice& hGPU) {
@@ -107,12 +112,8 @@ static inline VkEvent INT_GetEvent(const VkDevice& hGPU) {
 static inline VkCommandBuffer INT_GetCmdBuffer(
     const VkDevice&      hGPU,
     const VkCommandPool& hCmdPool,
-    const VkSemaphore&   hDoneSemaphore,
-    const VkEvent&       hWaitEvent,
-    const uint64_t&      bufferSize,
-    const VkBuffer&      stageBuffer,
-    const VkBuffer       destinationBuffer) {
-    const VkCommandBufferAllocateInfo cmdBuffInfo{
+    const bool&          isStageVisible) {
+    VkCommandBufferAllocateInfo cmdInfo{
         .sType{ VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO },
         .pNext{ nullptr },
         .commandPool{ hCmdPool },
@@ -123,23 +124,10 @@ static inline VkCommandBuffer INT_GetCmdBuffer(
     VkResult        error{ VK_SUCCESS };
     if ((error = vkAllocateCommandBuffers(
         hGPU,
-        &cmdBuffInfo,
+        &cmdInfo,
         &cmdBuff)) != VK_SUCCESS) {
-        throw DflMem::BufferError::VkBufferSemaphoreCreationError;
+        throw DflMem::BufferError::VkBufferCmdBufferAllocError;
     }
-
-    const VkCommandBufferBeginInfo cmdBuffBeginInfo{
-        .sType{ VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO },
-        .pNext{ nullptr },
-        .flags{ },
-        .pInheritanceInfo{ }
-    };
-    if ((error = vkBeginCommandBuffer(
-        cmdBuff,
-        &cmdBuffBeginInfo)) != VK_SUCCESS) {
-        throw DflMem::BufferError::VkBufferCmdRecordingError;
-    }
-    const uint64_t times{ bufferSize/DflMem::StageMemorySize + 1 };
 
     return cmdBuff;
 }
@@ -150,18 +138,19 @@ static inline DflMem::BufferHandles INT_GetBufferHandles(
     const uint64_t&              size,
     const uint32_t&              flags,
     const std::vector<uint32_t>& areFamiliesUsed,
-    const VkBuffer& stageBuffer) {
+    const VkBuffer&              stageBuffer,
+    const bool&                  isStageVisible) {
     const VkBuffer buffer = INT_GetBuffer(
         hGPU,
         size,
         flags,
         areFamiliesUsed);
     
-    VkSemaphore sem{ nullptr };
-    VkEvent     event{ nullptr };
+    VkFence fence{ nullptr };
+    VkEvent event{ nullptr };
     try {
-        sem = INT_GetSemaphore(hGPU);
-        event = INT_GetEvent(hGPU);
+        fence = INT_GetFence(hGPU);
+        event = isStageVisible ? INT_GetEvent(hGPU) : nullptr;
     }
     catch (DflMem::BufferError e) {
         vkDeviceWaitIdle(hGPU);
@@ -170,24 +159,106 @@ static inline DflMem::BufferHandles INT_GetBufferHandles(
             buffer,
             nullptr);
         
-        if (sem != nullptr) {
-            vkDestroySemaphore(
+        if (fence != nullptr) {
+            vkDestroyFence(
                 hGPU,
-                sem,
+                fence,
                 nullptr);
         }
     }
 
+    auto cmdBuffer = INT_GetCmdBuffer(
+                        hGPU,
+                        hPool,
+                        isStageVisible);
+
     return { buffer, 
-                sem, event,
-                INT_GetCmdBuffer(
-                            hGPU,
-                            hPool,
-                            sem,
-                            event,
-                            size,
-                            stageBuffer,
-                            buffer), nullptr };
+                fence, event,
+                cmdBuffer };
+}
+
+static inline void INT_RecordWriteCommand(
+    const VkCommandBuffer& cmdBuff,
+    const VkBuffer&        stageBuff,
+    const VkBuffer&        dstBuff,
+    const uint64_t         dstOffset,
+    const uint64_t         dstSize,
+    const void*            pData,
+    const uint64_t         size) {
+    VkCommandBufferBeginInfo cmdInfo{
+        .sType{ VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO },
+        .pNext{ nullptr },
+        .flags{ 0 },
+        .pInheritanceInfo{ nullptr }
+    };
+    if (vkBeginCommandBuffer(
+            cmdBuff,
+            &cmdInfo) != VK_SUCCESS) {
+        throw DflMem::BufferError::VkBufferCmdRecordingError;
+    }
+    
+    uint64_t remainingSize{ size };
+    uint64_t offset{ 0 };
+
+    while ( remainingSize > 0 && dstOffset + 4*offset < dstSize ) {
+        vkCmdUpdateBuffer(
+            cmdBuff,
+            stageBuff,
+            0,
+            remainingSize > DflMem::StageMemorySize ? DflMem::StageMemorySize : remainingSize,
+            &((uint32_t*)pData)[offset]);
+
+        VkBufferMemoryBarrier buffBarrier{
+            .sType{ VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER },
+            .pNext{ nullptr },
+            .srcAccessMask{ VK_ACCESS_TRANSFER_WRITE_BIT },
+            .dstAccessMask{ VK_ACCESS_TRANSFER_READ_BIT },
+            .srcQueueFamilyIndex{ VK_QUEUE_FAMILY_IGNORED },
+            .dstQueueFamilyIndex{ VK_QUEUE_FAMILY_IGNORED },
+            .buffer{ stageBuff },
+            .offset{ 0 },
+            .size{ remainingSize > DflMem::StageMemorySize ? DflMem::StageMemorySize : remainingSize }
+        };
+
+        vkCmdPipelineBarrier(
+            cmdBuff,
+            VK_PIPELINE_STAGE_TRANSFER_BIT,
+            VK_PIPELINE_STAGE_TRANSFER_BIT,
+            0,
+            0,
+            nullptr,
+            1,
+            &buffBarrier,
+            0,
+            nullptr);
+
+        VkBufferCopy copyRegion{
+            .srcOffset{ 0 },
+            .dstOffset{ dstOffset + sizeof(uint32_t)*offset },
+            .size{ DflMem::StageMemorySize > dstSize - (dstOffset + sizeof(uint32_t) * offset) ?
+                                               dstSize - (dstOffset + sizeof(uint32_t) * offset) 
+                                             : DflMem::StageMemorySize }
+        };
+
+        vkCmdCopyBuffer(
+            cmdBuff,
+            stageBuff,
+            dstBuff,
+            1,
+            &copyRegion);
+
+        remainingSize = remainingSize > dstSize - (dstOffset + sizeof(uint32_t) * offset) ?
+                            0
+                         : (remainingSize > DflMem::StageMemorySize ? 
+                                remainingSize - DflMem::StageMemorySize 
+                              : 0 );
+        offset += copyRegion.size/sizeof(uint32_t);
+    }
+
+    if (vkEndCommandBuffer(
+            cmdBuff) != VK_SUCCESS) {
+        throw DflMem::BufferError::VkBufferCmdRecordingError;
+    }
 }
 
 DflMem::Buffer::Buffer(const BufferInfo& info)
@@ -198,7 +269,8 @@ try : pInfo( new DflMem::BufferInfo(info) ),
                     info.Size,
                     info.Options.GetValue(),
                     info.pMemoryBlock->pInfo->pDevice->pTracker->AreFamiliesUsed,
-                    info.pMemoryBlock->pHandles->hStageBuffer) ) {
+                    info.pMemoryBlock->pHandles->hStageBuffer,
+                    info.pMemoryBlock->pHandles->IsStageVisible) ) {
     std::optional<std::array<uint64_t, 2>> id;
     if ( (id = this->pInfo->pMemoryBlock->Alloc(this->Buffers.hBuffer)).has_value() ) {
         this->MemoryLayoutID = id.value();
@@ -210,19 +282,19 @@ catch (DflMem::BufferError e) { this->Error = e; }
 
 DflMem::Buffer::~Buffer() {
     vkDeviceWaitIdle(this->pInfo->pMemoryBlock->pInfo->pDevice->GPU);
-    this->pInfo->pMemoryBlock->pInfo->pDevice->pUsageMutex->lock();
-    if (this->Buffers.hFromStageToMainCmd != nullptr) {
+
+    if (this->Buffers.hTransferCmdBuff != nullptr) {
         vkFreeCommandBuffers(
             this->pInfo->pMemoryBlock->pInfo->pDevice->GPU,
             this->pInfo->pMemoryBlock->hCmdPool,
             1,
-            &this->Buffers.hFromStageToMainCmd);
+            &this->Buffers.hTransferCmdBuff);
     }
 
-    if (this->Buffers.hTransferDoneSem != nullptr) {
-        vkDestroySemaphore(
+    if (this->Buffers.hTransferDoneFence != nullptr) {
+        vkDestroyFence(
             this->pInfo->pMemoryBlock->pInfo->pDevice->GPU,
-            this->Buffers.hTransferDoneSem,
+            this->Buffers.hTransferDoneFence,
             nullptr);
     }
 
@@ -241,5 +313,54 @@ DflMem::Buffer::~Buffer() {
             this->Buffers.hBuffer,
             nullptr);
     }
-    this->pInfo->pMemoryBlock->pInfo->pDevice->pUsageMutex->unlock();
+}
+
+const DflMem::BufferError DflMem::Buffer::Write(
+                                            const void*    pData,
+                                            const uint64_t size,
+                                            const uint64_t offset) const noexcept {
+    INT_RecordWriteCommand(
+        this->Buffers.hTransferCmdBuff,
+        this->pInfo->pMemoryBlock->pHandles->hStageBuffer,
+        this->Buffers.hBuffer,
+        offset,
+        this->pInfo->Size,
+        pData,
+        size);
+
+    VkSubmitInfo subInfo{
+        .sType{ VK_STRUCTURE_TYPE_SUBMIT_INFO },
+        .pNext{ nullptr },
+        .waitSemaphoreCount{ 0 },
+        .pWaitSemaphores{ nullptr },
+        .pWaitDstStageMask{ nullptr },
+        .commandBufferCount{ 1 },
+        .pCommandBuffers{ &this->Buffers.hTransferCmdBuff },
+        .signalSemaphoreCount{ 0 },
+        .pSignalSemaphores{ nullptr }
+    };
+
+    vkQueueWaitIdle(this->pInfo->pMemoryBlock->TransferQueue);
+    if (vkQueueSubmit(
+            this->pInfo->pMemoryBlock->TransferQueue,
+            1,
+            &subInfo,
+            this->Buffers.hTransferDoneFence) != VK_SUCCESS) {
+        return BufferError::VkBufferWriteError;
+    }
+
+    while (vkGetFenceStatus(
+            this->pInfo->pMemoryBlock->pInfo->pDevice->GPU,
+            this->Buffers.hTransferDoneFence) != VK_SUCCESS) {
+        std::this_thread::sleep_for(std::chrono::nanoseconds(10));
+    }
+
+    vkResetFences(
+        this->pInfo->pMemoryBlock->pInfo->pDevice->GPU,
+        1,
+        &this->Buffers.hTransferDoneFence);
+
+    vkResetCommandBuffer(
+        this->Buffers.hTransferCmdBuff,
+        0);
 }
