@@ -19,6 +19,7 @@ module;
 #include <string>
 #include <iostream>
 #include <thread>
+#include <mutex>
 
 #define VK_USE_PLATFORM_WIN32_KHR
 #include <vulkan/vulkan.h>
@@ -30,6 +31,10 @@ import Dragonfly.Observer;
 namespace DflOb  = Dfl::Observer;
 namespace DflHW  = Dfl::Hardware;
 namespace DflGen = Dfl::Generics;
+
+// GLOBAL MUTEX
+
+static std::mutex INT_GLB_DeviceMutex;
 
 // Internal for Device constructor
 
@@ -46,19 +51,23 @@ static inline void INT_OrganizeMemory(
     for (uint32_t i{ 0 }; i < props.memoryHeapCount; i++){
         if ( props.memoryHeaps[i].flags & VK_MEMORY_HEAP_DEVICE_LOCAL_BIT ){
             memory[heapCount].Size = props.memoryHeaps[i].size;
-            memory[heapCount].HeapIndex = props.memoryTypes[i].heapIndex;
+            memory[heapCount].HeapIndex = i;
 
+            DflHW::MemoryProperties dflProps{ };
             for (uint32_t j{ 0 }; j < VK_MAX_MEMORY_TYPES; j++) {
                 if (props.memoryTypes[j].heapIndex != i) {
                     continue;
                 }
-                
-                memory[heapCount].IsHostVisible = 
+
+                dflProps.TypeIndex = j;
+                dflProps.IsHostVisible =
                     props.memoryTypes[j].propertyFlags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT ? true : false;
-                memory[heapCount].IsHostCoherent =
+                dflProps.IsHostCoherent =
                     props.memoryTypes[j].propertyFlags & VK_MEMORY_PROPERTY_HOST_COHERENT_BIT ? true : false;
-                memory[heapCount].IsHostCached = 
+                dflProps.IsHostCached =
                     props.memoryTypes[j].propertyFlags & VK_MEMORY_PROPERTY_HOST_CACHED_BIT ? true : false;
+
+                memory[heapCount].Properties.push_back(dflProps);
             }
 
             heapCount++;
@@ -76,13 +85,17 @@ static inline void INT_OrganizeMemory(
             memory[heapCount].Size = props.memoryHeaps[i].size;
             memory[heapCount].HeapIndex = props.memoryTypes[i].heapIndex;
 
+            DflHW::MemoryProperties dflProps{ };
             for (uint32_t j{ 0 }; j < VK_MAX_MEMORY_TYPES; j++ ) { 
                 if (props.memoryTypes[j].heapIndex != i) {
                     continue;
                 }
 
-                memory[heapCount].IsHostVisible =
+                dflProps.TypeIndex = j;
+                dflProps.IsHostVisible =
                     props.memoryTypes[j].propertyFlags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT ? true : false;
+
+                memory[heapCount].Properties.push_back(dflProps);
             }
 
             heapCount++;
@@ -391,18 +404,21 @@ try : pInfo( new DeviceInfo(info) ),
                     : nullptr,
                 info.RenderOptions,
                 info.RenderersNumber,
-                info.SimulationsNumber) ),
-      pUsageMutex( new std::mutex() ) {
+                info.SimulationsNumber) ) {
     this->pTracker->LeastClaimedQueue.resize(this->GPU.Families.size());
-    this->pTracker->AreFamiliesUsed.resize(this->GPU.Families.size()); }
+    this->pTracker->AreFamiliesUsed.resize(this->GPU.Families.size()); 
+    
+    this->pTracker->UsedLocalMemoryHeaps.resize(this->pCharacteristics->LocalHeaps.size());
+    this->pTracker->UsedSharedMemoryHeaps.resize(this->pCharacteristics->SharedHeaps.size());
+}
 catch (DeviceError e) { this->Error = e; }
 
 
 DflHW::Device::~Device(){
-    this->pUsageMutex->lock();
+    INT_GLB_DeviceMutex.lock();
     if ( this->GPU.hDevice != nullptr ){
         vkDeviceWaitIdle(this->GPU.hDevice);
         vkDestroyDevice(this->GPU.hDevice, nullptr);
     }
-    this->pUsageMutex->unlock();
+    INT_GLB_DeviceMutex.unlock();
 };

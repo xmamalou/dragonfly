@@ -73,16 +73,22 @@ namespace Dfl {
             Shared
         };
 
-        export template < MemoryType type >
-        struct DeviceMemory {
-            VkDeviceSize Size{ 0 };
-            VkDeviceSize UsedSize{ 0 };
-
-            uint32_t     HeapIndex{ 0 };
+        struct MemoryProperties {
+            uint32_t     TypeIndex{ 0 };
 
             bool         IsHostVisible{ false };
             bool         IsHostCoherent{ false };
             bool         IsHostCached{ false };
+        };
+
+        export template < MemoryType type >
+        struct DeviceMemory {
+            VkDeviceSize                  Size{ 0 };
+            uint32_t                      HeapIndex{ 0 };
+
+            std::vector<MemoryProperties> Properties{ };
+
+                         operator VkDeviceSize() const { return this->Size; }
         };
 
         export enum class QueueType : unsigned int {
@@ -92,7 +98,7 @@ namespace Dfl {
         };
 
         export struct QueueFamily {
-            uint32_t        Index{ 0 };
+            uint32_t        Index{ 0 };        
             uint32_t        QueueCount{ 0 };
             DflGen::BitFlag QueueType{ 0 };
         };
@@ -100,13 +106,15 @@ namespace Dfl {
         export struct Queue {
             const VkQueue  hQueue{ nullptr };
             const uint32_t FamilyIndex{ 0 };
+
+                           operator VkQueue() const { return this->hQueue; }
         };
 
         export struct DeviceCharacteristics {
             const std::string                                   Name{ "Placeholder GPU Name" };
 
-                  std::vector<DeviceMemory<MemoryType::Local>>  LocalHeaps{ };
-                  std::vector<DeviceMemory<MemoryType::Shared>> SharedHeaps{ };
+            const std::vector<DeviceMemory<MemoryType::Local>>  LocalHeaps{ };
+            const std::vector<DeviceMemory<MemoryType::Shared>> SharedHeaps{ };
 
             const std::array<uint32_t, 2>                       MaxViewport{ {0, 0} };
             const std::array<uint32_t, 2>                       MaxSampleCount{ {0, 0} }; // {colour, depth}
@@ -123,6 +131,9 @@ namespace Dfl {
 
             std::vector<uint32_t>       LeastClaimedQueue{ };
             std::vector<uint32_t>       AreFamiliesUsed{ };
+
+            std::vector<uint32_t>       UsedLocalMemoryHeaps{ }; // size is the amount of heaps
+            std::vector<uint32_t>       UsedSharedMemoryHeaps{ }; // size is the amount of heaps
         };
 
         struct DeviceHandles {
@@ -136,14 +147,12 @@ namespace Dfl {
 
         export class Device {
             const std::unique_ptr<const DeviceInfo>             pInfo{ };
-            const std::unique_ptr<      DeviceCharacteristics>  pCharacteristics{ };
+            const std::unique_ptr<const DeviceCharacteristics>  pCharacteristics{ };
             const std::unique_ptr<      DeviceTracker>          pTracker{ };
             const VkPhysicalDevice                              hPhysicalDevice{ nullptr };
             const DeviceHandles                                 GPU{ };
 
                   DeviceError                                   Error{ DeviceError::Success };
-
-                  std::unique_ptr<std::mutex>                   pUsageMutex;
         public:
             DFL_API                             DFL_CALL  Device(const DeviceInfo& info);
             DFL_API                             DFL_CALL  ~Device();
