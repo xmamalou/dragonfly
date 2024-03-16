@@ -30,16 +30,16 @@ namespace DflGen = Dfl::Generics;
 
 // GLOBAL STAGE BUFFER STATE
 
-uint64_t       INT_GLB_ReferenceCount{ 0 }; // how many memory blocks there exist
+       uint64_t       INT_GLB_ReferenceCount{ 0 }; // how many memory blocks there exist
 
-VkDeviceMemory INT_GLB_hStageMemory{ nullptr };
-VkDeviceSize   INT_GLB_StageMemorySize{ 0 };
-VkBuffer       INT_GLB_hStageBuffer{ nullptr };
+       VkDeviceMemory INT_GLB_hStageMemory{ nullptr };
+       VkDeviceSize   INT_GLB_StageMemorySize{ 0 };
+       VkBuffer       INT_GLB_hStageBuffer{ nullptr };
 
-bool           INT_GLB_IsStageVisible{ false };
-void*          INT_GLB_pStageMemoryMap{ nullptr }; 
+       bool           INT_GLB_IsStageVisible{ false };
+       void*          INT_GLB_pStageMemoryMap{ nullptr }; 
 
-std::mutex     INT_GLB_Mutex{ };
+static std::mutex     INT_GLB_MemoryMutex;
 
 // CODE 
 
@@ -58,11 +58,17 @@ std::optional<std::array<uint64_t, 2>> DflMem::Block::Alloc(const VkBuffer& buff
 
     if(*pNode < size) { return std::nullopt; }
 
-    this->pMutex->lock();
+    INT_GLB_MemoryMutex.lock();
+    // The memory allocation method used is the buddy system
+    // Since buffers need to be aligned in a position multiple of the alignment
+    // requirement, instead of dividing the node by 2, we give some extra space
+    // to one of the nodes and some less space to the other, so that the nodes
+    // represent the actual place the buffer will sit in in memory
     while (*pNode > size &&
-           *pNode / 2 > size) {
+           (*pNode / 2) + (*pNode/2 % requirements.alignment) > size) {
         if (!pNode->HasBranch(0)) {
-            pNode->PushNode(*pNode/2), pNode->PushNode(*pNode/2);
+            pNode->MakeBranch(*pNode/2 + (*pNode / 2 % requirements.alignment)); 
+            pNode->MakeBranch(*pNode/2 - (*pNode / 2 % requirements.alignment));
         }
 
         *pNode = *pNode - size;
@@ -70,13 +76,13 @@ std::optional<std::array<uint64_t, 2>> DflMem::Block::Alloc(const VkBuffer& buff
         // if both nodes can accomodate the buffer, we pick the one with the 
         // smaller size, so we will reduce fragmentation
         if ((*pNode)[0] > size && 
-            ((*pNode)[0].GetValue() <= (*pNode)[1].GetValue() || 
+            ((*pNode)[0].GetNodeValue() <= (*pNode)[1].GetNodeValue() ||
              (*pNode)[1] < size)) {
             pNode = &(*pNode)[0];
             
         } else {
             pNode = &(*pNode)[1];
-            offset += *pNode/2;
+            offset += *pNode/2 - (*pNode / 2 % requirements.alignment);
             position |= 1;
         }
 
@@ -91,7 +97,7 @@ std::optional<std::array<uint64_t, 2>> DflMem::Block::Alloc(const VkBuffer& buff
         buffer,
         this->pHandles->hMemory,
         (offset) - (offset % requirements.alignment));
-    this->pMutex->unlock();
+    INT_GLB_MemoryMutex.unlock();
 
     return std::array<uint64_t, 2>({ depth, position });
 };
@@ -103,7 +109,7 @@ void DflMem::Block::Free(
     int64_t  depth{ static_cast<int64_t>(memoryID[0]) };
     auto     pNode{ &this->MemoryLayout };
 
-    this->pMutex->lock();
+    INT_GLB_MemoryMutex.lock();
     while (depth >= 0) {
         *pNode = *pNode + size;
 
@@ -118,7 +124,7 @@ void DflMem::Block::Free(
             pNode = &(*pNode)[0];
         }
     }
-    this->pMutex->unlock();
+    INT_GLB_MemoryMutex.unlock();
 }
 
 static inline DflHW::Queue INT_GetQueue(
@@ -201,7 +207,8 @@ static DflMem::BlockHandles INT_GetMemory(
     const uint64_t&                                                   maxAllocs,
           uint64_t&                                                   totAllocs,
     const uint64_t&                                                   memorySize,
-          std::vector<DflHW::DeviceMemory<DflHW::MemoryType::Local>>& memories,
+    const std::vector<DflHW::DeviceMemory<DflHW::MemoryType::Local>>& memories,
+          std::vector<uint32_t>&                                      usedMemories,
           std::vector<uint32_t>&                                      areFamiliesUsed) {
     if (totAllocs + 2 > maxAllocs) {
         throw DflMem::BlockError::VkMemoryMaxAllocsReachedError;
@@ -210,26 +217,30 @@ static DflMem::BlockHandles INT_GetMemory(
     std::optional<uint32_t> mainMemoryIndex{ std::nullopt };
     std::optional<uint32_t> stageMemoryIndex{ std::nullopt };
 
-    for (auto& memory : memories) {
-        // host invisible memory is best suited as main memory to store data in
-        if ((!memory.IsHostVisible && !memory.IsHostCached && !memory.IsHostCoherent) &&
-             memory.Size - memory.UsedSize > memorySize &&
-             !mainMemoryIndex.has_value() ) {
-            mainMemoryIndex = memory.HeapIndex;
-            memory.UsedSize += memorySize;
-        }
+    for (uint32_t i{0}; i < memories.size(); i++) {
+        for(auto property : memories[i].Properties) {
+            // host invisible memory is best suited as main memory to store data in
+            if ((!property.IsHostVisible && !property.IsHostCached && !property.IsHostCoherent) &&
+                  memories[i] - usedMemories[i] > memorySize &&
+                 !mainMemoryIndex.has_value() ) {
+                mainMemoryIndex = property.TypeIndex;
+                usedMemories[i] += memorySize;
+                continue;
+            }
 
-        // preferably, we want stage memory that is visible to the host 
-        // Unlike main memory, the defauly stage memory size is simply a suggestion
-        // and is not followed if it's a condition that cannot be met.
-        // In other words, Dragonfly will prefer host visible memory over any kind of 
-        // memory, even if there is more memory to claim from other heaps
-        if ( (memory.IsHostVisible || memory.IsHostCached || memory.IsHostCoherent) &&
-              !stageMemoryIndex.has_value() &&
-              INT_GLB_ReferenceCount == 0 ) {
-            stageMemoryIndex = memory.HeapIndex;
-            memory.UsedSize += ( INT_GLB_StageMemorySize =
-                                    memory.Size - memory.UsedSize > DflMem::StageMemorySize ? DflMem::StageMemorySize : memory.UsedSize );
+            // preferably, we want stage memory that is visible to the host 
+            // Unlike main memory, the defauly stage memory size is simply a suggestion
+            // and is not followed if it's a condition that cannot be met.
+            // In other words, Dragonfly will prefer host visible memory over any kind of 
+            // memory, even if there is more memory to claim from other heaps
+            if ( (property.IsHostVisible || property.IsHostCached || property.IsHostCoherent) &&
+                  !stageMemoryIndex.has_value() &&
+                  INT_GLB_ReferenceCount == 0 ) {
+                stageMemoryIndex = property.TypeIndex;
+                INT_GLB_IsStageVisible = property.IsHostVisible;
+                usedMemories[i] += ( INT_GLB_StageMemorySize =
+                                        memories[i] - usedMemories[i] > DflMem::StageMemorySize ? DflMem::StageMemorySize : usedMemories[i] );
+            }
         }
 
         if( mainMemoryIndex.has_value() && stageMemoryIndex.has_value() ) { break; }
@@ -238,10 +249,10 @@ static DflMem::BlockHandles INT_GetMemory(
     // if the above check fails, just pick the heap with the most available memory, no additional
     // requirements
     if (mainMemoryIndex == std::nullopt) {
-        for (auto& memory : memories) {
-            if (memory.Size - memory.UsedSize > memorySize) {
-                mainMemoryIndex = memory.HeapIndex;
-                memory.UsedSize += memorySize;
+        for (uint32_t i{ 0 }; i < memories.size(); i++) {
+            if (memories[i] - usedMemories[i] > memorySize) {
+                mainMemoryIndex = memories[i].Properties[0].TypeIndex;
+                usedMemories[i] += memorySize;
                 break;
             }
         }
@@ -249,11 +260,12 @@ static DflMem::BlockHandles INT_GetMemory(
 
     // likewise.
     if (stageMemoryIndex == std::nullopt && INT_GLB_ReferenceCount == 0) {
-        for (auto& memory : memories) {
-            if (memory.Size - memory.UsedSize > DflMem::StageMemorySize) {
-                stageMemoryIndex = memory.HeapIndex;
-                memory.UsedSize += ( INT_GLB_StageMemorySize =
-                                        memory.Size - memory.UsedSize > DflMem::StageMemorySize ? DflMem::StageMemorySize : memory.UsedSize);
+        for (uint32_t i{ 0 }; i < memories.size(); i++) {
+            if (memories[i] - usedMemories[i] > DflMem::StageMemorySize) {
+                stageMemoryIndex = memories[i].Properties[0].TypeIndex;
+                INT_GLB_IsStageVisible = memories[i].Properties[0].IsHostVisible;
+                usedMemories[i] += ( INT_GLB_StageMemorySize =
+                                        memories[i] - usedMemories[i] > DflMem::StageMemorySize ? DflMem::StageMemorySize : usedMemories[i]);
                 break;
             }
         }
@@ -334,7 +346,7 @@ static DflMem::BlockHandles INT_GetMemory(
                 throw DflMem::BlockError::VkMemoryStageBuffError;
             }
         
-            if ( INT_GLB_IsStageVisible = memories[stageMemoryIndex.value()].IsHostVisible ) {
+            if ( INT_GLB_IsStageVisible ) {
                 if ((error = vkMapMemory(
                     gpu,
                     INT_GLB_hStageMemory,
@@ -369,18 +381,18 @@ try : pInfo( new DflMem::BlockInfo(info) ),
                                             info.pDevice->pTracker->Allocations,
                                             info.Size,
                                             info.pDevice->pCharacteristics->LocalHeaps,
+                                            info.pDevice->pTracker->UsedLocalMemoryHeaps,
                                             info.pDevice->pTracker->AreFamiliesUsed) ) ),
       MemoryLayout( INT_GetMemoryLayout(info.Size) ),
       TransferQueue( INT_GetQueue(
                         info.pDevice->GPU,
                         info.pDevice->GPU.Families,
                         info.pDevice->pTracker->LeastClaimedQueue, 
-                        info.pDevice->pTracker->AreFamiliesUsed) ),
-      pMutex( new std::mutex() ) {
+                        info.pDevice->pTracker->AreFamiliesUsed) ) {
     const VkCommandPoolCreateInfo cmdPoolInfo{
           .sType{ VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO },
           .pNext{ nullptr },
-          .flags{ },
+          .flags{ VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT },
           .queueFamilyIndex{ this->TransferQueue.FamilyIndex }
     };
     VkResult      error{ VK_SUCCESS };
@@ -390,7 +402,7 @@ try : pInfo( new DflMem::BlockInfo(info) ),
                     nullptr,
                     &this->hCmdPool)) != VK_SUCCESS) {
         vkDeviceWaitIdle(this->pInfo->pDevice->GPU);
-        this->pInfo->pDevice->pUsageMutex->lock();
+
         if (this->pHandles->hMemory != nullptr) {
             vkFreeMemory(
                 this->pInfo->pDevice->GPU,
@@ -418,16 +430,16 @@ try : pInfo( new DflMem::BlockInfo(info) ),
                 );
             }
         }
-        this->pInfo->pDevice->pUsageMutex->unlock();
+
         this->Error = DflMem::BlockError::VkMemoryCmdPoolError;
     }
 }
 catch (DflMem::BlockError e) { this->Error = BlockError::VkMemoryAllocationError; };
 
 DflMem::Block::~Block() {
-    this->pMutex->lock();
+    INT_GLB_MemoryMutex.lock();
     vkDeviceWaitIdle(this->pInfo->pDevice->GPU);
-    this->pInfo->pDevice->pUsageMutex->lock();
+
     if (this->hCmdPool != nullptr) {
         vkDestroyCommandPool(
             this->pInfo->pDevice->GPU,
@@ -463,6 +475,6 @@ DflMem::Block::~Block() {
             );
         }
     }
-    this->pInfo->pDevice->pUsageMutex->unlock();
-    this->pMutex->unlock();
+
+    INT_GLB_MemoryMutex.unlock();
 }
