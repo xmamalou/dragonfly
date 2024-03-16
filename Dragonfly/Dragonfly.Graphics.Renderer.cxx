@@ -128,21 +128,7 @@ static inline DflGr::RendererError INT_CreateSwapchain(
 
 //
 
-static inline void INT_FailNode(
-                const VkDevice&             pDevice,
-                      DflGr::Swapchain&     swapchain,
-                      DflGr::RendererError& error) {
-    std::cout << "";
-};
-
-static inline void INT_LoopNode(
-                  const VkDevice&             pDevice,
-                        DflGr::Swapchain&     swapchain,
-                        DflGr::RendererError& error) {
-    std::cout << "";
-};
-
-static inline void* INT_InitNode(
+static inline void INT_InitNode(
                   const VkDevice&             device,
                   const bool&                 doVsync,
                         DflGr::Swapchain&     swapchain,
@@ -160,7 +146,6 @@ static inline void* INT_InitNode(
         nullptr,
         &swapchain.hCmdPool) != VK_SUCCESS) {
         error = DflGr::RendererError::VkComPoolInitError;
-        return INT_FailNode;
     }
     //this->pMutex->unlock();
 
@@ -175,7 +160,6 @@ static inline void* INT_InitNode(
                     swapchain.PresentModes,
                     swapchain.hSwapchain,
                     newSwapchain)) != DflGr::RendererError::Success) {
-        return INT_FailNode;
     }
     swapchain.hSwapchain = newSwapchain;
 
@@ -345,9 +329,9 @@ try : pInfo( new RendererInfo(info) ),
 catch (DflGr::RendererError e) { this->Error = e; }
 
 DflGr::Renderer::~Renderer() {
-    auto& pDevice = this->pInfo->pAssocDevice;
+    auto& pDevice{ this->pInfo->pAssocDevice };
     vkDeviceWaitIdle(pDevice->GPU);
-    pDevice->pUsageMutex->lock();
+
     if (this->pSwapchain->hSwapchain != VK_NULL_HANDLE) {
         vkDestroySwapchainKHR(
             pDevice->GPU,
@@ -367,7 +351,6 @@ DflGr::Renderer::~Renderer() {
             this->pSwapchain->hSurface,
             nullptr);
     }
-    pDevice->pUsageMutex->unlock();
 }
 
 void DflGr::Renderer::Cycle() {
