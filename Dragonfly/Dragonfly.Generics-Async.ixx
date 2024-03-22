@@ -59,6 +59,7 @@ namespace Dfl {
                 VkDevice hGPU{ nullptr };
                 VkFence  hFence{ nullptr };
 
+                Awaitable() : hGPU(nullptr), hFence(nullptr) {}
                 Awaitable(VkDevice device, VkFence fence) : hGPU(device), hFence(fence) {}
             };
 
@@ -75,7 +76,7 @@ namespace Dfl {
 
             Job& Resume() { if(this->State == RoutineState::InProgress) { this->PromiseHandle.resume(); } return *this; }
             Job& Stop() { if(this->State == RoutineState::InProgress) { this->PromiseHandle.destroy(); } return *this; }
-                 operator T () { while(this->State == RoutineState::InProgress) { this->Resume(); } return this->Value; }
+                 operator T () { this->Resume(); return this->Value; }
         private:
             std::coroutine_handle<promise_type> PromiseHandle{ nullptr };
             T                                   Value;
