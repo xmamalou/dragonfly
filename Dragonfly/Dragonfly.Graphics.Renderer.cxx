@@ -231,7 +231,7 @@ static Dfl::Hardware::Queue INT_GetQueue(
 
     areFamiliesUsed[familyIndex]++;
 
-    return { queue, familyIndex };
+    return { queue, familyIndex, leastClaimedQueue[familyIndex] - 1 };
 };
 
 static DflGr::Swapchain INT_GetRenderResources(
@@ -317,14 +317,20 @@ DflGr::Renderer::Renderer(const RendererInfo& info)
 try : pInfo( new RendererInfo(info) ),
       pSwapchain(new Swapchain( INT_GetRenderResources(
                                     info.pAssocDevice->pInfo->pSession->Instance,
-                                    info.pAssocDevice->hPhysicalDevice,
+                                    info.pAssocDevice->GPU,
                                     info.pAssocDevice->GPU,
                                     info.pAssocWindow->GetHandle(),
                                     info.pAssocWindow->pInfo->Resolution,
                                     info.pAssocDevice->GPU.Families, 
                                     info.pAssocDevice->pTracker->LeastClaimedQueue,
                                     info.pAssocDevice->pTracker->AreFamiliesUsed) ) ) {
-    
+    this->QueueFence = this->pInfo->pAssocDevice->GetFence(
+                                                    this->pSwapchain->AssignedQueue.FamilyIndex,
+                                                    this->pSwapchain->AssignedQueue.Index);
+
+    if (this->QueueFence == nullptr) {
+        this->Error = DflGr::RendererError::VkBufferFenceCreationError;
+    }
 }
 catch (DflGr::RendererError e) { this->Error = e; }
 

@@ -180,32 +180,35 @@ static inline std::vector<DflHW::QueueFamily> INT_OrganizeQueues(
         &queueFamilyCount,
         props.data());
 
-    for (uint32_t i = 0; i < queueFamilyCount; i++) {
-        DflHW::QueueFamily family;
+    uint32_t             index{ 0 };
+    uint32_t             queueCount{ 0 };
+    DflGen::BitFlag      queueType{ 0 };
 
+    for (uint32_t i{ 0 }; i < queueFamilyCount; i++) {
         if (props[i].queueFlags & VK_QUEUE_GRAPHICS_BIT &&
             vkGetPhysicalDeviceWin32PresentationSupportKHR(
                 device,
                 i)) {
-            family.QueueType |= DflHW::QueueType::Graphics;
+            queueType |= DflHW::QueueType::Graphics;
         }
 
         if (props[i].queueFlags & VK_QUEUE_COMPUTE_BIT) {
-            family.QueueType |= DflHW::QueueType::Compute;
+            queueType |= DflHW::QueueType::Compute;
         }
 
         if (props[i].queueFlags & VK_QUEUE_TRANSFER_BIT) {
-            family.QueueType |= DflHW::QueueType::Transfer;
+            queueType |= DflHW::QueueType::Transfer;
         }
 
-        family.QueueCount = props[i].queueCount;
-        family.Index = i;
+        queueCount = props[i].queueCount;
+        index = i;
 
-        if(family.QueueType != 0){
-            queueFamilies.push_back(family);
+        if(queueType != 0 && queueCount != 0){
+            queueFamilies.push_back( {index, queueCount, queueType} );
         }
     }
 
+    
     return queueFamilies;
 }
 
@@ -382,10 +385,39 @@ static DflHW::DeviceHandles INT_InitDevice(
 
     delete[] priorities;
 
-    return { gpu, queueFamilies, doTimelineSemsExist, doesRTXExist };
+    return { gpu, physDevice, queueFamilies, doTimelineSemsExist, doesRTXExist };
 };
 
 //
+
+const VkFence DflHW::Device::GetFence(
+                    const uint32_t queueFamilyIndex,
+                    const uint32_t queueIndex) const {
+    for (auto fence : this->pTracker->Fences) {
+        if (fence.QueueFamilyIndex == queueFamilyIndex &&
+            fence.QueueIndex == queueIndex) {
+            return fence;
+        }
+    }
+
+    VkFenceCreateInfo fenceInfo{
+        .sType{ VK_STRUCTURE_TYPE_FENCE_CREATE_INFO },
+        .pNext{ nullptr },
+        .flags{ VK_FENCE_CREATE_SIGNALED_BIT }
+    };
+    VkFence fence{ nullptr };
+    VkResult error{ VK_SUCCESS };
+    if ((error = vkCreateFence(
+            this->GPU,
+            &fenceInfo,
+            nullptr,
+            &fence)) != VK_SUCCESS) {
+        return nullptr;
+    }
+    this->pTracker->Fences.push_back( { fence, queueFamilyIndex, queueIndex } );
+
+    return fence;
+}
 
 DflHW::Device::Device(const DeviceInfo& info) 
 try : pInfo( new DeviceInfo(info) ), 
@@ -394,9 +426,6 @@ try : pInfo( new DeviceInfo(info) ),
                                                          info.pSession->Instance.hDevices[info.DeviceIndex] 
                                                        : nullptr) ) ),
       pTracker( new DeviceTracker() ),
-      hPhysicalDevice(info.DeviceIndex < info.pSession->Instance.hDevices.size() ?
-                        info.pSession->Instance.hDevices[info.DeviceIndex]
-                      : nullptr),
       GPU( INT_InitDevice(
                 info.pSession->Instance,
                 info.DeviceIndex < info.pSession->Instance.hDevices.size() ?
@@ -416,9 +445,19 @@ catch (DeviceError e) { this->Error = e; }
 
 DflHW::Device::~Device(){
     INT_GLB_DeviceMutex.lock();
+    for (auto& fence : this->pTracker->Fences) {
+        if (fence.hFence != nullptr) {
+            vkDestroyFence(
+                this->GPU,
+                fence,
+                nullptr
+            );
+        }
+    }
+
     if ( this->GPU.hDevice != nullptr ){
-        vkDeviceWaitIdle(this->GPU.hDevice);
-        vkDestroyDevice(this->GPU.hDevice, nullptr);
+        vkDeviceWaitIdle(this->GPU);
+        vkDestroyDevice(this->GPU, nullptr);
     }
     INT_GLB_DeviceMutex.unlock();
 };

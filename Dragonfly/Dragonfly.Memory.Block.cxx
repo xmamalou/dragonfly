@@ -177,7 +177,7 @@ static inline DflHW::Queue INT_GetQueue(
 
     areFamiliesUsed[familyIndex]++;
 
-    return { queue, familyIndex };
+    return { queue, familyIndex, leastClaimedQueue[familyIndex] - 1 };
 };
 
 static inline VkCommandPool INT_GetCmdPool(

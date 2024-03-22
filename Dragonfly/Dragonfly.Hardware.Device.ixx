@@ -98,16 +98,25 @@ namespace Dfl {
         };
 
         export struct QueueFamily {
-            uint32_t        Index{ 0 };        
-            uint32_t        QueueCount{ 0 };
-            DflGen::BitFlag QueueType{ 0 };
+            uint32_t             Index{ 0 };        
+            uint32_t             QueueCount{ 0 };
+            DflGen::BitFlag      QueueType{ 0 };
         };
 
         export struct Queue {
             const VkQueue  hQueue{ nullptr };
             const uint32_t FamilyIndex{ 0 };
+            const uint32_t Index{ 0 };
 
                            operator VkQueue() const { return this->hQueue; }
+        };
+
+        struct Fence {
+            const VkFence  hFence{ nullptr };
+            const uint32_t QueueFamilyIndex{ 0 };
+            const uint32_t QueueIndex{ 0 };
+             
+                           operator VkFence () { return this->hFence; }
         };
 
         export struct DeviceCharacteristics {
@@ -134,25 +143,32 @@ namespace Dfl {
 
             std::vector<uint32_t>       UsedLocalMemoryHeaps{ }; // size is the amount of heaps
             std::vector<uint32_t>       UsedSharedMemoryHeaps{ }; // size is the amount of heaps
+
+            std::vector<Fence>          Fences{ };
         };
 
         struct DeviceHandles {
             const VkDevice                    hDevice{ nullptr };
+            const VkPhysicalDevice            hPhysicalDevice{ nullptr };
             const std::vector<QueueFamily>    Families{ };
             const bool                        WithTimelineSems{ false };
             const bool                        WithRTX{ false };
 
                                               operator VkDevice() const { return this->hDevice; }
+                                              operator VkPhysicalDevice() const { return this->hPhysicalDevice; }
         };
 
         export class Device {
             const std::unique_ptr<const DeviceInfo>             pInfo{ };
             const std::unique_ptr<const DeviceCharacteristics>  pCharacteristics{ };
             const std::unique_ptr<      DeviceTracker>          pTracker{ };
-            const VkPhysicalDevice                              hPhysicalDevice{ nullptr };
             const DeviceHandles                                 GPU{ };
 
                   DeviceError                                   Error{ DeviceError::Success };
+            
+            DFL_API const VkFence               DFL_CALL  GetFence(
+                                                            const uint32_t queueFamilyIndex,
+                                                            const uint32_t queueIndex) const;
         public:
             DFL_API                             DFL_CALL  Device(const DeviceInfo& info);
             DFL_API                             DFL_CALL  ~Device();

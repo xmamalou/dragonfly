@@ -50,6 +50,7 @@ namespace Dfl {
             VkSwapchainInitError              = -0x4801,
             VkSwapchainSurfaceLostError       = -0x4802,
             VkSwapchainWindowUnavailableError = -0x4803,
+            VkBufferFenceCreationError        = -0x4A02,
             // warnings
             ThreadNotReadyWarning             = 0x1001,
             VkAlreadyInitDeviceWarning        = 0x4201,
@@ -95,6 +96,7 @@ namespace Dfl {
         export class Renderer {
             const std::unique_ptr<const RendererInfo>    pInfo;
             const std::unique_ptr<      Swapchain>       pSwapchain;
+                  VkFence                                QueueFence{ nullptr };
 
                   RenderState                            State{ RenderState::Initialize };
                   RendererError                          Error{ RendererError::Success };
