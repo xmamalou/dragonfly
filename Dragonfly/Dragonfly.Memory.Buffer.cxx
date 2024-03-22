@@ -17,18 +17,19 @@ module;
 
 #include "Dragonfly.h"
 
+#include <algorithm>
 #include <vector>
+#include <optional>
 #include <thread>
-#include <coroutine>
+#include <iostream>
 
 #include <vulkan/vulkan.h>
 
 module Dragonfly.Memory.Buffer;
 
-import Dragonfly.Generics;
+import Debugging;
 
 namespace DflMem = Dfl::Memory;
-namespace DflGen = Dfl::Generics;
 
 static inline VkBuffer INT_GetBuffer(
     const VkDevice&              hGPU,
@@ -67,6 +68,26 @@ static inline VkBuffer INT_GetBuffer(
     }
 
     return buff;
+}
+
+static inline VkFence INT_GetFence(const VkDevice& hGPU) {
+    const VkFenceCreateInfo fenceInfo{
+        .sType{ VK_STRUCTURE_TYPE_FENCE_CREATE_INFO },
+        .pNext{ nullptr },
+        .flags{ 0 }
+    };
+
+    VkFence fence{ nullptr };
+    VkResult error{ VK_SUCCESS };
+    if ((error = vkCreateFence(
+                    hGPU,
+                    &fenceInfo,
+                    nullptr,
+                    &fence)) != VK_SUCCESS) {
+        throw DflMem::BufferError::VkBufferFenceCreationError;
+    }
+
+    return fence;
 }
 
 static inline VkEvent INT_GetEvent(const VkDevice& hGPU) {
@@ -124,8 +145,11 @@ static inline DflMem::BufferHandles INT_GetBufferHandles(
         size,
         flags,
         areFamiliesUsed);
+    
+    VkFence fence{ nullptr };
     VkEvent event{ nullptr };
     try {
+        fence = INT_GetFence(hGPU);
         event = isStageVisible ? INT_GetEvent(hGPU) : nullptr;
     }
     catch (DflMem::BufferError e) {
@@ -134,6 +158,13 @@ static inline DflMem::BufferHandles INT_GetBufferHandles(
             hGPU,
             buffer,
             nullptr);
+        
+        if (fence != nullptr) {
+            vkDestroyFence(
+                hGPU,
+                fence,
+                nullptr);
+        }
     }
 
     auto cmdBuffer = INT_GetCmdBuffer(
@@ -142,7 +173,7 @@ static inline DflMem::BufferHandles INT_GetBufferHandles(
                         isStageVisible);
 
     return { buffer, 
-                event,
+                fence, event,
                 cmdBuffer };
 }
 
@@ -246,16 +277,6 @@ try : pInfo( new DflMem::BufferInfo(info) ),
     } else {
         this->Error = BufferError::VkMemoryAllocationError;
     }
-
-    VkFence fence{ this->pInfo->pMemoryBlock->pInfo->pDevice->GetFence(
-                                                                this->pInfo->pMemoryBlock->TransferQueue.FamilyIndex,
-                                                                this->pInfo->pMemoryBlock->TransferQueue.Index)};
-    if (fence == nullptr) {
-        this->Error = BufferError::VkBufferFenceCreationError;
-    } else {
-        this->QueueAvailableFence = fence;
-    }
-
 }
 catch (DflMem::BufferError e) { this->Error = e; }
 
@@ -268,6 +289,13 @@ DflMem::Buffer::~Buffer() {
             this->pInfo->pMemoryBlock->hCmdPool,
             1,
             &this->Buffers.hTransferCmdBuff);
+    }
+
+    if (this->Buffers.hTransferDoneFence != nullptr) {
+        vkDestroyFence(
+            this->pInfo->pMemoryBlock->pInfo->pDevice->GPU,
+            this->Buffers.hTransferDoneFence,
+            nullptr);
     }
 
     if (this->Buffers.hCPUTransferDone != nullptr) {
@@ -287,7 +315,7 @@ DflMem::Buffer::~Buffer() {
     }
 }
 
-const DflGen::Job<DflMem::BufferError> DflMem::Buffer::Write(
+const DflMem::BufferError DflMem::Buffer::Write(
                                             const void*    pData,
                                             const uint64_t size,
                                             const uint64_t offset) const noexcept {
@@ -312,41 +340,27 @@ const DflGen::Job<DflMem::BufferError> DflMem::Buffer::Write(
         .pSignalSemaphores{ nullptr }
     };
 
-    co_await DflGen::Job<BufferError>::Awaitable(
-                this->pInfo->pMemoryBlock->pInfo->pDevice->GPU,
-                this->QueueAvailableFence);
-    
-    while (vkGetFenceStatus(
-            this->pInfo->pMemoryBlock->pInfo->pDevice->GPU,
-            this->QueueAvailableFence) != VK_SUCCESS) {
-        std::this_thread::sleep_for(std::chrono::nanoseconds(10));
-    }
-    vkResetFences(
-        this->pInfo->pMemoryBlock->pInfo->pDevice->GPU,
-        1,
-        &this->QueueAvailableFence);
-
+    vkQueueWaitIdle(this->pInfo->pMemoryBlock->TransferQueue);
     if (vkQueueSubmit(
             this->pInfo->pMemoryBlock->TransferQueue,
             1,
             &subInfo,
-            this->QueueAvailableFence) != VK_SUCCESS) {
-        co_return BufferError::VkBufferWriteError;
+            this->Buffers.hTransferDoneFence) != VK_SUCCESS) {
+        return BufferError::VkBufferWriteError;
     }
 
-    co_await DflGen::Job<BufferError>::Awaitable(
-                this->pInfo->pMemoryBlock->pInfo->pDevice->GPU,
-                this->QueueAvailableFence);
-    
     while (vkGetFenceStatus(
             this->pInfo->pMemoryBlock->pInfo->pDevice->GPU,
-            this->QueueAvailableFence) != VK_SUCCESS) {
+            this->Buffers.hTransferDoneFence) != VK_SUCCESS) {
         std::this_thread::sleep_for(std::chrono::nanoseconds(10));
     }
+
+    vkResetFences(
+        this->pInfo->pMemoryBlock->pInfo->pDevice->GPU,
+        1,
+        &this->Buffers.hTransferDoneFence);
 
     vkResetCommandBuffer(
         this->Buffers.hTransferCmdBuff,
         0);
-
-    co_return BufferError::Success;
 }
