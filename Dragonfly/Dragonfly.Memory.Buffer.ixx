@@ -59,9 +59,7 @@ namespace Dfl {
 
             // CmdBuffers
 
-            const VkFence         hTransferDoneFence{ nullptr };
             const VkEvent         hCPUTransferDone{ nullptr };
-
             const VkCommandBuffer hTransferCmdBuff{ nullptr };
 
                                   operator const VkBuffer () { return this->hBuffer; }
@@ -73,16 +71,17 @@ namespace Dfl {
             const BufferHandles                     Buffers{ };
 
                   std::array<uint64_t, 2>           MemoryLayoutID{ 0, 0 };
+                  VkFence                           QueueAvailableFence{ nullptr };
 
                   BufferError                       Error{ BufferError::Success };
         public:
-            DFL_API                   DFL_CALL Buffer(const BufferInfo& info);
-            DFL_API                   DFL_CALL ~Buffer();
+            DFL_API                                DFL_CALL Buffer(const BufferInfo& info);
+            DFL_API                                DFL_CALL ~Buffer();
 
-            DFL_API const BufferError DFL_CALL Write(
-                                                    const void*    pData,
-                                                    const uint64_t size,
-                                                    const uint64_t offset) const noexcept;
+            DFL_API const DflGen::Job<BufferError> DFL_CALL Write(
+                                                                const void*    pData,
+                                                                const uint64_t size,
+                                                                const uint64_t offset) const noexcept;
 
                     const BufferError          GetErrorCode() const noexcept { return this->Error; }
         };
