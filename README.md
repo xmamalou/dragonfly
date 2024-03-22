@@ -15,22 +15,16 @@ Dragonfly supports and will support purely Visual Studio as its method of buildi
 
 Itself, it is build as a dynamic library (.dll). One sample project (`Testing`) is also built along with it.
 
-Dragonfly uses C++20 features (namely modules), hence C++20 features *need* to be enabled in Visual Studio's properties.
+Dragonfly uses C++20 features (for example, modules, concepts and coroutines), hence C++20 features *need* to be enabled in Visual Studio's properties.
 
 >[!IMPORTANT]
 > The same applies, obviously, when using Dragonfly.
 
 ## External Dependencies
 
-Dragonfly uses 2 libraries:
-
-- [GLFW](https://github.com/glfw/glfw)
+Dragonfly uses 1 library:
 - [Vulkan](https://vulkan.lunarg.com/)
 
-GLFW is *statically* linked.
 
->[!IMPORTANT]
-> The above dependencies **need** to be included even when not building Dragonfly and just using it, as the import modules actively include them, ***unless*** you include the compiled module files and not the source module files themselves.
-
->[!NOTE]
-> In some point in the future, I will stop including GLFW as a dependency, as I do not plan to "expand" outside of Windows for this project. Already, the `Window` class has been rewritten to use the Win32 API directly.
+>[!TIP]
+> The above dependencies **do not need** to be included if you don't intend to build Dragonfly, but just use its modules, since modules are precompiled.
