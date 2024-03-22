@@ -24,6 +24,7 @@ module;
 export module Dragonfly.Generics;
 
 export import :MetaFunctions;
+export import :Async;
 
 namespace Dfl {
     namespace Generics {
