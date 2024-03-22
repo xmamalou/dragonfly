@@ -45,6 +45,8 @@ void Rendering::operator() () {
     while ( ( this->Close = window.GetCloseStatus() ) == false) {
         renderer.Cycle();
     }
+
+    std::cout << "Done with the window\n";
 }
 
 int main() {
@@ -57,7 +59,9 @@ int main() {
     if (session.GetErrorCode() < Dfl::Hardware::SessionError::Success)
         return 1;
 
-    std::cout << "You have " << session.GetDeviceCount() << " devices in your system.\n";
+    std::cout << "You have " << session.GetDeviceCount() << " Vulkan capable device(s) in your system.\n";
+    std::cout << "Processor information: Cores - " << session.GetCPU().Count << "\n\t\t       Speed - " << session.GetCPU().Speed << " MHz\n";
+    std::cout << "Memory information: " << session.GetMemory() << " MB\n";
 
     const Dfl::Hardware::DeviceInfo gpuInfo{
         .pSession{ &session },
@@ -69,10 +73,11 @@ int main() {
         return 1;
 
     std::cout << "\nYour device's name is " << device.GetCharacteristics().Name << "\n";
+    std::cout << "\nThe session can also tell your device's name: " << session.GetDeviceName(0) << "\n";
 
     const Dfl::Memory::BlockInfo memoryInfo{
         .pDevice{ &device },
-        .Size{ Dfl::MakeBinaryPower(10) }
+        .Size{ Dfl::MakeBinaryPower(20) }
     };
     Dfl::Memory::Block memory(memoryInfo);
     if (memory.GetErrorCode() < Dfl::Memory::BlockError::Success)
@@ -80,22 +85,27 @@ int main() {
 
     const Dfl::Memory::BufferInfo bufferInfo{
         .pMemoryBlock{ &memory },
-        .Size{ 100 },
+        .Size{ Dfl::MakeBinaryPower(10) },
         .Options{ Dfl::NoOptions }
     };
     Dfl::Memory::Buffer buffer(bufferInfo);
     if (buffer.GetErrorCode() < Dfl::Memory::BufferError::Success)
         return 1;
 
+    const uint32_t* pData = new uint32_t[ Dfl::MakeBinaryPower(10)/sizeof(uint32_t) ];
+
     Rendering render(&device);
 
     std::thread renderThread(std::ref(render));
 
     while (render.ShouldClose() == false){
+        auto task = buffer.Write(pData, Dfl::MakeBinaryPower(10), 0);
         printf("");
     }
 
     renderThread.join();
+
+    delete[] pData;
 
     return 0;
 };
