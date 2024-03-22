@@ -93,6 +93,9 @@
     <ClCompile Include="Dragonfly.Memory.Buffer.cxx">
       <Filter>Source Files\Dragonfly\Memory</Filter>
     </ClCompile>
+    <ClCompile Include="Dragonfly.Generics-Async.ixx">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Dragonfly.h">
