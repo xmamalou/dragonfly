@@ -17,9 +17,6 @@
 module;
 
 #include <iostream>
-#include <memory>
-#include <chrono>
-#include <thread>
 
 #define WIN32_LEAN_AND_MEAN
 #include <Windows.h>
@@ -40,11 +37,37 @@ LRESULT CALLBACK INT_WindowProc(
                     WPARAM wParams,
                     LPARAM lParams) {
     switch (message) {
+    case WM_CREATE:
+        break;
+    case WM_QUIT:
     case WM_CLOSE:
         ShowWindow(
                 hWindow,
                 SW_HIDE);
         break;
+    case WM_SYSCOMMAND:
+        if (wParams == SC_CLOSE) {
+            ShowWindow(
+                hWindow,
+                SW_HIDE);
+            break;
+        }
+
+        if (wParams == SC_MINIMIZE) {
+            ShowWindow(
+                hWindow,
+                SW_MINIMIZE);
+            
+            break;
+        }
+        
+        if (wParams == SC_RESTORE) {
+            ShowWindow(
+                hWindow,
+                SW_RESTORE);
+
+            break;
+        }
     default: 
         return DefWindowProc(hWindow, message, wParams, lParams);
     }
@@ -52,27 +75,87 @@ LRESULT CALLBACK INT_WindowProc(
     return false;
 }
 
-DflOb::WindowHandles INT_GetHandles(const DflOb::WindowInfo info) {
+static inline std::array<uint32_t, 2> INT_GetFullscreen() {
+    DISPLAY_DEVICE display{};
+    DEVMODE        displayMode{};
+    uint32_t       dispIndex{ 0 };
+
+    while (true) {
+        if (EnumDisplayDevicesW(
+                nullptr,
+                dispIndex,
+                &display,
+                0) == FALSE) {
+            break;
+        }
+
+        if (EnumDisplayDevicesW(
+                display.DeviceName,
+                0,
+                &display,
+                0) == FALSE ||
+             display.StateFlags & DISPLAY_DEVICE_ATTACHED_TO_DESKTOP) {
+            dispIndex++;
+            continue;
+        }
+
+        if (EnumDisplaySettingsW(
+            display.DeviceName,
+            ENUM_CURRENT_SETTINGS,
+            &displayMode) == FALSE) {
+            dispIndex++;
+            continue;
+        }
+
+        if ( displayMode.dmPosition.x == 0 && 
+             displayMode.dmPosition.y == 0 ) {
+            break;
+        } 
+
+        dispIndex++;
+    }
+
+    return { displayMode.dmPelsWidth, displayMode.dmPelsHeight };
+}
+
+static HWND INT_GetWindow(const DflOb::Window::Info info) {
+    // Why is this done before the creation of the window?
+    // So we can pass the windowProp pointer as additional 
+    // data when the window is being created.
+
     const WNDCLASSW windowClass{
         .lpfnWndProc{ INT_WindowProc },
         .hInstance{ GetModuleHandle( L"Dragonfly" ) },
         .lpszClassName{ L"DragonflyApp" }
     };
     RegisterClassW(&windowClass);
+
+    auto displaySize{ INT_GetFullscreen() };
+
     const HWND window{ CreateWindowExW(
                             0,
                             windowClass.lpszClassName,
-                            info.WindowTitle.data(),
-                            WS_OVERLAPPEDWINDOW ^ ( WS_MAXIMIZEBOX | WS_THICKFRAME ),
-                            info.Position[0], info.Position[1],
-                            info.Resolution[0], info.Resolution[1],
-                            nullptr,
+                            info.HasTitleBar || !info.DoFullscreen ? 
+                                info.WindowTitle.data() :
+                                nullptr,
+                            info.hWindow == nullptr ? 
+                                ( info.HasTitleBar ? 
+                                    WS_OVERLAPPEDWINDOW ^ ( WS_MAXIMIZEBOX | WS_THICKFRAME ) :
+                                    0 ) :
+                                WS_CHILD,
+                            info.DoFullscreen ?
+                                0, 0 :
+                                info.Position[0], info.Position[1],
+                            info.DoFullscreen ?
+                                displaySize[0], displaySize[1] :
+                                info.Resolution[0], info.Resolution[1],
+                            info.hWindow,
                             nullptr,
                             GetModuleHandle(L"Dragonfly"),
                             nullptr) };
 
     if (window == nullptr) {
-        throw DflOb::WindowError::Win32WindowInitError;
+        throw DflOb::Window::Error::Win32WindowInitError;
     }
 
     DwmSetWindowAttribute(
@@ -81,21 +164,30 @@ DflOb::WindowHandles INT_GetHandles(const DflOb::WindowInfo info) {
         &WinVerum,
         sizeof(BOOL));
 
+    if ( !info.HasTitleBar || info.Extends || info.DoFullscreen ) {
+        MARGINS margins = { -1 };
+        if ( DwmExtendFrameIntoClientArea(
+                window,
+                &margins) != S_OK ) {
+            throw DflOb::Window::Error::Win32WindowTitleBarRemoveError;
+        }
+    }
+
     ShowWindow(
         window,
         SW_NORMAL);
 
-    return { window };
+    return window;
 }
 
-DflOb::Window::Window(const WindowInfo& info)
-try : pInfo( new WindowInfo(info) ),
-      Handles( INT_GetHandles(info) ) {  
+DflOb::Window::Window(const Info& info)
+try : pInfo( new Info(info) ),
+      Win32( Handles( { INT_GetWindow(info) } ) ) {  
 }
-catch (WindowError e) { this->Error = e; }
+catch (Error e) { this->ErrorCode = e; }
 
 DflOb::Window::~Window() {
-    DestroyWindow(this->Handles.hWin32Window);
+    DestroyWindow(this->Win32.hWin32Window);
 }
 
 inline const bool DflOb::Window::GetCloseStatus() const noexcept {
@@ -103,12 +195,21 @@ inline const bool DflOb::Window::GetCloseStatus() const noexcept {
     MSG  windowMessage{ };
     if ( (result = GetMessageW(
                         &windowMessage,
-                        this->Handles.hWin32Window,
+                        this->Win32.hWin32Window,
                         0x0, 0x0)) == -1 ) {
         return true;
     }
 
     DispatchMessageW(&windowMessage);
 
-    if ( IsWindowVisible(this->Handles.hWin32Window) == FALSE ) { return true; } else { return false; }
+    if ( IsWindowVisible(this->Win32.hWin32Window) == FALSE ||
+         IsWindow(this->Win32.hWin32Window) == FALSE ) { return true; } else { return false; }
+}
+
+inline void DflOb::Window::SetTitle(const wchar_t* newTitle) const noexcept {
+    if ( SetWindowTextW(
+            this->Win32.hWin32Window,
+            newTitle) == TRUE ) { 
+        this->pInfo->WindowTitle = newTitle; 
+    }
 }

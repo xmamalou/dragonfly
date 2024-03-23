@@ -41,141 +41,144 @@ namespace Dfl {
     namespace Memory { class Block; class Buffer; }
 
     namespace Hardware {
-        export enum class RenderOptions : unsigned int{
-            Raytracing = 1,
-        };
-
-        export struct DeviceInfo {
-            const Session*                    pSession{ }; // the session the device belongs to
-            const uint32_t                    DeviceIndex{ 0 }; // the index of the device in the session's device list
-
-            const uint32_t                    RenderersNumber{ 1 };
-            const DflGen::BitFlag             RenderOptions{ 0 };
-            const uint32_t                    SimulationsNumber{ 1 };
-        };
-
-        export enum class [[ nodiscard ]] DeviceError {
-            Success                           = 0,
-            // errors
-            NullHandleError                   = -0x1001,
-            VkDeviceInitError                 = -0x4202,
-            VkDeviceNoSuchExtensionError      = -0x4203,
-            VkDeviceLostError                 = -0x4204,
-            VkDeviceInvalidSession            = -0x4205,
-            VkNoAvailableQueuesError          = -0x4701,
-            VkInsufficientQueuesError         = -0x4703,
-            // warning
-            VkInsufficientQueuesWarning       = 0x4702,
-        };
-
-        export enum class MemoryType : unsigned int {
-            Local,
-            Shared
-        };
-
-        struct MemoryProperties {
-            uint32_t     TypeIndex{ 0 };
-
-            bool         IsHostVisible{ false };
-            bool         IsHostCoherent{ false };
-            bool         IsHostCached{ false };
-        };
-
-        export template < MemoryType type >
-        struct DeviceMemory {
-            VkDeviceSize                  Size{ 0 };
-            uint32_t                      HeapIndex{ 0 };
-
-            std::vector<MemoryProperties> Properties{ };
-
-                         operator VkDeviceSize() const { return this->Size; }
-        };
-
-        export enum class QueueType : unsigned int {
-            Graphics = 1,
-            Compute  = 2,
-            Transfer = 4,
-        };
-
-        export struct QueueFamily {
-            uint32_t             Index{ 0 };        
-            uint32_t             QueueCount{ 0 };
-            DflGen::BitFlag      QueueType{ 0 };
-        };
-
-        export struct Queue {
-            const VkQueue  hQueue{ nullptr };
-            const uint32_t FamilyIndex{ 0 };
-            const uint32_t Index{ 0 };
-
-                           operator VkQueue() const { return this->hQueue; }
-        };
-
-        struct Fence {
-            const VkFence  hFence{ nullptr };
-            const uint32_t QueueFamilyIndex{ 0 };
-            const uint32_t QueueIndex{ 0 };
-             
-                           operator VkFence () { return this->hFence; }
-        };
-
-        export struct DeviceCharacteristics {
-            const std::string                                   Name{ "Placeholder GPU Name" };
-
-            const std::vector<DeviceMemory<MemoryType::Local>>  LocalHeaps{ };
-            const std::vector<DeviceMemory<MemoryType::Shared>> SharedHeaps{ };
-
-            const std::array<uint32_t, 2>                       MaxViewport{ {0, 0} };
-            const std::array<uint32_t, 2>                       MaxSampleCount{ {0, 0} }; // {colour, depth}
-
-            const std::array<uint32_t, 3>                       MaxGroups{ {0, 0, 0} }; // max amount of groups the device supports
-            const uint64_t                                      MaxAllocations{ 0 };
-
-            const uint64_t                                      MaxDrawIndirectCount{ 0 };
-        };
-
-        struct DeviceTracker {
-            uint64_t                    Allocations{ 0 };
-            uint64_t                    IndirectDraws{ 0 };
-
-            std::vector<uint32_t>       LeastClaimedQueue{ };
-            std::vector<uint32_t>       AreFamiliesUsed{ };
-
-            std::vector<uint32_t>       UsedLocalMemoryHeaps{ }; // size is the amount of heaps
-            std::vector<uint32_t>       UsedSharedMemoryHeaps{ }; // size is the amount of heaps
-
-            std::vector<Fence>          Fences{ };
-        };
-
-        struct DeviceHandles {
-            const VkDevice                    hDevice{ nullptr };
-            const VkPhysicalDevice            hPhysicalDevice{ nullptr };
-            const std::vector<QueueFamily>    Families{ };
-            const bool                        WithTimelineSems{ false };
-            const bool                        WithRTX{ false };
-
-                                              operator VkDevice() const { return this->hDevice; }
-                                              operator VkPhysicalDevice() const { return this->hPhysicalDevice; }
-        };
-
         export class Device {
-            const std::unique_ptr<const DeviceInfo>             pInfo{ };
-            const std::unique_ptr<const DeviceCharacteristics>  pCharacteristics{ };
-            const std::unique_ptr<      DeviceTracker>          pTracker{ };
-            const DeviceHandles                                 GPU{ };
+        public:
+            enum class RenderOptions : unsigned int {
+                Raytracing = 1,
+            };
 
-                  DeviceError                                   Error{ DeviceError::Success };
+            struct Info {
+                const Session* pSession{ }; // the session the device belongs to
+                const uint32_t                    DeviceIndex{ 0 }; // the index of the device in the session's device list
+
+                const uint32_t                    RenderersNumber{ 1 };
+                const DflGen::BitFlag             RenderOptions{ 0 };
+                const uint32_t                    SimulationsNumber{ 1 };
+            };
+
+            enum class [[ nodiscard ]] Error {
+                Success = 0,
+                // errors
+                NullHandleError = -0x1001,
+                VkDeviceInitError = -0x4202,
+                VkDeviceNoSuchExtensionError = -0x4203,
+                VkDeviceLostError = -0x4204,
+                VkDeviceInvalidSession = -0x4205,
+                VkNoAvailableQueuesError = -0x4701,
+                VkInsufficientQueuesError = -0x4703,
+                // warning
+                VkInsufficientQueuesWarning = 0x4702,
+            };
+
+            enum class MemoryType : unsigned int {
+                Local,
+                Shared
+            };
+
+            template < MemoryType type >
+            struct Memory {
+                struct Properties {
+                    uint32_t     TypeIndex{ 0 };
+
+                    bool         IsHostVisible{ false };
+                    bool         IsHostCoherent{ false };
+                    bool         IsHostCached{ false };
+                };
+
+                VkDeviceSize            Size{ 0 };
+                uint32_t                HeapIndex{ 0 };
+
+                std::vector<Properties> MemProperties{ };
+
+                operator VkDeviceSize() const { return this->Size; }
+            };
+
+            struct Queue {
+                enum class Type : unsigned int {
+                    Graphics = 1,
+                    Compute = 2,
+                    Transfer = 4,
+                };
+
+                struct Family {
+                    uint32_t             Index{ 0 };
+                    uint32_t             QueueCount{ 0 };
+                    DflGen::BitFlag      QueueType{ 0 };
+                };
+
+                const VkQueue  hQueue{ nullptr };
+                const uint32_t FamilyIndex{ 0 };
+                const uint32_t Index{ 0 };
+
+                operator VkQueue() const { return this->hQueue; }
+            };
+
+            struct Fence {
+                const VkFence  hFence{ nullptr };
+                const uint32_t QueueFamilyIndex{ 0 };
+                const uint32_t QueueIndex{ 0 };
+
+                operator VkFence () { return this->hFence; }
+            };
+
+            struct Characteristics {
+                const std::string                             Name{ "Placeholder GPU Name" };
+
+                const std::vector<Memory<MemoryType::Local>>  LocalHeaps{ };
+                const std::vector<Memory<MemoryType::Shared>> SharedHeaps{ };
+
+                const std::array<uint32_t, 2>                 MaxViewport{ {0, 0} };
+                const std::array<uint32_t, 2>                 MaxSampleCount{ {0, 0} }; // {colour, depth}
+
+                const std::array<uint32_t, 3>                 MaxGroups{ {0, 0, 0} }; // max amount of groups the device supports
+                const uint64_t                                MaxAllocations{ 0 };
+
+                const uint64_t                                MaxDrawIndirectCount{ 0 };
+            };
+
+            struct Tracker {
+                uint64_t                    Allocations{ 0 };
+                uint64_t                    IndirectDraws{ 0 };
+
+                std::vector<uint32_t>       LeastClaimedQueue{ };
+                std::vector<uint32_t>       AreFamiliesUsed{ };
+
+                std::vector<uint32_t>       UsedLocalMemoryHeaps{ }; // size is the amount of heaps
+                std::vector<uint32_t>       UsedSharedMemoryHeaps{ }; // size is the amount of heaps
+
+                std::vector<Fence>          Fences{ };
+            };
+
+            struct Handles {
+                const VkDevice                    hDevice{ nullptr };
+                const VkPhysicalDevice            hPhysicalDevice{ nullptr };
+                const std::vector<Queue::Family>  Families{ };
+                const bool                        WithTimelineSems{ false };
+                const bool                        WithRTX{ false };
+
+                operator VkDevice() const { return this->hDevice; }
+                operator VkPhysicalDevice() const { return this->hPhysicalDevice; }
+            };
+        
+        private:
+            const std::unique_ptr<const Info>             pInfo{ };
+            const std::unique_ptr<const Characteristics>  pCharacteristics{ };
+            const std::unique_ptr<      Tracker>          pTracker{ };
+            const Handles                                 GPU{ };
+
+                  Error                                   ErrorCode{ Error::Success };
             
             DFL_API const VkFence               DFL_CALL  GetFence(
                                                             const uint32_t queueFamilyIndex,
                                                             const uint32_t queueIndex) const;
+        
         public:
-            DFL_API                             DFL_CALL  Device(const DeviceInfo& info);
-            DFL_API                             DFL_CALL  ~Device();
+            DFL_API                       DFL_CALL  Device(const Info& info);
+            DFL_API                       DFL_CALL  ~Device();
 
-                    const DeviceError                     GetErrorCode() const noexcept { return this->Error; }
-                    const DeviceInfo                      GetInfo() const noexcept { return *this->pInfo; }
-                    const DeviceCharacteristics           GetCharacteristics() const noexcept { return *this->pCharacteristics; }
+                    const Error                     GetErrorCode() const noexcept { return this->ErrorCode; }
+                    const Info                      GetInfo() const noexcept { return *this->pInfo; }
+                    const Characteristics           GetCharacteristics() const noexcept { return *this->pCharacteristics; }
             
             friend class
                           Dfl::Graphics::Renderer;

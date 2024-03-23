@@ -75,7 +75,7 @@ static inline uint64_t INT_GetProcessorSpeed(const uint32_t& processorCount) {
     return cpuInfos[0].CurrentMhz;
 }
 
-static inline DflHW::Processor INT_GetProcessor() {
+static inline DflHW::Session::Processor INT_GetProcessor() {
     const uint32_t processorCount{ INT_GetProcessorCount() };
 
     return { processorCount, INT_GetProcessorSpeed(processorCount) };
@@ -112,7 +112,7 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL INT_dflDebugCLBK(
     return VK_FALSE;
 }
 
-static DflHW::SessionError INT_InitDebugger(
+static DflHW::Session::Error INT_InitDebugger(
     const VkInstance& instance,
     VkDebugUtilsMessengerEXT& debugger){
     const VkDebugUtilsMessengerCreateInfoEXT debugInfo = {
@@ -129,30 +129,30 @@ static DflHW::SessionError INT_InitDebugger(
     const PFN_vkCreateDebugUtilsMessengerEXT createDebug{
         (PFN_vkCreateDebugUtilsMessengerEXT)vkGetInstanceProcAddr(instance, "vkCreateDebugUtilsMessengerEXT") };
     if (createDebug == nullptr) {
-        return DflHW::SessionError::VkDebuggerCreationError;
+        return DflHW::Session::Error::VkDebuggerCreationError;
     }
     if (createDebug(
         instance,
         &debugInfo,
         NULL,
         &debugger) != VK_SUCCESS) {
-        return DflHW::SessionError::VkDebuggerCreationError;
+        return DflHW::Session::Error::VkDebuggerCreationError;
     }
 
-    return DflHW::SessionError::Success;
+    return DflHW::Session::Error::Success;
 }
 
-static DflHW::SessionError INT_LoadDevices(
+static DflHW::Session::Error INT_LoadDevices(
     const VkInstance& instance, 
     std::vector<VkPhysicalDevice>& devices){
     uint32_t deviceCount{ 0 };
     vkEnumeratePhysicalDevices(instance, &deviceCount, nullptr);
     if (deviceCount == 0)
-        return DflHW::SessionError::VkNoDevicesError;
+        return DflHW::Session::Error::VkNoDevicesError;
     devices.resize(deviceCount); // we now reserve space for both the physical GPUs and the ones Dragonfly understands
     vkEnumeratePhysicalDevices(instance, &deviceCount, devices.data());
 
-    return DflHW::SessionError::Success;
+    return DflHW::Session::Error::Success;
 }
 
 const std::array<const char*, 1> expectedLayers{
@@ -161,7 +161,7 @@ const std::array<const char*, 1> expectedLayers{
 
 //
 
-static DflHW::SessionHandles INT_InitSession(const DflHW::SessionInfo& info){
+static DflHW::Session::Handles INT_InitSession(const DflHW::Session::Info& info){
     const VkApplicationInfo appInfo = {
         .sType{ VK_STRUCTURE_TYPE_APPLICATION_INFO },
         .pNext{ nullptr },
@@ -183,7 +183,7 @@ static DflHW::SessionHandles INT_InitSession(const DflHW::SessionInfo& info){
         std::vector<VkLayerProperties> layerProperties{ };
         vkEnumerateInstanceLayerProperties(&count, nullptr);
         if (count == 0){
-            throw DflHW::SessionError::VkNoLayersError;
+            throw DflHW::Session::Error::VkNoLayersError;
         }
         layerProperties.resize(count);
         vkEnumerateInstanceLayerProperties(&count, layerProperties.data());
@@ -197,7 +197,7 @@ static DflHW::SessionHandles INT_InitSession(const DflHW::SessionInfo& info){
                     break;
                 }
                 if ( i == count - 1) {
-                    throw DflHW::SessionError::VkNoExpectedLayersError;
+                    throw DflHW::Session::Error::VkNoExpectedLayersError;
                 }
             }
         }
@@ -222,25 +222,25 @@ static DflHW::SessionHandles INT_InitSession(const DflHW::SessionInfo& info){
     case VK_SUCCESS:
         break;
     case VK_ERROR_INCOMPATIBLE_DRIVER:
-        throw DflHW::SessionError::VkBadDriverError;
+        throw DflHW::Session::Error::VkBadDriverError;
     default:
-        throw DflHW::SessionError::VkInstanceCreationError;
+        throw DflHW::Session::Error::VkInstanceCreationError;
     }
 
     VkDebugUtilsMessengerEXT dbMessenger{ nullptr };
-    DflHW::SessionError err{ DflHW::SessionError::Success };
+    DflHW::Session::Error err{ DflHW::Session::Error::Success };
     if (info.DoDebug == true) {
         err = INT_InitDebugger(instance, dbMessenger);
     }
 
-    if (err != DflHW::SessionError::Success) {
+    if (err != DflHW::Session::Error::Success) {
         vkDestroyInstance(instance, nullptr);
         throw err;
     }
 
     std::vector<VkPhysicalDevice> devices{};
     err = INT_LoadDevices(instance, devices);
-    if (err != DflHW::SessionError::Success) {
+    if (err != DflHW::Session::Error::Success) {
         vkDestroyInstance(instance, nullptr);
         throw err;
     }
@@ -248,12 +248,12 @@ static DflHW::SessionHandles INT_InitSession(const DflHW::SessionInfo& info){
     return { instance, dbMessenger, devices };
 }
 
-DflHW::Session::Session(const SessionInfo& info) 
-try : GeneralInfo(new SessionInfo(info)), 
+DflHW::Session::Session(const Info& info) 
+try : GeneralInfo(new Info(info)), 
       CPU( INT_GetProcessor() ),
       Memory( INT_GetMemory() ),
       Instance( INT_InitSession(info)) { }
-catch (DflHW::SessionError e) { this->Error = e; }
+catch (Error e) { this->ErrorCode = e; }
 
 DflHW::Session::~Session()
 {

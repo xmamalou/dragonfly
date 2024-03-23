@@ -72,7 +72,7 @@ static inline VkExtent2D INT_MakeExtent(const std::array<uint32_t, 2>& resolutio
     return extent;
 };
 
-static inline DflGr::RendererError INT_CreateSwapchain(
+static inline DflGr::Renderer::Error INT_CreateSwapchain(
     const VkDevice&                        device,
     const bool&                            doVsync,
     const VkSurfaceKHR&                    surface,
@@ -116,23 +116,23 @@ static inline DflGr::RendererError INT_CreateSwapchain(
     case VK_SUCCESS:
         break;
     case VK_ERROR_SURFACE_LOST_KHR:
-        return DflGr::RendererError::VkSwapchainSurfaceLostError;
+        return DflGr::Renderer::Error::VkSwapchainSurfaceLostError;
     case VK_ERROR_NATIVE_WINDOW_IN_USE_KHR:
-        return DflGr::RendererError::VkSwapchainWindowUnavailableError;
+        return DflGr::Renderer::Error::VkSwapchainWindowUnavailableError;
     default:
-        return DflGr::RendererError::VkSwapchainInitError;
+        return DflGr::Renderer::Error::VkSwapchainInitError;
     }
 
-    return DflGr::RendererError::Success;
+    return DflGr::Renderer::Error::Success;
 };
 
 //
 
 static inline void INT_InitNode(
-                  const VkDevice&             device,
-                  const bool&                 doVsync,
-                        DflGr::Swapchain&     swapchain,
-                        DflGr::RendererError& error) {
+                  const VkDevice&                   device,
+                  const bool&                       doVsync,
+                        DflGr::Renderer::Swapchain& swapchain,
+                        DflGr::Renderer::Error&     error) {
     const VkCommandPoolCreateInfo cmdPoolInfo = {
         .sType{ VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO },
         .pNext{ nullptr},
@@ -145,7 +145,7 @@ static inline void INT_InitNode(
         &cmdPoolInfo,
         nullptr,
         &swapchain.hCmdPool) != VK_SUCCESS) {
-        error = DflGr::RendererError::VkComPoolInitError;
+        error = DflGr::Renderer::Error::VkComPoolInitError;
     }
     //this->pMutex->unlock();
 
@@ -159,7 +159,7 @@ static inline void INT_InitNode(
                     swapchain.Formats,
                     swapchain.PresentModes,
                     swapchain.hSwapchain,
-                    newSwapchain)) != DflGr::RendererError::Success) {
+                    newSwapchain)) != DflGr::Renderer::Error::Success) {
     }
     swapchain.hSwapchain = newSwapchain;
 
@@ -181,11 +181,11 @@ static inline void INT_InitNode(
 
 // Internal for constructor
 
-static Dfl::Hardware::Queue INT_GetQueue(
-    const VkDevice&                                device,
-    const std::vector<Dfl::Hardware::QueueFamily>& families,
-          std::vector<uint32_t>&                   areFamiliesUsed,
-          std::vector<uint32_t>&                   leastClaimedQueue) {
+static Dfl::Hardware::Device::Queue INT_GetQueue(
+    const VkDevice&                                          device,
+    const std::vector<Dfl::Hardware::Device::Queue::Family>& families,
+          std::vector<uint32_t>&                             areFamiliesUsed,
+          std::vector<uint32_t>&                             leastClaimedQueue) {
     VkQueue  queue{ nullptr };
     uint32_t familyIndex{ 0 };
     uint32_t amountOfClaimedGoal{ 0 };
@@ -196,7 +196,7 @@ static Dfl::Hardware::Queue INT_GetQueue(
             continue;
         }
 
-        if (!(families[familyIndex].QueueType & Dfl::Hardware::QueueType::Graphics)) {
+        if (!(families[familyIndex].QueueType & Dfl::Hardware::Device::Queue::Type::Graphics)) {
             familyIndex++;
             continue;
         }
@@ -234,21 +234,21 @@ static Dfl::Hardware::Queue INT_GetQueue(
     return { queue, familyIndex, leastClaimedQueue[familyIndex] - 1 };
 };
 
-static DflGr::Swapchain INT_GetRenderResources(
-    const VkInstance&                              instance,
-    const VkPhysicalDevice&                        hPhysDevice,
-    const VkDevice&                                hDevice,
-    const HWND&                                    hWindow,
-    const std::array< uint32_t, 2>&                resolution,
-    const std::vector<Dfl::Hardware::QueueFamily>& families,
-          std::vector<uint32_t>&                   leastClaimedQueue,
-          std::vector<uint32_t>&                   areFamiliesUsed) {
+static DflGr::Renderer::Swapchain INT_GetRenderResources(
+    const VkInstance&                                        instance,
+    const VkPhysicalDevice&                                  hPhysDevice,
+    const VkDevice&                                          hDevice,
+    const HWND&                                              hWindow,
+    const std::array< uint32_t, 2>&                          resolution,
+    const std::vector<Dfl::Hardware::Device::Queue::Family>& families,
+          std::vector<uint32_t>&                             leastClaimedQueue,
+          std::vector<uint32_t>&                             areFamiliesUsed) {
     if (hPhysDevice == nullptr)
-        throw DflGr::RendererError::NullHandleError;
+        throw DflGr::Renderer::Error::NullHandleError;
 
     VkSurfaceKHR surface;
     if (hWindow == nullptr) {
-        throw DflGr::RendererError::NullHandleError;
+        throw DflGr::Renderer::Error::NullHandleError;
     }
     const VkWin32SurfaceCreateInfoKHR surfaceinfo = {
         .sType{ VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR },
@@ -260,7 +260,7 @@ static DflGr::Swapchain INT_GetRenderResources(
             instance,
             &surfaceinfo, nullptr,
             &surface) != VK_SUCCESS) {
-        throw DflGr::RendererError::VkSurfaceCreationError;
+        throw DflGr::Renderer::Error::VkSurfaceCreationError;
     }
 
     VkSurfaceCapabilitiesKHR capabs;
@@ -276,7 +276,7 @@ static DflGr::Swapchain INT_GetRenderResources(
         &count,
         nullptr);
     if (count == 0)
-        throw DflGr::RendererError::VkNoSurfaceFormatsError;
+        throw DflGr::Renderer::Error::VkNoSurfaceFormatsError;
     std::vector<VkSurfaceFormatKHR> formats(count);
     vkGetPhysicalDeviceSurfaceFormatsKHR(
         hPhysDevice,
@@ -291,7 +291,7 @@ static DflGr::Swapchain INT_GetRenderResources(
         &count,
         nullptr);
     if (count == 0)
-       throw DflGr::RendererError::VkNoSurfacePresentModesError;
+       throw DflGr::Renderer::Error::VkNoSurfacePresentModesError;
     std::vector<VkPresentModeKHR> modes(count);
     vkGetPhysicalDeviceSurfacePresentModesKHR(
         hPhysDevice,
@@ -313,8 +313,8 @@ static DflGr::Swapchain INT_GetRenderResources(
 
 // 
 
-DflGr::Renderer::Renderer(const RendererInfo& info)
-try : pInfo( new RendererInfo(info) ),
+DflGr::Renderer::Renderer(const Info& info)
+try : pInfo(new Info(info)),
       pSwapchain(new Swapchain( INT_GetRenderResources(
                                     info.pAssocDevice->pInfo->pSession->Instance,
                                     info.pAssocDevice->GPU,
@@ -329,10 +329,10 @@ try : pInfo( new RendererInfo(info) ),
                                                     this->pSwapchain->AssignedQueue.Index);
 
     if (this->QueueFence == nullptr) {
-        this->Error = DflGr::RendererError::VkBufferFenceCreationError;
+        this->ErrorCode = Error::VkBufferFenceCreationError;
     }
 }
-catch (DflGr::RendererError e) { this->Error = e; }
+catch (Error e) { this->ErrorCode = e; }
 
 DflGr::Renderer::~Renderer() {
     auto& pDevice{ this->pInfo->pAssocDevice };
@@ -360,19 +360,19 @@ DflGr::Renderer::~Renderer() {
 }
 
 void DflGr::Renderer::Cycle() {
-    switch (this->State) {
-    case RenderState::Initialize:
+    switch (this->CurrentState) {
+    case State::Initialize:
         INT_InitNode(
             this->pInfo->pAssocDevice->GPU,
             this->pInfo->pAssocWindow->pInfo->DoVsync,
             *this->pSwapchain,
-            this->Error);
-        this->State = ( this->Error < RendererError::Success ) ? RenderState::Fail : RenderState::Loop;
+            this->ErrorCode);
+        this->CurrentState = ( this->ErrorCode < Error::Success ) ? State::Fail : State::Loop;
         break;
-    case RenderState::Loop:
+    case State::Loop:
         printf("");
         break;
-    case RenderState::Fail:
+    case State::Fail:
         printf("FAILURE\n");
         break;
     }

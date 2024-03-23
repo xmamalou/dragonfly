@@ -127,11 +127,11 @@ void DflMem::Block::Free(
     INT_GLB_MemoryMutex.unlock();
 }
 
-static inline DflHW::Queue INT_GetQueue(
-    const VkDevice&                                device,
-    const std::vector<Dfl::Hardware::QueueFamily>& families,
-          std::vector<uint32_t>&                   leastClaimedQueue,
-          std::vector<uint32_t>&                   areFamiliesUsed) {
+static inline DflHW::Device::Queue INT_GetQueue(
+    const VkDevice&                                          device,
+    const std::vector<Dfl::Hardware::Device::Queue::Family>& families,
+          std::vector<uint32_t>&                             leastClaimedQueue,
+          std::vector<uint32_t>&                             areFamiliesUsed) {
     VkQueue  queue{ nullptr };
     uint32_t familyIndex{ 0 };
     uint32_t amountOfClaimedGoal{ 0 };
@@ -142,7 +142,7 @@ static inline DflHW::Queue INT_GetQueue(
             continue;
         }
 
-        if (!(families[familyIndex].QueueType & Dfl::Hardware::QueueType::Transfer)) {
+        if (!(families[familyIndex].QueueType & Dfl::Hardware::Device::Queue::Type::Transfer)) {
             familyIndex++;
             continue;
         }
@@ -196,29 +196,29 @@ static inline VkCommandPool INT_GetCmdPool(
                         &cmdPoolInfo,
                         nullptr,
                         &cmdPool) ) != VK_SUCCESS) {
-        throw DflMem::BlockError::VkMemoryCmdPoolError;
+        throw DflMem::Block::Error::VkMemoryCmdPoolError;
     }
 
     return cmdPool;
 }
 
-static DflMem::BlockHandles INT_GetMemory(
-    const VkDevice&                                                   gpu,
-    const uint64_t&                                                   maxAllocs,
-          uint64_t&                                                   totAllocs,
-    const uint64_t&                                                   memorySize,
-    const std::vector<DflHW::DeviceMemory<DflHW::MemoryType::Local>>& memories,
-          std::vector<uint32_t>&                                      usedMemories,
-          std::vector<uint32_t>&                                      areFamiliesUsed) {
+static DflMem::Block::Handles INT_GetMemory(
+    const VkDevice&                                                             gpu,
+    const uint64_t&                                                             maxAllocs,
+          uint64_t&                                                             totAllocs,
+    const uint64_t&                                                             memorySize,
+    const std::vector<DflHW::Device::Memory<DflHW::Device::MemoryType::Local>>& memories,
+          std::vector<uint32_t>&                                                usedMemories,
+          std::vector<uint32_t>&                                                areFamiliesUsed) {
     if (totAllocs + 2 > maxAllocs) {
-        throw DflMem::BlockError::VkMemoryMaxAllocsReachedError;
+        throw DflMem::Block::Error::VkMemoryMaxAllocsReachedError;
     }
 
     std::optional<uint32_t> mainMemoryIndex{ std::nullopt };
     std::optional<uint32_t> stageMemoryIndex{ std::nullopt };
 
     for (uint32_t i{0}; i < memories.size(); i++) {
-        for(auto property : memories[i].Properties) {
+        for(auto property : memories[i].MemProperties) {
             // host invisible memory is best suited as main memory to store data in
             if ((!property.IsHostVisible && !property.IsHostCached && !property.IsHostCoherent) &&
                   memories[i] - usedMemories[i] > memorySize &&
@@ -239,7 +239,7 @@ static DflMem::BlockHandles INT_GetMemory(
                 stageMemoryIndex = property.TypeIndex;
                 INT_GLB_IsStageVisible = property.IsHostVisible;
                 usedMemories[i] += ( INT_GLB_StageMemorySize =
-                                        memories[i] - usedMemories[i] > DflMem::StageMemorySize ? DflMem::StageMemorySize : usedMemories[i] );
+                                        memories[i] - usedMemories[i] > DflMem::Block::StageMemorySize ? DflMem::Block::StageMemorySize : usedMemories[i] );
             }
         }
 
@@ -251,7 +251,7 @@ static DflMem::BlockHandles INT_GetMemory(
     if (mainMemoryIndex == std::nullopt) {
         for (uint32_t i{ 0 }; i < memories.size(); i++) {
             if (memories[i] - usedMemories[i] > memorySize) {
-                mainMemoryIndex = memories[i].Properties[0].TypeIndex;
+                mainMemoryIndex = memories[i].MemProperties[0].TypeIndex;
                 usedMemories[i] += memorySize;
                 break;
             }
@@ -261,11 +261,11 @@ static DflMem::BlockHandles INT_GetMemory(
     // likewise.
     if (stageMemoryIndex == std::nullopt && INT_GLB_ReferenceCount == 0) {
         for (uint32_t i{ 0 }; i < memories.size(); i++) {
-            if (memories[i] - usedMemories[i] > DflMem::StageMemorySize) {
-                stageMemoryIndex = memories[i].Properties[0].TypeIndex;
-                INT_GLB_IsStageVisible = memories[i].Properties[0].IsHostVisible;
+            if (memories[i] - usedMemories[i] > DflMem::Block::StageMemorySize) {
+                stageMemoryIndex = memories[i].MemProperties[0].TypeIndex;
+                INT_GLB_IsStageVisible = memories[i].MemProperties[0].IsHostVisible;
                 usedMemories[i] += ( INT_GLB_StageMemorySize =
-                                        memories[i] - usedMemories[i] > DflMem::StageMemorySize ? DflMem::StageMemorySize : usedMemories[i]);
+                                        memories[i] - usedMemories[i] > DflMem::Block::StageMemorySize ? DflMem::Block::StageMemorySize : usedMemories[i]);
                 break;
             }
         }
@@ -284,7 +284,7 @@ static DflMem::BlockHandles INT_GetMemory(
                     &memInfo,
                     nullptr,
                     &mainMemory)) != VK_SUCCESS) {
-        throw DflMem::BlockError::VkMemoryAllocationError;
+        throw DflMem::Block::Error::VkMemoryAllocationError;
     }
 
     totAllocs++;
@@ -305,7 +305,7 @@ static DflMem::BlockHandles INT_GetMemory(
                     mainMemory,
                     nullptr
                 );
-                throw DflMem::BlockError::VkMemoryAllocationError;
+                throw DflMem::Block::Error::VkMemoryAllocationError;
             }
         }
 
@@ -336,14 +336,14 @@ static DflMem::BlockHandles INT_GetMemory(
                 &bufInfo,
                 nullptr,
                 &INT_GLB_hStageBuffer)) != VK_SUCCESS) {
-                throw DflMem::BlockError::VkMemoryStageBuffError;
+                throw DflMem::Block::Error::VkMemoryStageBuffError;
             }
             if ((error = vkBindBufferMemory(
                 gpu,
                 INT_GLB_hStageBuffer,
                 INT_GLB_hStageMemory,
                 0)) != VK_SUCCESS) {
-                throw DflMem::BlockError::VkMemoryStageBuffError;
+                throw DflMem::Block::Error::VkMemoryStageBuffError;
             }
         
             if ( INT_GLB_IsStageVisible ) {
@@ -351,10 +351,10 @@ static DflMem::BlockHandles INT_GetMemory(
                     gpu,
                     INT_GLB_hStageMemory,
                     0,
-                    DflMem::StageMemorySize,
+                    DflMem::Block::StageMemorySize,
                     0,
                     &INT_GLB_pStageMemoryMap)) != VK_SUCCESS) {
-                    throw DflMem::BlockError::VkMemoryMapError;
+                    throw DflMem::Block::Error::VkMemoryMapError;
                 }
             }
         }
@@ -373,9 +373,9 @@ static inline DflGen::BinaryTree<uint32_t> INT_GetMemoryLayout(const uint32_t in
     return tree;
 }
 
-DflMem::Block::Block(const BlockInfo& info)
-try : pInfo( new DflMem::BlockInfo(info) ),
-      pHandles( new DflMem::BlockHandles( INT_GetMemory(
+DflMem::Block::Block(const Info& info)
+try : pInfo( new DflMem::Block::Info(info) ),
+      pHandles( new DflMem::Block::Handles( INT_GetMemory(
                                             info.pDevice->GPU,
                                             info.pDevice->pCharacteristics->MaxAllocations,
                                             info.pDevice->pTracker->Allocations,
@@ -431,10 +431,10 @@ try : pInfo( new DflMem::BlockInfo(info) ),
             }
         }
 
-        this->Error = DflMem::BlockError::VkMemoryCmdPoolError;
+        this->ErrorCode = Error::VkMemoryCmdPoolError;
     }
 }
-catch (DflMem::BlockError e) { this->Error = BlockError::VkMemoryAllocationError; };
+catch (Error e) { this->ErrorCode = Error::VkMemoryAllocationError; };
 
 DflMem::Block::~Block() {
     INT_GLB_MemoryMutex.lock();

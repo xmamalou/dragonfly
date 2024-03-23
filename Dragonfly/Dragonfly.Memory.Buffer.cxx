@@ -63,7 +63,7 @@ static inline VkBuffer INT_GetBuffer(
         nullptr,
         &buff
     )) != VK_SUCCESS) {
-        throw DflMem::BufferError::VkBufferAllocError;
+        throw DflMem::Buffer::Error::VkBufferAllocError;
     }
 
     return buff;
@@ -82,7 +82,7 @@ static inline VkEvent INT_GetEvent(const VkDevice& hGPU) {
                     &eventInfo,
                     nullptr,
                     &event)) != VK_SUCCESS) {
-        throw DflMem::BufferError::VkBufferEventCreationError;
+        throw DflMem::Buffer::Error::VkBufferEventCreationError;
     }
 
     return event;
@@ -105,13 +105,13 @@ static inline VkCommandBuffer INT_GetCmdBuffer(
         hGPU,
         &cmdInfo,
         &cmdBuff)) != VK_SUCCESS) {
-        throw DflMem::BufferError::VkBufferCmdBufferAllocError;
+        throw DflMem::Buffer::Error::VkBufferCmdBufferAllocError;
     }
 
     return cmdBuff;
 }
 
-static inline DflMem::BufferHandles INT_GetBufferHandles(
+static inline DflMem::Buffer::Handles INT_GetBufferHandles(
     const VkDevice&              hGPU,
     const VkCommandPool&         hPool,
     const uint64_t&              size,
@@ -130,7 +130,7 @@ static inline DflMem::BufferHandles INT_GetBufferHandles(
     try {
         event = isStageVisible ? INT_GetEvent(hGPU) : nullptr;
     }
-    catch (DflMem::BufferError e) {
+    catch (DflMem::Buffer::Error e) {
         vkDeviceWaitIdle(hGPU);
         vkDestroyBuffer(
             hGPU,
@@ -172,7 +172,7 @@ static inline void INT_RecordWriteCommand(
     if (vkBeginCommandBuffer(
             cmdBuff,
             &cmdInfo) != VK_SUCCESS) {
-        throw DflMem::BufferError::VkBufferCmdRecordingError;
+        throw DflMem::Buffer::Error::VkBufferCmdRecordingError;
     }
     
     uint64_t remainingSize{ size };
@@ -183,7 +183,7 @@ static inline void INT_RecordWriteCommand(
             cmdBuff,
             stageBuff,
             0,
-            remainingSize > DflMem::StageMemorySize ? DflMem::StageMemorySize : remainingSize,
+            remainingSize > DflMem::Block::StageMemorySize ? DflMem::Block::StageMemorySize : remainingSize,
             &((uint32_t*)pData)[offset]);
 
         VkBufferMemoryBarrier buffBarrier{
@@ -195,7 +195,7 @@ static inline void INT_RecordWriteCommand(
             .dstQueueFamilyIndex{ VK_QUEUE_FAMILY_IGNORED },
             .buffer{ stageBuff },
             .offset{ 0 },
-            .size{ remainingSize > DflMem::StageMemorySize ? DflMem::StageMemorySize : remainingSize }
+            .size{ remainingSize > DflMem::Block::StageMemorySize ? DflMem::Block::StageMemorySize : remainingSize }
         };
 
         vkCmdPipelineBarrier(
@@ -213,9 +213,9 @@ static inline void INT_RecordWriteCommand(
         VkBufferCopy copyRegion{
             .srcOffset{ 0 },
             .dstOffset{ dstOffset + sizeof(uint32_t)*offset },
-            .size{ DflMem::StageMemorySize > dstSize - (dstOffset + sizeof(uint32_t) * offset) ?
-                                               dstSize - (dstOffset + sizeof(uint32_t) * offset) 
-                                             : DflMem::StageMemorySize }
+            .size{ DflMem::Block::StageMemorySize > dstSize - (dstOffset + sizeof(uint32_t) * offset) ?
+                                                       dstSize - (dstOffset + sizeof(uint32_t) * offset) 
+                                                     : DflMem::Block::StageMemorySize }
         };
 
         vkCmdCopyBuffer(
@@ -227,20 +227,20 @@ static inline void INT_RecordWriteCommand(
 
         remainingSize = remainingSize > dstSize - (dstOffset + sizeof(uint32_t) * offset) ?
                             0
-                         : (remainingSize > DflMem::StageMemorySize ? 
-                                remainingSize - DflMem::StageMemorySize 
+                         : (remainingSize > DflMem::Block::StageMemorySize ?
+                                remainingSize - DflMem::Block::StageMemorySize
                               : 0 );
         offset += copyRegion.size/sizeof(uint32_t);
     }
 
     if (vkEndCommandBuffer(
             cmdBuff) != VK_SUCCESS) {
-        throw DflMem::BufferError::VkBufferCmdRecordingError;
+        throw DflMem::Buffer::Error::VkBufferCmdRecordingError;
     }
 }
 
-DflMem::Buffer::Buffer(const BufferInfo& info)
-try : pInfo( new DflMem::BufferInfo(info) ),
+DflMem::Buffer::Buffer(const Info& info)
+try : pInfo( new Info(info) ),
       Buffers( INT_GetBufferHandles(
                     info.pMemoryBlock->pInfo->pDevice->GPU,
                     info.pMemoryBlock->hCmdPool,
@@ -253,19 +253,19 @@ try : pInfo( new DflMem::BufferInfo(info) ),
     if ( (id = this->pInfo->pMemoryBlock->Alloc(this->Buffers.hBuffer)).has_value() ) {
         this->MemoryLayoutID = id.value();
     } else {
-        this->Error = BufferError::VkMemoryAllocationError;
+        this->ErrorCode = Error::VkMemoryAllocationError;
     }
 
     VkFence fence{ this->pInfo->pMemoryBlock->pInfo->pDevice->GetFence(
                         this->pInfo->pMemoryBlock->TransferQueue.FamilyIndex,
                         this->pInfo->pMemoryBlock->TransferQueue.Index)};
     if (fence == nullptr) {
-        this->Error = BufferError::VkBufferFenceCreationError;
+        this->ErrorCode = Error::VkBufferFenceCreationError;
     } else {
         this->QueueAvailableFence = fence;
     }
 }
-catch (DflMem::BufferError e) { this->Error = e; }
+catch (Error e) { this->ErrorCode = e; }
 
 DflMem::Buffer::~Buffer() {
     vkDeviceWaitIdle(this->pInfo->pMemoryBlock->pInfo->pDevice->GPU);
@@ -295,10 +295,10 @@ DflMem::Buffer::~Buffer() {
     }
 }
 
-const DflGen::Job<DflMem::BufferError> DflMem::Buffer::Write(
-                                                        const void*    pData,
-                                                        const uint64_t size,
-                                                        const uint64_t offset) const noexcept {
+const DflGen::Job<DflMem::Buffer::Error> DflMem::Buffer::Write(
+                                                            const void*    pData,
+                                                            const uint64_t size,
+                                                            const uint64_t offset) const noexcept {
     const VkDevice& device = this->pInfo->pMemoryBlock->pInfo->pDevice->GPU;
     
     INT_RecordWriteCommand(
@@ -322,7 +322,7 @@ const DflGen::Job<DflMem::BufferError> DflMem::Buffer::Write(
         .pSignalSemaphores{ nullptr }
     };
 
-    co_await DflGen::Job<BufferError>::Awaitable(
+    co_await DflGen::Job<Error>::Awaitable(
                 device,
                 this->QueueAvailableFence);
 
@@ -336,10 +336,10 @@ const DflGen::Job<DflMem::BufferError> DflMem::Buffer::Write(
             1,
             &subInfo,
             this->QueueAvailableFence) != VK_SUCCESS) {
-        co_return BufferError::VkBufferWriteError;
+        co_return Error::VkBufferWriteError;
     }
 
-    co_await DflGen::Job<BufferError>::Awaitable(
+    co_await DflGen::Job<Error>::Awaitable(
         device,
         this->QueueAvailableFence);
 
@@ -350,5 +350,5 @@ const DflGen::Job<DflMem::BufferError> DflMem::Buffer::Write(
         this->Buffers.hTransferCmdBuff,
         0);
 
-    co_return BufferError::Success;
+    co_return Error::Success;
 }

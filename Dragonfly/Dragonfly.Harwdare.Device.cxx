@@ -38,22 +38,24 @@ static std::mutex INT_GLB_DeviceMutex;
 
 // Internal for Device constructor
 
-template <DflHW::MemoryType type>
+template <DflHW::Device::MemoryType type>
 static inline void INT_OrganizeMemory(
-          std::vector<DflHW::DeviceMemory<type>>& memory, 
-    const VkPhysicalDeviceMemoryProperties        props);
+          std::vector<DflHW::Device::Memory<type>>& memory, 
+    const VkPhysicalDeviceMemoryProperties          props);
 
 template <>
 static inline void INT_OrganizeMemory(
-          std::vector<DflHW::DeviceMemory<DflHW::MemoryType::Local>>& memory,
-    const VkPhysicalDeviceMemoryProperties                            props) {
+          std::vector<DflHW::Device::Memory<DflHW::Device::MemoryType::Local>>& memory,
+    const VkPhysicalDeviceMemoryProperties                                      props) {
+    constexpr auto type = DflHW::Device::MemoryType::Local;
+
     uint32_t heapCount{ 0 };
     for (uint32_t i{ 0 }; i < props.memoryHeapCount; i++){
         if ( props.memoryHeaps[i].flags & VK_MEMORY_HEAP_DEVICE_LOCAL_BIT ){
             memory[heapCount].Size = props.memoryHeaps[i].size;
             memory[heapCount].HeapIndex = i;
 
-            DflHW::MemoryProperties dflProps{ };
+            DflHW::Device::Memory<type>::Properties dflProps{ };
             for (uint32_t j{ 0 }; j < VK_MAX_MEMORY_TYPES; j++) {
                 if (props.memoryTypes[j].heapIndex != i) {
                     continue;
@@ -67,7 +69,7 @@ static inline void INT_OrganizeMemory(
                 dflProps.IsHostCached =
                     props.memoryTypes[j].propertyFlags & VK_MEMORY_PROPERTY_HOST_CACHED_BIT ? true : false;
 
-                memory[heapCount].Properties.push_back(dflProps);
+                memory[heapCount].MemProperties.push_back(dflProps);
             }
 
             heapCount++;
@@ -77,15 +79,17 @@ static inline void INT_OrganizeMemory(
 
 template <>
 static inline void INT_OrganizeMemory(
-          std::vector<DflHW::DeviceMemory<DflHW::MemoryType::Shared>>& memory, 
-    const VkPhysicalDeviceMemoryProperties                             props) {
+          std::vector<DflHW::Device::Memory<DflHW::Device::MemoryType::Shared>>& memory, 
+    const VkPhysicalDeviceMemoryProperties                                       props) {
+    constexpr auto type = DflHW::Device::MemoryType::Shared;
+    
     uint32_t heapCount{ 0 };
     for (uint32_t i{ 0 }; i < props.memoryHeapCount; i++) {
         if ( !(props.memoryHeaps[i].flags & VK_MEMORY_HEAP_DEVICE_LOCAL_BIT) ) {
             memory[heapCount].Size = props.memoryHeaps[i].size;
             memory[heapCount].HeapIndex = props.memoryTypes[i].heapIndex;
 
-            DflHW::MemoryProperties dflProps{ };
+            DflHW::Device::Memory<type>::Properties dflProps{ };
             for (uint32_t j{ 0 }; j < VK_MAX_MEMORY_TYPES; j++ ) { 
                 if (props.memoryTypes[j].heapIndex != i) {
                     continue;
@@ -95,7 +99,7 @@ static inline void INT_OrganizeMemory(
                 dflProps.IsHostVisible =
                     props.memoryTypes[j].propertyFlags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT ? true : false;
 
-                memory[heapCount].Properties.push_back(dflProps);
+                memory[heapCount].MemProperties.push_back(dflProps);
             }
 
             heapCount++;
@@ -103,9 +107,9 @@ static inline void INT_OrganizeMemory(
     }
 };
 
-static DflHW::DeviceCharacteristics INT_OrganizeData(const VkPhysicalDevice& device){
+static DflHW::Device::Characteristics INT_OrganizeData(const VkPhysicalDevice& device){
     if (device == nullptr) {
-        throw DflHW::DeviceError::NullHandleError;
+        throw DflHW::Device::Error::NullHandleError;
     }
 
     //VkDevice& gpu = device.Info.pSession->Device
@@ -128,8 +132,8 @@ static DflHW::DeviceCharacteristics INT_OrganizeData(const VkPhysicalDevice& dev
         }
     }
 
-    std::vector<DflHW::DeviceMemory<DflHW::MemoryType::Local>> localHeaps(localHeapCount);
-    std::vector<DflHW::DeviceMemory<DflHW::MemoryType::Shared>> sharedHeaps(sharedHeapCount);
+    std::vector<DflHW::Device::Memory<DflHW::Device::MemoryType::Local>> localHeaps(localHeapCount);
+    std::vector<DflHW::Device::Memory<DflHW::Device::MemoryType::Shared>> sharedHeaps(sharedHeapCount);
     INT_OrganizeMemory(localHeaps, memProps);
     INT_OrganizeMemory(sharedHeaps, memProps);
 
@@ -162,17 +166,17 @@ static DflHW::DeviceCharacteristics INT_OrganizeData(const VkPhysicalDevice& dev
         devProps.limits.maxDrawIndirectCount };
 };
 
-static inline std::vector<DflHW::QueueFamily> INT_OrganizeQueues(
-    const VkPhysicalDevice&                device) {
-    std::vector<DflHW::QueueFamily>      queueFamilies;
-    std::vector<VkQueueFamilyProperties> props;
-    uint32_t                             queueFamilyCount{ 0 };
+static inline std::vector<DflHW::Device::Queue::Family> INT_OrganizeQueues(
+    const VkPhysicalDevice& device) {
+    std::vector<DflHW::Device::Queue::Family> queueFamilies;
+    std::vector<VkQueueFamilyProperties>      props;
+    uint32_t                                  queueFamilyCount{ 0 };
     vkGetPhysicalDeviceQueueFamilyProperties(
         device,
         &queueFamilyCount,
         nullptr);
     if (queueFamilyCount == 0) {
-        throw DflHW::DeviceError::VkNoAvailableQueuesError;
+        throw DflHW::Device::Error::VkNoAvailableQueuesError;
     }
     props.resize(queueFamilyCount);
     vkGetPhysicalDeviceQueueFamilyProperties(
@@ -189,15 +193,15 @@ static inline std::vector<DflHW::QueueFamily> INT_OrganizeQueues(
             vkGetPhysicalDeviceWin32PresentationSupportKHR(
                 device,
                 i)) {
-            queueType |= DflHW::QueueType::Graphics;
+            queueType |= DflHW::Device::Queue::Type::Graphics;
         }
 
         if (props[i].queueFlags & VK_QUEUE_COMPUTE_BIT) {
-            queueType |= DflHW::QueueType::Compute;
+            queueType |= DflHW::Device::Queue::Type::Compute;
         }
 
         if (props[i].queueFlags & VK_QUEUE_TRANSFER_BIT) {
-            queueType |= DflHW::QueueType::Transfer;
+            queueType |= DflHW::Device::Queue::Type::Transfer;
         }
 
         queueCount = props[i].queueCount;
@@ -212,17 +216,17 @@ static inline std::vector<DflHW::QueueFamily> INT_OrganizeQueues(
     return queueFamilies;
 }
 
-static DflHW::DeviceError INT_GetQueues(
-          std::vector<VkDeviceQueueCreateInfo>& infos,
-    const uint32_t                              rendererNum,
-    const uint32_t                              simNum,
-    const std::vector<DflHW::QueueFamily>&      families) {
+static DflHW::Device::Error INT_GetQueues(
+          std::vector<VkDeviceQueueCreateInfo>&      infos,
+    const uint32_t                                   rendererNum,
+    const uint32_t                                   simNum,
+    const std::vector<DflHW::Device::Queue::Family>& families) {
     uint32_t leftQueues{ rendererNum + simNum + 1 };
 
     for (auto& family : families) {
         uint32_t usedQueues{ 0 };
 
-        if (family.QueueType & DflHW::QueueType::Graphics) {
+        if (family.QueueType & DflHW::Device::Queue::Type::Graphics) {
             usedQueues = family.QueueCount > rendererNum ?
                 rendererNum : family.QueueCount;
         }
@@ -231,7 +235,7 @@ static DflHW::DeviceError INT_GetQueues(
             continue;
         }
 
-        if (family.QueueType & DflHW::QueueType::Compute) {
+        if (family.QueueType & DflHW::Device::Queue::Type::Compute) {
             usedQueues += family.QueueCount - usedQueues > simNum ?
                 simNum : family.QueueCount - usedQueues;
         }
@@ -240,7 +244,7 @@ static DflHW::DeviceError INT_GetQueues(
             continue;
         }
 
-        if (family.QueueType & DflHW::QueueType::Transfer) {
+        if (family.QueueType & DflHW::Device::Queue::Type::Transfer) {
             usedQueues += family.QueueCount - usedQueues > 1 ?
                 1 : family.QueueCount - usedQueues;
         }
@@ -258,10 +262,10 @@ static DflHW::DeviceError INT_GetQueues(
     }
 
     if (infos.size() == 0) {
-        return DflHW::DeviceError::VkInsufficientQueuesError;
+        return DflHW::Device::Error::VkInsufficientQueuesError;
     }
 
-    return DflHW::DeviceError::Success;
+    return DflHW::Device::Error::Success;
 };
 
 static const std::array< const char*, 2 > extensionsNoRT{
@@ -279,28 +283,28 @@ static const std::array< const char*, 5 > extensionsWithRT{
 
 //
 
-static DflHW::DeviceHandles INT_InitDevice(
+static DflHW::Device::Handles INT_InitDevice(
     const VkInstance&                      instance,
     const VkPhysicalDevice&                physDevice,
     const DflGen::BitFlag&                 renderOptions,
     const uint32_t                         rendererNum,
     const uint32_t                         simNum){
     if (instance == nullptr)
-        throw DflHW::DeviceError::VkDeviceInvalidSession;
+        throw DflHW::Device::Error::VkDeviceInvalidSession;
 
     if (physDevice == nullptr) {
-        throw DflHW::DeviceError::VkDeviceInvalidSession;
+        throw DflHW::Device::Error::VkDeviceInvalidSession;
     }
 
-    std::vector<DflHW::QueueFamily> queueFamilies{ INT_OrganizeQueues(physDevice) };
+    std::vector<DflHW::Device::Queue::Family> queueFamilies{ INT_OrganizeQueues(physDevice) };
 
     std::vector<VkDeviceQueueCreateInfo> queueInfo;
-    DflHW::DeviceError error{ 0 };
+    DflHW::Device::Error error{ 0 };
     if ( ( error = INT_GetQueues(
                     queueInfo,
                     rendererNum,
                     simNum,
-                    queueFamilies) ) < DflHW::DeviceError::Success ) {
+                    queueFamilies) ) < DflHW::Device::Error::Success ) {
         throw error;
     }
 
@@ -349,12 +353,12 @@ static DflHW::DeviceHandles INT_InitDevice(
        .ppEnabledLayerNames{ nullptr },
        .enabledExtensionCount{ doTimelineSemsExist ?
                                     ( rendererNum > 0 ? 
-                                        ( doesRTXExist && renderOptions & DflHW::RenderOptions::Raytracing ? 
+                                        ( doesRTXExist && renderOptions & DflHW::Device::RenderOptions::Raytracing ? 
                                                 static_cast<uint32_t>(extensionsWithRT.size()) :
                                                 static_cast<uint32_t>(extensionsNoRT.size()) ) :
                                         0 ) :
                                     ( rendererNum > 0 ? 
-                                        ( doesRTXExist && renderOptions & DflHW::RenderOptions::Raytracing ?
+                                        ( doesRTXExist && renderOptions & DflHW::Device::RenderOptions::Raytracing ?
                                                     static_cast<uint32_t>(extensionsWithRT.size()) - 1 :
                                                     static_cast<uint32_t>(extensionsNoRT.size()) - 1 ) :
                                         0 ) },
@@ -372,11 +376,11 @@ static DflHW::DeviceHandles INT_InitDevice(
     case VK_SUCCESS:
         break;
     case VK_ERROR_EXTENSION_NOT_PRESENT:
-        throw DflHW::DeviceError::VkDeviceNoSuchExtensionError;
+        throw DflHW::Device::Error::VkDeviceNoSuchExtensionError;
     case VK_ERROR_DEVICE_LOST:
-        throw DflHW::DeviceError::VkDeviceLostError;
+        throw DflHW::Device::Error::VkDeviceLostError;
     default:
-        throw DflHW::DeviceError::VkDeviceInitError;
+        throw DflHW::Device::Error::VkDeviceInitError;
     }
 
     for (uint32_t i{ 0 }; i < queueInfo.size(); i++) {
@@ -419,13 +423,13 @@ const VkFence DflHW::Device::GetFence(
     return fence;
 }
 
-DflHW::Device::Device(const DeviceInfo& info) 
-try : pInfo( new DeviceInfo(info) ), 
-      pCharacteristics( new DeviceCharacteristics( INT_OrganizeData(
+DflHW::Device::Device(const Info& info) 
+try : pInfo( new Info(info) ), 
+      pCharacteristics( new Characteristics( INT_OrganizeData(
                                                      info.DeviceIndex < info.pSession->Instance.hDevices.size() ?
                                                          info.pSession->Instance.hDevices[info.DeviceIndex] 
                                                        : nullptr) ) ),
-      pTracker( new DeviceTracker() ),
+      pTracker( new Tracker() ),
       GPU( INT_InitDevice(
                 info.pSession->Instance,
                 info.DeviceIndex < info.pSession->Instance.hDevices.size() ?
@@ -440,7 +444,7 @@ try : pInfo( new DeviceInfo(info) ),
     this->pTracker->UsedLocalMemoryHeaps.resize(this->pCharacteristics->LocalHeaps.size());
     this->pTracker->UsedSharedMemoryHeaps.resize(this->pCharacteristics->SharedHeaps.size());
 }
-catch (DeviceError e) { this->Error = e; }
+catch (Error e) { this->ErrorCode = e; }
 
 
 DflHW::Device::~Device(){

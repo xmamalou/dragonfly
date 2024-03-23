@@ -31,58 +31,58 @@ namespace Dfl { namespace Graphics { class Renderer; } }
 
 namespace Dfl{
     namespace Observer{
-        export DFL_API constexpr uint32_t   DefaultWidth{ 1920 };
-        export DFL_API constexpr uint32_t   DefaultHeight{ 1080 };
-        export DFL_API const     std::array DefaultResolution{ DefaultWidth, DefaultHeight};
-
-        export DFL_API constexpr uint32_t   DefaultRate{ 60 };
-
-        export enum class [[nodiscard]] WindowError {
-            Success                        = 0,
-            // errors
-            OutOfMemoryError               = -0x1002,
-            Win32WindowInitError           = -0x2101,
-            Win32WindowTitleBarRemoveError = -0x2102,
-            Win32WindowPropertiesError     = -0x2103,
-            Win32HeapAllocationError       = -0x2201
-        };
-
-        export struct WindowInfo {
-                  std::array<uint32_t, 2>         Resolution{ DefaultResolution };
-                  std::array<uint32_t, 2>         View{ DefaultResolution }; // currently equivalent to resolution
-                  bool                            DoFullscreen{ false };
-
-                  bool                            DoVsync{ true };
-                  uint32_t                        Rate{ 60 };
-
-                  std::array<int, 2>              Position{ {0, 0} }; // Relative to the screen space
-                  std::basic_string_view<wchar_t> WindowTitle{ L"Dragonfly App" };
-
-                  bool                            HasTitleBar{ true };
-                  bool                            Extends{ false }; // whether the draw area covers the titlebar as well
-
-            const HWND                            hWindow{ nullptr }; // instead of creating a new window, set this to render to children windows
-        };
-
-        struct WindowHandles {
-            const HWND   hWin32Window{ nullptr };
-            const HANDLE hWin32Props{ nullptr };
-            const void*  pWindowProps{ nullptr };
-        };
-
         export class Window
         {
-                    const  std::unique_ptr<WindowInfo> pInfo{ nullptr };
-                    const  WindowHandles               Handles{ };
-
-                           WindowError                 Error{ WindowError::Success };
-
         public:
-            DFL_API                          DFL_CALL Window(const WindowInfo& info);
+            enum class [[nodiscard]] Error {
+                Success = 0,
+                // errors
+                OutOfMemoryError = -0x1002,
+                Win32WindowInitError = -0x2101,
+                Win32WindowTitleBarRemoveError = -0x2102,
+                Win32WindowPropertiesError = -0x2103,
+                Win32HeapAllocationError = -0x2201
+            };
+            struct Info {
+                std::array<uint32_t, 2>         Resolution{ DefaultResolution };
+                std::array<uint32_t, 2>         View{ DefaultResolution }; // currently equivalent to resolution
+                bool                            DoFullscreen{ false };
+
+                bool                            DoVsync{ true };
+                uint32_t                        Rate{ 60 };
+
+                std::array<int, 2>              Position{ {0, 0} }; // Relative to the screen space
+                std::basic_string_view<wchar_t> WindowTitle{ L"Dragonfly App" };
+
+                bool                            HasTitleBar{ true };
+                bool                            Extends{ false }; // whether the draw area covers the titlebar as well
+
+                const HWND                      hWindow{ nullptr }; // instead of creating a new window, set this to render to children windows
+            };
+            struct Handles {
+                const HWND   hWin32Window{ nullptr };
+
+                operator HWND() { return this->hWin32Window; }
+            };
+
+            DFL_API static constexpr uint32_t   DefaultWidth{ 1920 };
+            DFL_API static constexpr uint32_t   DefaultHeight{ 1080 };
+            DFL_API static constexpr std::array DefaultResolution{ DefaultWidth, DefaultHeight };
+
+            DFL_API static constexpr uint32_t   DefaultRate{ 60 };
+
+        private:
+            const  std::unique_ptr<Info> pInfo{ nullptr };
+            const  Handles               Win32{ };
+
+                   Error                 ErrorCode{ Error::Success };
+
+        public: 
+            DFL_API                          DFL_CALL Window(const Info& info);
             DFL_API                          DFL_CALL ~Window();
 
-                           const WindowError          GetErrorCode() const noexcept { return this->Error; }         
-                           const HWND                 GetHandle() const noexcept { return this->Handles.hWin32Window; }
+                           const Error                GetErrorCode() const noexcept { return this->ErrorCode; }         
+                           const HWND                 GetHandle() const noexcept { return this->Win32.hWin32Window; }
             DFL_API inline const bool        DFL_CALL GetCloseStatus() const noexcept;
             
             DFL_API              void        DFL_CALL SetTitle(const wchar_t* newTitle) const noexcept;
