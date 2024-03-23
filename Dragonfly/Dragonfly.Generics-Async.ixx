@@ -38,7 +38,7 @@ namespace Dfl {
 
                 Job                get_return_object() noexcept { return Job(this->PromiseHandle); };
                 std::suspend_never initial_suspend() noexcept { return std::suspend_never(); };
-                std::suspend_never final_suspend() noexcept { return std::suspend_never(); };
+                std::suspend_never final_suspend() noexcept { this->pJobObject->State = Job::RoutineState::Done; return std::suspend_never(); };
                 void               return_value(T expr) { this->pJobObject->State = Job::RoutineState::Done; this->pJobObject->Value = expr; };
                 void               unhandled_exception() {};
 
@@ -74,9 +74,13 @@ namespace Dfl {
                 Awaitable Wait{ nullptr };
             };
 
-            Job& Resume() { if(this->State == RoutineState::InProgress) { this->PromiseHandle.resume(); } return *this; }
-            Job& Stop() { if(this->State == RoutineState::InProgress) { this->PromiseHandle.destroy(); } return *this; }
-                 operator T () { this->Resume(); return this->Value; }
+                         ~Job() { this->Stop(); }
+
+            Job&         Resume() { if(this->State == RoutineState::InProgress) { this->PromiseHandle.resume(); } return *this; }
+            Job&         Stop() { if(this->State == RoutineState::InProgress) { this->PromiseHandle.destroy(); } return *this; }
+                         operator T () { this->Resume(); return this->Value; }
+
+            RoutineState GetState() { return this->State; }
         private:
             std::coroutine_handle<promise_type> PromiseHandle{ nullptr };
             T                                   Value;
