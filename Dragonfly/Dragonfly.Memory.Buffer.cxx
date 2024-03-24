@@ -143,6 +143,8 @@ static inline DflMem::Buffer::Handles INT_GetBufferHandles(
                 fence,
                 nullptr);
         }
+
+        throw e;
     }
 
     auto cmdBuffer = INT_GetCmdBuffer(

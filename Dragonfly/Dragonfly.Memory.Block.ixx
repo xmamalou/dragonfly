@@ -57,7 +57,7 @@ namespace Dfl {
                 const VkBuffer             hStageBuffer{ nullptr };
 
                 const bool                 IsStageVisible{ false };
-                const void* StageMemoryMap{ nullptr };
+                const void*                StageMemoryMap{ nullptr };
 
                 operator VkDeviceMemory () const { return this->hMemory; }
             };
@@ -70,7 +70,7 @@ namespace Dfl {
         private:
             const std::unique_ptr<const Info>    pInfo{ nullptr };
             const std::unique_ptr<const Handles> pHandles{};
-                  DflGen::BinaryTree<uint32_t>   MemoryLayout;
+                  DflGen::BinaryTree<uint64_t>   MemoryLayout;
 
             const DflHW::Device::Queue           TransferQueue;
                   VkCommandPool                  hCmdPool;
