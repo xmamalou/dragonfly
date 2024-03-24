@@ -39,11 +39,11 @@ jobs:
 
     - name: Download Vulkan SDK
       working-directory: ${{env.GITHUB_WORKSPACE}}
-      run: powershell -Command "(New-Object Net.WebClient).DownloadFile('https://sdk.lunarg.com/sdk/download/latest/windows/vulkan-sdk.exe', './vulkan-sdk-install.exe')"
+      run: (New-Object Net.WebClient).DownloadFile('https://sdk.lunarg.com/sdk/download/latest/windows/vulkan-sdk.exe', './vulkan-sdk-install.exe')
 
     - name: Install Vulkan SDK
       working-directory: ${{env.GITHUB_WORKSPACE}}
-      run: ./vulkan-sdk-install.exe --accept-licenses --default-answer --confirm-command install && powershell -Command "$env:VULKAN_SDK = 'C:/VulkanSDK/1.3.280.0'"
+      run: ./vulkan-sdk-install.exe --accept-licenses --default-answer --confirm-command install && $env:VULKAN_SDK = 'C:/VulkanSDK/1.3.280.0'
 
     - name: Build
       working-directory: ${{env.GITHUB_WORKSPACE}}
