@@ -43,7 +43,7 @@ jobs:
 
     - name: Install Vulkan SDK
       working-directory: ${{env.GITHUB_WORKSPACE}}
-      run: ./vulkan-sdk-install.exe --accept-licenses --default-answer --confirm-command install && $env:VULKAN_SDK = 'C:/VulkanSDK/1.3.280.0'
+      run: ./vulkan-sdk-install.exe --accept-licenses --default-answer --confirm-command install; $env:VULKAN_SDK = 'C:/VulkanSDK/1.3.280.0'
 
     - name: Build
       working-directory: ${{env.GITHUB_WORKSPACE}}
