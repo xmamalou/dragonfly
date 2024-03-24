@@ -143,8 +143,8 @@ namespace Dfl {
                 std::vector<uint32_t>       LeastClaimedQueue{ };
                 std::vector<uint32_t>       AreFamiliesUsed{ };
 
-                std::vector<uint32_t>       UsedLocalMemoryHeaps{ }; // size is the amount of heaps
-                std::vector<uint32_t>       UsedSharedMemoryHeaps{ }; // size is the amount of heaps
+                std::vector<uint64_t>       UsedLocalMemoryHeaps{ }; // size is the amount of heaps
+                std::vector<uint64_t>       UsedSharedMemoryHeaps{ }; // size is the amount of heaps
 
                 std::vector<Fence>          Fences{ };
             };
