@@ -37,9 +37,13 @@ jobs:
       working-directory: ${{env.GITHUB_WORKSPACE}}
       run: nuget restore ${{env.SOLUTION_FILE_PATH}}
 
-    - name: Install Vulkan SDK
+    - name: Download Vulkan SDK
       working-directory: ${{env.GITHUB_WORKSPACE}}
       run: powershell -Command "(New-Object Net.WebClient).DownloadFile('https://sdk.lunarg.com/sdk/download/latest/windows/vulkan-sdk.exe', 'vulkan-sdk-install.exe')"
+
+    - name: Install Vulkan SDK
+      working-directory: ${{env.GITHUB_WORKSPACE}}
+      run: vulkan-sdk.exe --accept-licenses --default-answer --confirm-command install
 
     - name: Build
       working-directory: ${{env.GITHUB_WORKSPACE}}
