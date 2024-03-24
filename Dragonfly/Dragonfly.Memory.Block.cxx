@@ -86,7 +86,7 @@ std::optional<std::array<uint64_t, 2>> DflMem::Block::Alloc(const VkBuffer& buff
             position |= 1;
         }
 
-        position << 1;
+        position <<= 1;
         depth++;
     }
 
@@ -105,8 +105,12 @@ std::optional<std::array<uint64_t, 2>> DflMem::Block::Alloc(const VkBuffer& buff
 void DflMem::Block::Free(
     const std::array<uint64_t, 2>& memoryID,
     const uint64_t                 size) {
-    uint64_t position{ memoryID[1] << (64 - memoryID[0] + 1) };
-    int64_t  depth{ static_cast<int64_t>(memoryID[0]) };
+    // we bring the ID of the memory allocation to the "front"
+    const uint64_t& bitShiftAmount{ memoryID[0] };
+    const uint64_t& ID{ memoryID[1] };
+
+    uint64_t position{ ID << (63 - bitShiftAmount + 1) };
+    int64_t  depth{ static_cast<int64_t>(bitShiftAmount) };
     auto     pNode{ &this->MemoryLayout };
 
     INT_GLB_MemoryMutex.lock();
@@ -115,9 +119,10 @@ void DflMem::Block::Free(
 
         depth--;
 
-        // if both nodes can accomodate the buffer, we pick the one with the 
-        // smaller size, so we will reduce fragmentation
-        if ( position & ( static_cast<uint64_t>(1) << 64 ) &&
+        // position & ( 1 << 63 ) checks if the most significant
+        // bit is either 0 or 1, hence whether the algorithm should
+        // follow the tree down to node 0 or 1 respectively
+        if ( position & ( static_cast<uint64_t>(1) << 63 ) &&
              depth >= 0 ) {
             pNode = &(*pNode)[1];
         } else if ( depth >= 0 ) {
@@ -208,7 +213,7 @@ static DflMem::Block::Handles INT_GetMemory(
           uint64_t&                                                             totAllocs,
     const uint64_t&                                                             memorySize,
     const std::vector<DflHW::Device::Memory<DflHW::Device::MemoryType::Local>>& memories,
-          std::vector<uint32_t>&                                                usedMemories,
+          std::vector<uint64_t>&                                                usedMemories,
           std::vector<uint32_t>&                                                areFamiliesUsed) {
     if (totAllocs + 2 > maxAllocs) {
         throw DflMem::Block::Error::VkMemoryMaxAllocsReachedError;
@@ -434,7 +439,7 @@ try : pInfo( new DflMem::Block::Info(info) ),
         this->ErrorCode = Error::VkMemoryCmdPoolError;
     }
 }
-catch (Error e) { this->ErrorCode = Error::VkMemoryAllocationError; };
+catch (Error e) { this->ErrorCode = e; };
 
 DflMem::Block::~Block() {
     INT_GLB_MemoryMutex.lock();
