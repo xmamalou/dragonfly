@@ -27,4 +27,4 @@ Dragonfly uses 1 library:
 
 
 >[!TIP]
-> The above dependencies **do not need** to be included if you don't intend to build Dragonfly, but just use its modules, since modules are precompiled.
+> The above dependencies **need** to be included if you don't intend to build Dragonfly, but just use its modules.
