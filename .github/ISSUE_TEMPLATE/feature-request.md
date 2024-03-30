@@ -19,3 +19,5 @@ A relatively short suggestion on how this could be implemented
 |                              |                          |
 | ------------------- | ----------------- |
 | Affected module | [Module name]  |
+| API breaking | Yes/No |
+| ABI breaking | Yes/No |
