@@ -157,7 +157,7 @@ static std::vector<VkPhysicalDevice> INT_LoadDevices(const VkInstance& instance)
     }
     std::vector<VkPhysicalDevice> devices(deviceCount);
     vkEnumeratePhysicalDevices(instance, &deviceCount, devices.data());
-
+    
     return devices;
 }
 

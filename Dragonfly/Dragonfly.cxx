@@ -14,20 +14,16 @@
    limitations under the License.
 */
 
-#pragma once
+#include "Dragonfly.h"
 
-#ifdef DRAGONFLY_EXPORTS 
-    #ifndef DRAGONFLY_STATIC
-        #define DFL_API __declspec(dllexport)
-    #else
-        #define DFL_API
-    #endif
-#else
-    #ifndef DRAGONFLY_STATIC
-        #define DFL_API __declspec(dllimport)
-    #else
-        #define DFL_API
-    #endif
-#endif
+#include "Dragonfly.hxx"
 
-#define DFL_CALL __stdcall
+#include "DflWinRT.h"
+
+inline void Dfl::Initialize() noexcept {
+    winrt::init_apartment();
+}
+
+inline void Dfl::Terminate() noexcept {
+    winrt::uninit_apartment();
+}

@@ -1,6 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
-  <Import Project="..\packages\Microsoft.Windows.CppWinRT.2.0.240111.5\build\native\Microsoft.Windows.CppWinRT.props" Condition="Exists('..\packages\Microsoft.Windows.CppWinRT.2.0.240111.5\build\native\Microsoft.Windows.CppWinRT.props')" />
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="Debug|Win32">
       <Configuration>Debug</Configuration>
@@ -19,23 +18,11 @@
       <Platform>x64</Platform>
     </ProjectConfiguration>
   </ItemGroup>
-  <ItemGroup>
-    <ClCompile Include="Main.cpp" />
-  </ItemGroup>
-  <ItemGroup>
-    <ProjectReference Include="..\Dragonfly\Dragonfly.vcxproj">
-      <Project>{705e09d9-720a-4030-b995-56e26e7ea9db}</Project>
-      <UseLibraryDependencyInputs>true</UseLibraryDependencyInputs>
-    </ProjectReference>
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="packages.config" />
-  </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>17.0</VCProjectVersion>
     <Keyword>Win32Proj</Keyword>
-    <ProjectGuid>{f1600d99-436b-4f6e-957a-f72e1efc8980}</ProjectGuid>
-    <RootNamespace>Testing</RootNamespace>
+    <ProjectGuid>{de883450-cee6-4d1c-ba1a-631b3b9de7c1}</ProjectGuid>
+    <RootNamespace>Debugging</RootNamespace>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
@@ -53,15 +40,15 @@
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
-    <ConfigurationType>Application</ConfigurationType>
+    <ConfigurationType>StaticLibrary</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
-    <PlatformToolset>ClangCL</PlatformToolset>
+    <PlatformToolset>v143</PlatformToolset>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
-    <ConfigurationType>Application</ConfigurationType>
+    <ConfigurationType>StaticLibrary</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
-    <PlatformToolset>ClangCL</PlatformToolset>
+    <PlatformToolset>v143</PlatformToolset>
     <WholeProgramOptimization>true</WholeProgramOptimization>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
@@ -118,19 +105,10 @@
       <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpplatest</LanguageStandard>
-      <AdditionalIncludeDirectories>$(VULKAN_SDK)\Include;$(SolutionDir)Dragonfly;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <AdditionalModuleDependencies>
-      </AdditionalModuleDependencies>
-      <CallingConvention>StdCall</CallingConvention>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>Dragonfly.lib;dwmapi.lib;ole32.lib;oleaut32.lib;Kernel32.lib;$(SolutionDir)Dragonfly\x64\Debug\Dragonfly.ixx.obj;%(AdditionalDependencies)</AdditionalDependencies>
-      <AdditionalLibraryDirectories>$(SolutionDir)x64\Debug;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <OutputFile>$(OutDir)$(TargetName)$(TargetExt)</OutputFile>
-      <EntryPointSymbol>
-      </EntryPointSymbol>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -142,33 +120,22 @@
       <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpplatest</LanguageStandard>
-      <AdditionalIncludeDirectories>$(VULKAN_SDK)\Include;$(SolutionDir)Dragonfly;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <AdditionalModuleDependencies>
-      </AdditionalModuleDependencies>
-      <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
-      <EnableFiberSafeOptimizations>true</EnableFiberSafeOptimizations>
-      <ScanSourceForModuleDependencies>false</ScanSourceForModuleDependencies>
-      <CallingConvention>StdCall</CallingConvention>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>Dragonfly.lib;dwmapi.lib;ole32.lib;oleaut32.lib;Kernel32.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <AdditionalLibraryDirectories>$(SolutionDir)x64\Release;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <OutputFile>$(OutDir)$(TargetName)$(TargetExt)</OutputFile>
     </Link>
   </ItemDefinitionGroup>
+  <ItemGroup>
+    <ClCompile Include="Debugging.cxx" />
+    <ClCompile Include="Debugging.ixx" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\Dragonfly\DflWinRT.h" />
+  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
-    <Import Project="..\packages\Microsoft.Windows.CppWinRT.2.0.240111.5\build\native\Microsoft.Windows.CppWinRT.targets" Condition="Exists('..\packages\Microsoft.Windows.CppWinRT.2.0.240111.5\build\native\Microsoft.Windows.CppWinRT.targets')" />
   </ImportGroup>
-  <Target Name="EnsureNuGetPackageBuildImports" BeforeTargets="PrepareForBuild">
-    <PropertyGroup>
-      <ErrorText>This project references NuGet package(s) that are missing on this computer. Use NuGet Package Restore to download them.  For more information, see http://go.microsoft.com/fwlink/?LinkID=322105. The missing file is {0}.</ErrorText>
-    </PropertyGroup>
-    <Error Condition="!Exists('..\packages\Microsoft.Windows.CppWinRT.2.0.240111.5\build\native\Microsoft.Windows.CppWinRT.props')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\Microsoft.Windows.CppWinRT.2.0.240111.5\build\native\Microsoft.Windows.CppWinRT.props'))" />
-    <Error Condition="!Exists('..\packages\Microsoft.Windows.CppWinRT.2.0.240111.5\build\native\Microsoft.Windows.CppWinRT.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\Microsoft.Windows.CppWinRT.2.0.240111.5\build\native\Microsoft.Windows.CppWinRT.targets'))" />
-  </Target>
 </Project>

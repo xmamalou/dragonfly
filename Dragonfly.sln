@@ -4,6 +4,9 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 VisualStudioVersion = 17.7.34202.233
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Dragonfly", "Dragonfly\Dragonfly.vcxproj", "{705E09D9-720A-4030-B995-56E26E7EA9DB}"
+	ProjectSection(ProjectDependencies) = postProject
+		{DE883450-CEE6-4D1C-BA1A-631B3B9DE7C1} = {DE883450-CEE6-4D1C-BA1A-631B3B9DE7C1}
+	EndProjectSection
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Testing", "Testing\Testing.vcxproj", "{F1600D99-436B-4F6E-957A-F72E1EFC8980}"
 	ProjectSection(ProjectDependencies) = postProject
@@ -11,6 +14,8 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Testing", "Testing\Testing.
 	EndProjectSection
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "UnitTesting", "UnitTesting\UnitTesting.vcxproj", "{13111797-D3C5-4C10-999D-20E9EFBE4394}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Debugging", "Debugging\Debugging.vcxproj", "{DE883450-CEE6-4D1C-BA1A-631B3B9DE7C1}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -58,6 +63,18 @@ Global
 		{13111797-D3C5-4C10-999D-20E9EFBE4394}.Release|x64.Build.0 = Release|x64
 		{13111797-D3C5-4C10-999D-20E9EFBE4394}.Release|x86.ActiveCfg = Release|Win32
 		{13111797-D3C5-4C10-999D-20E9EFBE4394}.Release|x86.Build.0 = Release|Win32
+		{DE883450-CEE6-4D1C-BA1A-631B3B9DE7C1}.Debug|ARM64.ActiveCfg = Debug|x64
+		{DE883450-CEE6-4D1C-BA1A-631B3B9DE7C1}.Debug|ARM64.Build.0 = Debug|x64
+		{DE883450-CEE6-4D1C-BA1A-631B3B9DE7C1}.Debug|x64.ActiveCfg = Debug|x64
+		{DE883450-CEE6-4D1C-BA1A-631B3B9DE7C1}.Debug|x64.Build.0 = Debug|x64
+		{DE883450-CEE6-4D1C-BA1A-631B3B9DE7C1}.Debug|x86.ActiveCfg = Debug|Win32
+		{DE883450-CEE6-4D1C-BA1A-631B3B9DE7C1}.Debug|x86.Build.0 = Debug|Win32
+		{DE883450-CEE6-4D1C-BA1A-631B3B9DE7C1}.Release|ARM64.ActiveCfg = Release|x64
+		{DE883450-CEE6-4D1C-BA1A-631B3B9DE7C1}.Release|ARM64.Build.0 = Release|x64
+		{DE883450-CEE6-4D1C-BA1A-631B3B9DE7C1}.Release|x64.ActiveCfg = Release|x64
+		{DE883450-CEE6-4D1C-BA1A-631B3B9DE7C1}.Release|x64.Build.0 = Release|x64
+		{DE883450-CEE6-4D1C-BA1A-631B3B9DE7C1}.Release|x86.ActiveCfg = Release|Win32
+		{DE883450-CEE6-4D1C-BA1A-631B3B9DE7C1}.Release|x86.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

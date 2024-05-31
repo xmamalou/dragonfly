@@ -13,16 +13,18 @@
       <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
       <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
     </Filter>
-    <Filter Include="Source Files\Modules">
-      <UniqueIdentifier>{ce61d6a5-60d9-4ef6-b3d8-54f02b3865c7}</UniqueIdentifier>
-    </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="Main.cpp">
+    <ClCompile Include="Debugging.cxx">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Debugging.ixx">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <None Include="packages.config" />
+    <ClInclude Include="..\Dragonfly\DflWinRT.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>
