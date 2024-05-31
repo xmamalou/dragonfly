@@ -42,9 +42,6 @@
     <ClCompile Include="Dragonfly.Harwdare.Device.cxx">
       <Filter>Source Files\Dragonfly\Hardware</Filter>
     </ClCompile>
-    <ClCompile Include="Dragonfly.Generics-MetaFunctions.ixx">
-      <Filter>Source Files\Dragonfly\Generics</Filter>
-    </ClCompile>
     <ClCompile Include="Dragonfly.Graphics.Renderer.cxx">
       <Filter>Source Files\Dragonfly\Graphics</Filter>
     </ClCompile>
