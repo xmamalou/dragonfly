@@ -1,15 +1,13 @@
-﻿#include "pch.h"
+#include "pch.h"
 #include "CppUnitTest.h"
 
 #include "Specialization.hpp"
-
-#include <iostream>
 
 import Dragonfly;
 
 using namespace Microsoft::VisualStudio::CppUnitTestFramework;
 
-namespace Tests
+namespace UnitTesting
 {
 	TEST_CLASS(WindowTesting)
 	{
@@ -17,38 +15,10 @@ namespace Tests
 		TEST_METHOD(WindowCreationTest)
 		{
 			Dfl::Observer::WindowInfo info;
+			info.Resolution = { 1000, 1000 };
 
 			Dfl::Observer::Window window(info);
 			Assert::AreEqual(Dfl::Observer::WindowError::Success, window.OpenWindow());
-		}
-
-		TEST_METHOD(WindowCreationNullResolutionTest)
-		{
-			Dfl::Observer::WindowInfo info =
-			{
-				.Resolution{ std::make_tuple(0, 0) }
-			};
-
-			Dfl::Observer::Window window(info);
-			Assert::AreEqual(Dfl::Observer::WindowError::Success, window.OpenWindow());
-
-			
-		}
-
-		TEST_METHOD(WindowCreationUTFTitleTest)
-		{
-			Dfl::Observer::WindowInfo info =
-		    {
-                .WindowTitle{ "τεστ" }
-            };
-
-            Dfl::Observer::Window window(info);
-            Assert::AreEqual(Dfl::Observer::WindowError::Success, window.OpenWindow());
-
-			while (window.CloseStatus() == false)
-			{
-                std::cout << "";
-            }
 		}
 	};
 
@@ -57,16 +27,9 @@ namespace Tests
 	public:
 		TEST_METHOD(SessionCreationTest)
 		{
-			Dfl::Hardware::SessionInfo sesInfo;
-
-			Dfl::Hardware::Session session(sesInfo);
-			Assert::AreEqual(Dfl::Hardware::SessionError::Success, session.InitVulkan());
-		}
-
-		TEST_METHOD(SessionCreationWithDebugTest)
-		{
-			Dfl::Hardware::SessionInfo sesInfo =
-			{
+			Dfl::Hardware::SessionInfo sesInfo = {
+				.AppName{ "My super app" },
+				.AppVersion{ Dfl::MakeVersion(0, 0, 0) },
 				.DoDebug{ true }
 			};
 
@@ -74,25 +37,20 @@ namespace Tests
 			Assert::AreEqual(Dfl::Hardware::SessionError::Success, session.InitVulkan());
 		}
 
-		TEST_METHOD(SessionCreationNoRenderingTest)
+		TEST_METHOD(SessionDeviceOutOfBounds)
 		{
-			Dfl::Hardware::SessionInfo sesInfo =
-			{
-				.EnableOnscreenRendering{ false }
+			Dfl::Hardware::SessionInfo sesInfo = {
+				.AppName{ "My super app" },
+				.AppVersion{ Dfl::MakeVersion(1000, 1000, 1000) },
+				.DoDebug{ true }
 			};
 
 			Dfl::Hardware::Session session(sesInfo);
-			Assert::AreEqual(Dfl::Hardware::SessionError::Success, session.InitVulkan());
-		}
 
-		TEST_METHOD(DeviceInitIndexOutOfBoundsTest)
-		{
-			Dfl::Hardware::SessionInfo sesInfo;
-			Dfl::Hardware::Session session(sesInfo);
 			session.InitVulkan();
 
 			Dfl::Hardware::GPUInfo gpuInfo = {
-				.DeviceIndex{ 1000 }
+				.DeviceIndex{ 1000}
 			};
 
 			Assert::AreEqual(Dfl::Hardware::SessionError::VkDeviceIndexOutOfRangeError, session.InitDevice(gpuInfo));

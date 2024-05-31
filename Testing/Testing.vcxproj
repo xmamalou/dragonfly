@@ -1,6 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
-  <Import Project="..\packages\Microsoft.Windows.CppWinRT.2.0.240111.5\build\native\Microsoft.Windows.CppWinRT.props" Condition="Exists('..\packages\Microsoft.Windows.CppWinRT.2.0.240111.5\build\native\Microsoft.Windows.CppWinRT.props')" />
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="Debug|Win32">
       <Configuration>Debug</Configuration>
@@ -28,9 +27,6 @@
       <UseLibraryDependencyInputs>true</UseLibraryDependencyInputs>
     </ProjectReference>
   </ItemGroup>
-  <ItemGroup>
-    <None Include="packages.config" />
-  </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>17.0</VCProjectVersion>
     <Keyword>Win32Proj</Keyword>
@@ -55,13 +51,13 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
-    <PlatformToolset>ClangCL</PlatformToolset>
+    <PlatformToolset>v143</PlatformToolset>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
-    <PlatformToolset>ClangCL</PlatformToolset>
+    <PlatformToolset>v143</PlatformToolset>
     <WholeProgramOptimization>true</WholeProgramOptimization>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
@@ -118,19 +114,16 @@
       <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpplatest</LanguageStandard>
-      <AdditionalIncludeDirectories>$(VULKAN_SDK)\Include;$(SolutionDir)Dragonfly;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <AdditionalModuleDependencies>
-      </AdditionalModuleDependencies>
-      <CallingConvention>StdCall</CallingConvention>
+      <AdditionalIncludeDirectories>%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalModuleDependencies>$(SolutionDir)Dragonfly\x64\Debug\Dragonfly.ixx.ifc;$(SolutionDir)Dragonfly\x64\Debug\Dragonfly.Observer.ixx.ifc;$(SolutionDir)Dragonfly\x64\Debug\Dragonfly.Observer.Window.ixx.ifc;$(SolutionDir)Dragonfly\x64\Debug\Dragonfly.Hardware.ixx.ifc;$(SolutionDir)Dragonfly\x64\Debug\Dragonfly.Hardware.Session.ixx.ifc;$(SolutionDir)Dragonfly\x64\Debug\Dragonfly.Hardware.Device.ixx.ifc;$(SolutionDir)Dragonfly\x64\Debug\Dragonfly.Memory.ixx.ifc;$(SolutionDir)Dragonfly\x64\Debug\Dragonfly.Memory.Block.ixx.ifc;$(SolutionDir)Dragonfly\x64\Debug\Dragonfly.Memory.Buffer.ixx.ifc;$(SolutionDir)Dragonfly\x64\Debug\Dragonfly.Graphics.ixx.ifc;$(SolutionDir)Dragonfly\x64\Debug\Dragonfly.Graphics.Renderer.ixx.ifc;$(SolutionDir)Dragonfly\x64\Debug\Dragonfly.Generics.ixx.ifc;$(SolutionDir)Dragonfly\x64\Debug\Dragonfly.Generics-MetaFunctions.ixx.ifc;$(SolutionDir)Dragonfly\x64\Debug\Dragonfly.Generics-Async.ixx.ifc;%(AdditionalModuleDependencies)</AdditionalModuleDependencies>
+      <ScanSourceForModuleDependencies>true</ScanSourceForModuleDependencies>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>Dragonfly.lib;dwmapi.lib;ole32.lib;oleaut32.lib;Kernel32.lib;$(SolutionDir)Dragonfly\x64\Debug\Dragonfly.ixx.obj;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>Dragonfly.lib;$(SolutionDir)Dragonfly\x64\Debug\Dragonfly.ixx.obj;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>$(SolutionDir)x64\Debug;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <OutputFile>$(OutDir)$(TargetName)$(TargetExt)</OutputFile>
-      <EntryPointSymbol>
-      </EntryPointSymbol>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -142,33 +135,22 @@
       <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpplatest</LanguageStandard>
-      <AdditionalIncludeDirectories>$(VULKAN_SDK)\Include;$(SolutionDir)Dragonfly;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <AdditionalModuleDependencies>
-      </AdditionalModuleDependencies>
+      <AdditionalIncludeDirectories>%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalModuleDependencies>$(SolutionDir)Dragonfly\x64\Release\Dragonfly.ixx.ifc;$(SolutionDir)Dragonfly\x64\Release\Dragonfly.Observer.ixx.ifc;$(SolutionDir)Dragonfly\x64\Release\Dragonfly.Observer.Window.ixx.ifc;$(SolutionDir)Dragonfly\x64\Release\Dragonfly.Hardware.ixx.ifc;$(SolutionDir)Dragonfly\x64\Release\Dragonfly.Hardware.Session.ixx.ifc;$(SolutionDir)Dragonfly\x64\Release\Dragonfly.Hardware.Device.ixx.ifc;$(SolutionDir)Dragonfly\x64\Release\Dragonfly.Memory.ixx.ifc;$(SolutionDir)Dragonfly\x64\Release\Dragonfly.Memory.Block.ixx.ifc;$(SolutionDir)Dragonfly\x64\Release\Dragonfly.Memory.Buffer.ixx.ifc;$(SolutionDir)Dragonfly\x64\Release\Dragonfly.Graphics.ixx.ifc;$(SolutionDir)Dragonfly\x64\Release\Dragonfly.Graphics.Renderer.ixx.ifc;$(SolutionDir)Dragonfly\x64\Release\Dragonfly.Generics.ixx.ifc;$(SolutionDir)Dragonfly\x64\Release\Dragonfly.Generics-MetaFunctions.ixx.ifc;$(SolutionDir)Dragonfly\x64\Release\Dragonfly.Generics-Async.ixx.ifc;%(AdditionalModuleDependencies)</AdditionalModuleDependencies>
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
       <EnableFiberSafeOptimizations>true</EnableFiberSafeOptimizations>
-      <ScanSourceForModuleDependencies>false</ScanSourceForModuleDependencies>
-      <CallingConvention>StdCall</CallingConvention>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>Dragonfly.lib;dwmapi.lib;ole32.lib;oleaut32.lib;Kernel32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>Dragonfly.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>$(SolutionDir)x64\Release;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <OutputFile>$(OutDir)$(TargetName)$(TargetExt)</OutputFile>
     </Link>
   </ItemDefinitionGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
-    <Import Project="..\packages\Microsoft.Windows.CppWinRT.2.0.240111.5\build\native\Microsoft.Windows.CppWinRT.targets" Condition="Exists('..\packages\Microsoft.Windows.CppWinRT.2.0.240111.5\build\native\Microsoft.Windows.CppWinRT.targets')" />
   </ImportGroup>
-  <Target Name="EnsureNuGetPackageBuildImports" BeforeTargets="PrepareForBuild">
-    <PropertyGroup>
-      <ErrorText>This project references NuGet package(s) that are missing on this computer. Use NuGet Package Restore to download them.  For more information, see http://go.microsoft.com/fwlink/?LinkID=322105. The missing file is {0}.</ErrorText>
-    </PropertyGroup>
-    <Error Condition="!Exists('..\packages\Microsoft.Windows.CppWinRT.2.0.240111.5\build\native\Microsoft.Windows.CppWinRT.props')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\Microsoft.Windows.CppWinRT.2.0.240111.5\build\native\Microsoft.Windows.CppWinRT.props'))" />
-    <Error Condition="!Exists('..\packages\Microsoft.Windows.CppWinRT.2.0.240111.5\build\native\Microsoft.Windows.CppWinRT.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\Microsoft.Windows.CppWinRT.2.0.240111.5\build\native\Microsoft.Windows.CppWinRT.targets'))" />
-  </Target>
 </Project>

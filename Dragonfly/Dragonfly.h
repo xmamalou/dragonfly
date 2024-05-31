@@ -16,18 +16,10 @@
 
 #pragma once
 
-#ifdef DRAGONFLY_EXPORTS 
-    #ifndef DRAGONFLY_STATIC
-        #define DFL_API __declspec(dllexport)
-    #else
-        #define DFL_API
-    #endif
+#ifdef DRAGONFLY_EXPORTS
+#define DFL_API __declspec(dllexport)
 #else
-    #ifndef DRAGONFLY_STATIC
-        #define DFL_API __declspec(dllimport)
-    #else
-        #define DFL_API
-    #endif
+#define DFL_API __declspec(dllimport)
 #endif
 
 #define DFL_CALL __stdcall
