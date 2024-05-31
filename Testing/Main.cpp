@@ -60,7 +60,7 @@ int main() {
         Dfl::Hardware::Session session(sesInfo);
 
         std::cout << "You have " << session.GetDeviceCount() << " Vulkan capable device(s) in your system.\n";
-        std::cout << "Processor information: Cores - " << session.GetCharacteristics().CPU.Count << "\n\t\t       Speed - " << session.GetCPU().Speed << " MHz\n";
+        std::cout << "Processor information: Cores - " << session.GetCharacteristics().CPU.Count << "\n\t\t       Speed - " << session.GetCharacteristics().CPU.Speed << " MHz\n";
         std::cout << "Memory information: " << session.GetCharacteristics().Memory << " MB\n";
 
         const Dfl::Hardware::Device::Info gpuInfo{
