@@ -51,13 +51,13 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
-    <PlatformToolset>v143</PlatformToolset>
+    <PlatformToolset>ClangCL</PlatformToolset>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
-    <PlatformToolset>v143</PlatformToolset>
+    <PlatformToolset>ClangCL</PlatformToolset>
     <WholeProgramOptimization>true</WholeProgramOptimization>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
@@ -116,7 +116,7 @@
       <LanguageStandard>stdcpplatest</LanguageStandard>
       <AdditionalIncludeDirectories>%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <AdditionalModuleDependencies>$(SolutionDir)Dragonfly\x64\Debug\Dragonfly.ixx.ifc;$(SolutionDir)Dragonfly\x64\Debug\Dragonfly.Observer.ixx.ifc;$(SolutionDir)Dragonfly\x64\Debug\Dragonfly.Observer.Window.ixx.ifc;$(SolutionDir)Dragonfly\x64\Debug\Dragonfly.Hardware.ixx.ifc;$(SolutionDir)Dragonfly\x64\Debug\Dragonfly.Hardware.Session.ixx.ifc;$(SolutionDir)Dragonfly\x64\Debug\Dragonfly.Hardware.Device.ixx.ifc;$(SolutionDir)Dragonfly\x64\Debug\Dragonfly.Memory.ixx.ifc;$(SolutionDir)Dragonfly\x64\Debug\Dragonfly.Memory.Block.ixx.ifc;$(SolutionDir)Dragonfly\x64\Debug\Dragonfly.Memory.Buffer.ixx.ifc;$(SolutionDir)Dragonfly\x64\Debug\Dragonfly.Graphics.ixx.ifc;$(SolutionDir)Dragonfly\x64\Debug\Dragonfly.Graphics.Renderer.ixx.ifc;$(SolutionDir)Dragonfly\x64\Debug\Dragonfly.Generics.ixx.ifc;$(SolutionDir)Dragonfly\x64\Debug\Dragonfly.Generics-MetaFunctions.ixx.ifc;$(SolutionDir)Dragonfly\x64\Debug\Dragonfly.Generics-Async.ixx.ifc;%(AdditionalModuleDependencies)</AdditionalModuleDependencies>
-      <ScanSourceForModuleDependencies>true</ScanSourceForModuleDependencies>
+      <ScanSourceForModuleDependencies>false</ScanSourceForModuleDependencies>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
