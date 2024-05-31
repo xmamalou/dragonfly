@@ -13,7 +13,10 @@
    See the License for the specific language governing permissions and
    limitations under the License.
 */
-module;
+#ifndef VK_USE_PLATFORM_WIN32_KHR
+#define VK_USE_PLATFORM_WIN32_KHR
+
+#include "Dragonfly.hxx"
 
 #include <optional>
 #include <string>
@@ -21,16 +24,17 @@ module;
 #include <thread>
 #include <mutex>
 
-#define VK_USE_PLATFORM_WIN32_KHR
+#endif 
 #include <vulkan/vulkan.h>
 
-module Dragonfly.Hardware.Device;
-
-import Dragonfly.Observer;
-
-namespace DflOb  = Dfl::Observer;
 namespace DflHW  = Dfl::Hardware;
 namespace DflGen = Dfl::Generics;
+
+using DflMemType = DflHW::Device::MemoryType;
+
+template <DflMemType type>
+using DflDevMemory = DflHW::Device::Characteristics::Memory<type>;
+
 
 // GLOBAL MUTEX
 
@@ -38,26 +42,31 @@ static std::mutex INT_GLB_DeviceMutex;
 
 // Internal for Device constructor
 
-template <DflHW::Device::MemoryType type>
+template <DflMemType type>
 static inline void INT_OrganizeMemory(
-          std::vector<DflHW::Device::Memory<type>>& memory, 
-    const VkPhysicalDeviceMemoryProperties          props);
+          std::vector<DflDevMemory<type>>& memory, 
+    const VkPhysicalDeviceMemoryProperties props);
 
 template <>
 static inline void INT_OrganizeMemory(
-          std::vector<DflHW::Device::Memory<DflHW::Device::MemoryType::Local>>& memory,
-    const VkPhysicalDeviceMemoryProperties                                      props) {
-    constexpr auto type = DflHW::Device::MemoryType::Local;
+          std::vector<DflDevMemory<DflMemType::Local>>& memory,
+    const VkPhysicalDeviceMemoryProperties              props) 
+{
+    constexpr auto type{ DflMemType::Local };
 
     uint32_t heapCount{ 0 };
-    for (uint32_t i{ 0 }; i < props.memoryHeapCount; i++){
-        if ( props.memoryHeaps[i].flags & VK_MEMORY_HEAP_DEVICE_LOCAL_BIT ){
+    for (uint32_t i{ 0 }; i < props.memoryHeapCount; i++)
+    {
+        if ( props.memoryHeaps[i].flags & VK_MEMORY_HEAP_DEVICE_LOCAL_BIT )
+        {
             memory[heapCount].Size = props.memoryHeaps[i].size;
             memory[heapCount].HeapIndex = i;
 
-            DflHW::Device::Memory<type>::Properties dflProps{ };
-            for (uint32_t j{ 0 }; j < VK_MAX_MEMORY_TYPES; j++) {
-                if (props.memoryTypes[j].heapIndex != i) {
+            DflDevMemory<type>::Properties dflProps{ };
+            for (uint32_t j{ 0 }; j < VK_MAX_MEMORY_TYPES; j++) 
+            {
+                if (props.memoryTypes[j].heapIndex != i) 
+                {
                     continue;
                 }
 
@@ -79,19 +88,24 @@ static inline void INT_OrganizeMemory(
 
 template <>
 static inline void INT_OrganizeMemory(
-          std::vector<DflHW::Device::Memory<DflHW::Device::MemoryType::Shared>>& memory, 
-    const VkPhysicalDeviceMemoryProperties                                       props) {
-    constexpr auto type = DflHW::Device::MemoryType::Shared;
+          std::vector<DflDevMemory<DflMemType::Shared>>& memory, 
+    const VkPhysicalDeviceMemoryProperties               props) 
+{
+    constexpr auto type{ DflMemType::Shared };
     
     uint32_t heapCount{ 0 };
-    for (uint32_t i{ 0 }; i < props.memoryHeapCount; i++) {
-        if ( !(props.memoryHeaps[i].flags & VK_MEMORY_HEAP_DEVICE_LOCAL_BIT) ) {
+    for (uint32_t i{ 0 }; i < props.memoryHeapCount; i++) 
+    {
+        if ( !(props.memoryHeaps[i].flags & VK_MEMORY_HEAP_DEVICE_LOCAL_BIT) ) 
+        {
             memory[heapCount].Size = props.memoryHeaps[i].size;
             memory[heapCount].HeapIndex = props.memoryTypes[i].heapIndex;
 
-            DflHW::Device::Memory<type>::Properties dflProps{ };
-            for (uint32_t j{ 0 }; j < VK_MAX_MEMORY_TYPES; j++ ) { 
-                if (props.memoryTypes[j].heapIndex != i) {
+            DflDevMemory<type>::Properties dflProps{ };
+            for (uint32_t j{ 0 }; j < VK_MAX_MEMORY_TYPES; j++ ) 
+            { 
+                if (props.memoryTypes[j].heapIndex != i) 
+                {
                     continue;
                 }
 
@@ -107,11 +121,8 @@ static inline void INT_OrganizeMemory(
     }
 };
 
-static DflHW::Device::Characteristics INT_OrganizeData(const VkPhysicalDevice& device){
-    if (device == nullptr) {
-        throw DflHW::Device::Error::NullHandleError;
-    }
-
+static DflHW::Device::Characteristics INT_OrganizeData(const VkPhysicalDevice& device)
+{
     //VkDevice& gpu = device.Info.pSession->Device
     VkPhysicalDeviceProperties devProps;
     vkGetPhysicalDeviceProperties(device, &devProps);
@@ -123,25 +134,29 @@ static DflHW::Device::Characteristics INT_OrganizeData(const VkPhysicalDevice& d
     int localHeapCount{ 0 };
     int sharedHeapCount{ 0 };
 
-    for (auto heap : memProps.memoryHeaps){
+    for (auto heap : memProps.memoryHeaps)
+    {
         if (heap.flags & VK_MEMORY_HEAP_DEVICE_LOCAL_BIT &&
-            heap.size != 0){
+            heap.size != 0)
+        {
             localHeapCount++;
-        }else if (heap.size != 0){
+        } else if (heap.size != 0) {
             sharedHeapCount++;
         }
     }
 
-    std::vector<DflHW::Device::Memory<DflHW::Device::MemoryType::Local>> localHeaps(localHeapCount);
-    std::vector<DflHW::Device::Memory<DflHW::Device::MemoryType::Shared>> sharedHeaps(sharedHeapCount);
+    std::vector<DflDevMemory<DflMemType::Local>> localHeaps(localHeapCount);
+    std::vector<DflDevMemory<DflMemType::Shared>> sharedHeaps(sharedHeapCount);
     INT_OrganizeMemory(localHeaps, memProps);
     INT_OrganizeMemory(sharedHeaps, memProps);
 
     uint32_t currentCheck{ 0x40 }; // represents VkSampleCountFlagBits elements
     uint32_t maxColourSamples{ 0 };
     uint32_t maxDepthSamples{ 0 };
-    for (uint32_t i = 0; i < 7; i++) {
-        if (devProps.limits.framebufferColorSampleCounts & currentCheck) {
+    for (uint32_t i = 0; i < 7; i++) 
+    {
+        if (devProps.limits.framebufferColorSampleCounts & currentCheck)
+        {
             maxColourSamples = currentCheck;
             break;
         }
@@ -149,7 +164,8 @@ static DflHW::Device::Characteristics INT_OrganizeData(const VkPhysicalDevice& d
     }
     currentCheck = 0x40;
     for (uint32_t i = 0; i < 7; i++) {
-        if (devProps.limits.framebufferDepthSampleCounts & currentCheck) {
+        if (devProps.limits.framebufferDepthSampleCounts & currentCheck) 
+        {
             maxDepthSamples = currentCheck;
             break;
         }
@@ -166,8 +182,9 @@ static DflHW::Device::Characteristics INT_OrganizeData(const VkPhysicalDevice& d
         devProps.limits.maxDrawIndirectCount };
 };
 
-static inline std::vector<DflHW::Device::Queue::Family> INT_OrganizeQueues(
-    const VkPhysicalDevice& device) {
+static inline auto INT_OrganizeQueues(const VkPhysicalDevice& device)
+-> std::vector<DflHW::Device::Queue::Family>
+{
     std::vector<DflHW::Device::Queue::Family> queueFamilies;
     std::vector<VkQueueFamilyProperties>      props;
     uint32_t                                  queueFamilyCount{ 0 };
@@ -176,7 +193,7 @@ static inline std::vector<DflHW::Device::Queue::Family> INT_OrganizeQueues(
         &queueFamilyCount,
         nullptr);
     if (queueFamilyCount == 0) {
-        throw DflHW::Device::Error::VkNoAvailableQueuesError;
+        throw Dfl::Error::NoData(L"Unable to get device queues");
     }
     props.resize(queueFamilyCount);
     vkGetPhysicalDeviceQueueFamilyProperties(
@@ -212,16 +229,18 @@ static inline std::vector<DflHW::Device::Queue::Family> INT_OrganizeQueues(
         }
     }
 
-    
     return queueFamilies;
 }
 
-static DflHW::Device::Error INT_GetQueues(
-          std::vector<VkDeviceQueueCreateInfo>&      infos,
+static auto INT_GetQueues(
     const uint32_t                                   rendererNum,
     const uint32_t                                   simNum,
-    const std::vector<DflHW::Device::Queue::Family>& families) {
+    const std::vector<DflHW::Device::Queue::Family>& families) 
+-> std::vector<VkDeviceQueueCreateInfo>
+{
     uint32_t leftQueues{ rendererNum + simNum + 1 };
+
+    std::vector<VkDeviceQueueCreateInfo> infos;
 
     for (auto& family : families) {
         uint32_t usedQueues{ 0 };
@@ -262,23 +281,10 @@ static DflHW::Device::Error INT_GetQueues(
     }
 
     if (infos.size() == 0) {
-        return DflHW::Device::Error::VkInsufficientQueuesError;
+        throw Dfl::Error::NoData(L"Unable to find queues with appropriate specifications");
     }
 
-    return DflHW::Device::Error::Success;
-};
-
-static const std::array< const char*, 2 > extensionsNoRT{
-    VK_KHR_SWAPCHAIN_EXTENSION_NAME,
-    VK_KHR_TIMELINE_SEMAPHORE_EXTENSION_NAME
-};
-
-static const std::array< const char*, 5 > extensionsWithRT{
-    VK_KHR_SWAPCHAIN_EXTENSION_NAME,
-    VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME,
-    VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME,
-    VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME,
-    VK_KHR_TIMELINE_SEMAPHORE_EXTENSION_NAME
+    return infos;
 };
 
 //
@@ -288,30 +294,20 @@ static DflHW::Device::Handles INT_InitDevice(
     const VkPhysicalDevice&                physDevice,
     const DflGen::BitFlag&                 renderOptions,
     const uint32_t                         rendererNum,
-    const uint32_t                         simNum){
-    if (instance == nullptr)
-        throw DflHW::Device::Error::VkDeviceInvalidSession;
+    const uint32_t                         simNum)
+{
+    auto queueFamilies{ INT_OrganizeQueues(physDevice) };
 
-    if (physDevice == nullptr) {
-        throw DflHW::Device::Error::VkDeviceInvalidSession;
-    }
-
-    std::vector<DflHW::Device::Queue::Family> queueFamilies{ INT_OrganizeQueues(physDevice) };
-
-    std::vector<VkDeviceQueueCreateInfo> queueInfo;
-    DflHW::Device::Error error{ 0 };
-    if ( ( error = INT_GetQueues(
-                    queueInfo,
-                    rendererNum,
-                    simNum,
-                    queueFamilies) ) < DflHW::Device::Error::Success ) {
-        throw error;
-    }
+    auto queueInfo{ INT_GetQueues( rendererNum,
+                                   simNum,
+                                   queueFamilies) };
 
     float** const priorities = new float* [queueInfo.size()];
-    for (uint32_t i{ 0 }; i < queueInfo.size(); i++) {
+    for (uint32_t i{ 0 }; i < queueInfo.size(); i++) 
+    {
         priorities[i] = new float [queueInfo[i].queueCount];
-        for (uint32_t j{ 0 }; j < queueInfo[i].queueCount; j++) {
+        for (uint32_t j{ 0 }; j < queueInfo[i].queueCount; j++)
+        {
             priorities[i][j] = 1.0f;
         }
         queueInfo[i].pQueuePriorities = priorities[i];
@@ -324,22 +320,34 @@ static DflHW::Device::Handles INT_InitDevice(
         &extensionCount,
         nullptr);
     std::vector<VkExtensionProperties> extensions(extensionCount);
-        vkEnumerateDeviceExtensionProperties(
-            physDevice,
-            nullptr,
-            &extensionCount,
-            extensions.data());
+    vkEnumerateDeviceExtensionProperties(
+        physDevice,
+        nullptr,
+        &extensionCount,
+        extensions.data());
+
+    std::vector<const char*> desiredExtensions;
+    desiredExtensions.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
 
     bool doTimelineSemsExist{ false };
     bool doesRTXExist{ false };
 
-    for( auto& extension : extensions ) {
-        if (!strcmp(extension.extensionName, VK_KHR_TIMELINE_SEMAPHORE_EXTENSION_NAME)) {
+    for( auto& extension : extensions ) 
+    {
+        if (!strcmp(extension.extensionName, VK_KHR_TIMELINE_SEMAPHORE_EXTENSION_NAME)) 
+        {
             doTimelineSemsExist = true;
+
+            desiredExtensions.push_back(VK_KHR_TIMELINE_SEMAPHORE_EXTENSION_NAME);
         }
 
-        if (!strcmp(extension.extensionName, VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME)) {
+        if (!strcmp(extension.extensionName, VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME)) 
+        {
             doesRTXExist = true;
+
+            desiredExtensions.push_back(VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME);
+            desiredExtensions.push_back(VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME);
+            desiredExtensions.push_back(VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME);
         }
     }
 
@@ -351,20 +359,8 @@ static DflHW::Device::Handles INT_InitDevice(
        .pQueueCreateInfos{ queueInfo.data() },
        .enabledLayerCount{ 0 },
        .ppEnabledLayerNames{ nullptr },
-       .enabledExtensionCount{ doTimelineSemsExist ?
-                                    ( rendererNum > 0 ? 
-                                        ( doesRTXExist && renderOptions & DflHW::Device::RenderOptions::Raytracing ? 
-                                                static_cast<uint32_t>(extensionsWithRT.size()) :
-                                                static_cast<uint32_t>(extensionsNoRT.size()) ) :
-                                        0 ) :
-                                    ( rendererNum > 0 ? 
-                                        ( doesRTXExist && renderOptions & DflHW::Device::RenderOptions::Raytracing ?
-                                                    static_cast<uint32_t>(extensionsWithRT.size()) - 1 :
-                                                    static_cast<uint32_t>(extensionsNoRT.size()) - 1 ) :
-                                        0 ) },
-       .ppEnabledExtensionNames{ doesRTXExist ?
-                                    extensionsWithRT.data() : 
-                                    extensionsNoRT.data() },
+       .enabledExtensionCount{ static_cast<uint32_t>(desiredExtensions.size()) },
+       .ppEnabledExtensionNames{ desiredExtensions.data() },
     };
 
     VkDevice gpu{ nullptr };
@@ -376,11 +372,11 @@ static DflHW::Device::Handles INT_InitDevice(
     case VK_SUCCESS:
         break;
     case VK_ERROR_EXTENSION_NOT_PRESENT:
-        throw DflHW::Device::Error::VkDeviceNoSuchExtensionError;
+        throw Dfl::Error::NoData(L"Unable to find the desired extensions on the device");
     case VK_ERROR_DEVICE_LOST:
-        throw DflHW::Device::Error::VkDeviceLostError;
+        throw Dfl::Error::System(L"Unable to reach the device");
     default:
-        throw DflHW::Device::Error::VkDeviceInitError;
+        throw Dfl::Error::HandleCreation(L"Unable to create logical device");
     }
 
     for (uint32_t i{ 0 }; i < queueInfo.size(); i++) {
@@ -394,9 +390,136 @@ static DflHW::Device::Handles INT_InitDevice(
 
 //
 
+const VkDeviceMemory INT_GetStageMemory(
+                        const VkDevice&                           gpu,
+                        const std::vector<
+                                DflDevMemory<DflMemType::Local>>& memories,
+                              VkDeviceSize&                       stageSize,
+                              VkBuffer&                           stageBuffer,
+                              void*&                              stageMap,
+                              std::vector<uint64_t>               usedMemories) 
+{
+    std::optional<uint32_t> stageMemoryIndex{ std::nullopt };
+    bool isStageVisible{ false };
+
+    // preferably, we want stage memory that is visible to the host 
+    // Unlike main memory, the defauly stage memory size is simply a suggestion
+    // and is not followed if it's a condition that cannot be met.
+    // In other words, Dragonfly will prefer host visible memory over any kind of 
+    // memory, even if there is more memory to claim from other heaps
+    for (uint32_t i{0}; i < memories.size(); i++) 
+    {
+        for(auto property : memories[i].MemProperties) 
+        {
+            if ( (property.IsHostVisible || property.IsHostCached || property.IsHostCoherent) &&
+                    !stageMemoryIndex.has_value() ) 
+            {
+                stageMemoryIndex = property.TypeIndex;
+                isStageVisible = property.IsHostVisible;
+                usedMemories[i] += Dfl::Memory::Block::StageMemorySize;
+            }
+
+            if( stageMemoryIndex.has_value() ) { break; }
+        }
+    }
+
+    if (stageMemoryIndex == std::nullopt) {
+        for (uint32_t i{ 0 }; i < memories.size(); i++) {
+            if (memories[i] - usedMemories[i] > Dfl::Memory::Block::StageMemorySize) {
+                stageMemoryIndex = memories[i].MemProperties[0].TypeIndex;
+                isStageVisible = memories[i].MemProperties[0].IsHostVisible;
+                usedMemories[i] += Dfl::Memory::Block::StageMemorySize;
+                break;
+            }
+        }
+    }
+
+    VkDeviceMemory stageMemory{ nullptr };
+    VkMemoryAllocateInfo memInfo{
+        .sType{ VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO },
+        .pNext{ nullptr },
+        .allocationSize{ Dfl::Memory::Block::StageMemorySize },
+        .memoryTypeIndex{ stageMemoryIndex.value() }
+    };
+    if ( vkAllocateMemory(
+            gpu,
+            &memInfo,
+            nullptr,
+            &stageMemory) != VK_SUCCESS ) 
+    {
+        throw Dfl::Error::HandleCreation(L"Unable to reserve stage memory");
+    }
+
+    const VkBufferCreateInfo bufInfo{
+        .sType{ VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO },
+        .pNext{ nullptr },
+        .flags{ 0 },
+        .size{ Dfl::Memory::Block::StageMemorySize },
+        .usage{ VK_BUFFER_USAGE_TRANSFER_SRC_BIT |
+                VK_BUFFER_USAGE_TRANSFER_DST_BIT },
+        .sharingMode{ VK_SHARING_MODE_EXCLUSIVE }
+    };
+
+    if ( vkCreateBuffer(
+            gpu,
+            &bufInfo,
+            nullptr,
+            &stageBuffer) != VK_SUCCESS ) 
+    {
+        vkFreeMemory(
+            gpu,
+            stageMemory,
+            nullptr);
+        throw Dfl::Error::HandleCreation(L"Unable to create buffer for stage memory");
+    }
+    if ( vkBindBufferMemory(
+            gpu,
+            stageBuffer,
+            stageMemory,
+            0) != VK_SUCCESS ) 
+    {
+        vkDestroyBuffer(
+            gpu,
+            stageBuffer,
+            nullptr);
+        vkFreeMemory(
+            gpu,
+            stageMemory,
+            nullptr);
+        throw Dfl::Error::HandleCreation(L"Unable to bind memory to buffer");
+    }
+    
+    if ( isStageVisible ) [[ likely ]] 
+    {
+        if (vkMapMemory(
+                gpu,
+                stageMemory,
+                0,
+                Dfl::Memory::Block::StageMemorySize,
+                0,
+                &stageMap) != VK_SUCCESS) 
+        {
+            vkDestroyBuffer(
+                gpu,
+                stageBuffer,
+                nullptr);
+            vkFreeMemory(
+                gpu,
+                stageMemory,
+                nullptr);
+            throw Dfl::Error::HandleCreation(L"Unable to map buffer");
+        }
+    }
+
+    return stageMemory;
+}
+
+//
+
 const VkFence DflHW::Device::GetFence(
                     const uint32_t queueFamilyIndex,
-                    const uint32_t queueIndex) const {
+                    const uint32_t queueIndex) const 
+{
     for (auto fence : this->pTracker->Fences) {
         if (fence.QueueFamilyIndex == queueFamilyIndex &&
             fence.QueueIndex == queueIndex) {
@@ -424,33 +547,44 @@ const VkFence DflHW::Device::GetFence(
 }
 
 DflHW::Device::Device(const Info& info) 
-try : pInfo( new Info(info) ), 
-      pCharacteristics( new Characteristics( INT_OrganizeData(
-                                                     info.DeviceIndex < info.pSession->Instance.hDevices.size() ?
-                                                         info.pSession->Instance.hDevices[info.DeviceIndex] 
-                                                       : nullptr) ) ),
-      pTracker( new Tracker() ),
-      GPU( INT_InitDevice(
-                info.pSession->Instance,
-                info.DeviceIndex < info.pSession->Instance.hDevices.size() ?
-                    info.pSession->Instance.hDevices[info.DeviceIndex]
-                    : nullptr,
+: pInfo( new Info(info) ), 
+  pCharacteristics( new Characteristics( 
+                        INT_OrganizeData( info.Session.GetDeviceHandle(info.DeviceIndex) ) ) ),
+  GPU( INT_InitDevice(
+                info.Session.GetInstance(),
+                info.Session.GetDeviceHandle(info.DeviceIndex),
                 info.RenderOptions,
                 info.RenderersNumber,
-                info.SimulationsNumber) ) {
-    this->pTracker->LeastClaimedQueue.resize(this->GPU.Families.size());
-    this->pTracker->AreFamiliesUsed.resize(this->GPU.Families.size()); 
-    
-    this->pTracker->UsedLocalMemoryHeaps.resize(this->pCharacteristics->LocalHeaps.size());
-    this->pTracker->UsedSharedMemoryHeaps.resize(this->pCharacteristics->SharedHeaps.size());
-}
-catch (Error e) { this->ErrorCode = e; }
+                info.SimulationsNumber) ),
+  pTracker( new Tracker() ) 
+{
+     this->pTracker->LeastClaimedQueue.resize(this->GPU.Families.size());
+     this->pTracker->AreFamiliesUsed.resize(this->GPU.Families.size());
+     this->pTracker->UsedLocalMemoryHeaps.resize(this->pCharacteristics->LocalHeaps.size());
+     this->pTracker->UsedSharedMemoryHeaps.resize(this->pCharacteristics->SharedHeaps.size());
 
+     try {
+         this->pTracker->hStageMemory = INT_GetStageMemory(
+                                            this->GPU,
+                                            this->pCharacteristics->LocalHeaps,
+                                            this->pTracker->StageMemorySize,
+                                            this->pTracker->hStageBuffer,
+                                            this->pTracker->pStageMemoryMap,
+                                            this->pTracker->UsedLocalMemoryHeaps);
+     } catch (Dfl::Error::HandleCreation& error) {
+         vkDestroyDevice(
+             this->GPU,
+             nullptr);
+         throw;
+     }
+}
 
 DflHW::Device::~Device(){
     INT_GLB_DeviceMutex.lock();
-    for (auto& fence : this->pTracker->Fences) {
-        if (fence.hFence != nullptr) {
+    for (auto& fence : this->pTracker->Fences) 
+    {
+        if (fence.hFence != nullptr) 
+        {
             vkDestroyFence(
                 this->GPU,
                 fence,
@@ -459,7 +593,24 @@ DflHW::Device::~Device(){
         }
     }
 
-    if ( this->GPU.hDevice != nullptr ){
+    if (this->pTracker->hStageBuffer != nullptr) 
+    {
+        vkDestroyBuffer(
+            this->GPU,
+            this->pTracker->hStageBuffer,
+            nullptr);
+    }
+
+    if (this->pTracker->hStageMemory != nullptr) 
+    {
+        vkFreeMemory(
+            this->GPU,
+            this->pTracker->hStageMemory,
+            nullptr);
+    }
+
+    if ( this->GPU.hDevice != nullptr )
+    {
         vkDeviceWaitIdle(this->GPU);
         vkDestroyDevice(this->GPU, nullptr);
     }
