@@ -325,9 +325,6 @@ namespace Dfl{
                                                     : this->Instance.hDevices[index]; }
             const Characteristics& GetCharacteristics() {
                                         return *this->pCharacteristics; }
-
-            friend class
-                Dfl::Graphics::Renderer;
         };
 
         template< typename T > 

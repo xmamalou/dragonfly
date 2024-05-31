@@ -19,9 +19,6 @@
     <Filter Include="Source Files\Dragonfly\Hardware">
       <UniqueIdentifier>{0077fbfc-f586-419a-b0af-c5ff90262463}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Source Files\Dragonfly\Observer">
-      <UniqueIdentifier>{12efcdcd-0606-45d4-bb47-0b7693db6943}</UniqueIdentifier>
-    </Filter>
     <Filter Include="Source Files\Dragonfly\Graphics">
       <UniqueIdentifier>{637c469c-d036-4a27-b310-a9b7a22b1501}</UniqueIdentifier>
     </Filter>
@@ -34,67 +31,31 @@
     <Filter Include="Source Files\Dragonfly\Memory">
       <UniqueIdentifier>{7176c887-cf5c-4561-969e-80c9a401ea51}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Source Files\Dragonfly\UI">
+      <UniqueIdentifier>{9fe1527d-f52b-4065-90be-2074b0e1269a}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="Dragonfly.Observer.Window.ixx">
-      <Filter>Source Files\Dragonfly\Observer</Filter>
-    </ClCompile>
-    <ClCompile Include="Dragonfly.Hardware.ixx">
-      <Filter>Source Files\Dragonfly</Filter>
-    </ClCompile>
     <ClCompile Include="Dragonfly.Hardware.Session.cxx">
-      <Filter>Source Files\Dragonfly\Hardware</Filter>
-    </ClCompile>
-    <ClCompile Include="Dragonfly.Hardware.Session.ixx">
-      <Filter>Source Files\Dragonfly\Hardware</Filter>
-    </ClCompile>
-    <ClCompile Include="Dragonfly.Observer.ixx">
-      <Filter>Source Files\Dragonfly</Filter>
-    </ClCompile>
-    <ClCompile Include="Dragonfly.ixx">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="Dragonfly.Observer.Window.cxx">
-      <Filter>Source Files\Dragonfly\Observer</Filter>
-    </ClCompile>
-    <ClCompile Include="Dragonfly.Graphics.ixx">
-      <Filter>Source Files\Dragonfly</Filter>
-    </ClCompile>
-    <ClCompile Include="Dragonfly.Hardware.Device.ixx">
       <Filter>Source Files\Dragonfly\Hardware</Filter>
     </ClCompile>
     <ClCompile Include="Dragonfly.Harwdare.Device.cxx">
       <Filter>Source Files\Dragonfly\Hardware</Filter>
     </ClCompile>
-    <ClCompile Include="Dragonfly.Generics.ixx">
-      <Filter>Source Files\Dragonfly</Filter>
-    </ClCompile>
     <ClCompile Include="Dragonfly.Generics-MetaFunctions.ixx">
       <Filter>Source Files\Dragonfly\Generics</Filter>
-    </ClCompile>
-    <ClCompile Include="Dragonfly.Graphics.Renderer.ixx">
-      <Filter>Source Files\Dragonfly\Graphics</Filter>
     </ClCompile>
     <ClCompile Include="Dragonfly.Graphics.Renderer.cxx">
       <Filter>Source Files\Dragonfly\Graphics</Filter>
     </ClCompile>
-    <ClCompile Include="Dragonfly.Memory.Block.ixx">
-      <Filter>Source Files\Dragonfly\Memory</Filter>
-    </ClCompile>
-    <ClCompile Include="Dragonfly.Memory.ixx">
-      <Filter>Source Files\Dragonfly</Filter>
-    </ClCompile>
     <ClCompile Include="Dragonfly.Memory.Block.cxx">
-      <Filter>Source Files\Dragonfly\Memory</Filter>
-    </ClCompile>
-    <ClCompile Include="Dragonfly.Memory.Buffer.ixx">
       <Filter>Source Files\Dragonfly\Memory</Filter>
     </ClCompile>
     <ClCompile Include="Dragonfly.Memory.Buffer.cxx">
       <Filter>Source Files\Dragonfly\Memory</Filter>
     </ClCompile>
-    <ClCompile Include="Dragonfly.Generics-Async.ixx">
-      <Filter>Source Files</Filter>
+    <ClCompile Include="Dragonfly.UI.Window.cxx">
+      <Filter>Source Files\Dragonfly\UI</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -102,6 +63,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="DflWinRT.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Dragonfly.hxx">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
