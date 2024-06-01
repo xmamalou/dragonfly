@@ -2,7 +2,7 @@
 name: Bug report
 about: Send a bug report
 title: 'BUG: [Short bug description]'
-labels: Bug
+labels: ''
 assignees: ''
 
 ---
@@ -21,7 +21,7 @@ To reproduce the bug, do the following:
 
 |        |       |
 | ------------------- |  ----------------- |
-| Affected modules | `Module Name` |
-| Module or Source? | Module/Source |
+| Affected section | `Section Name` |
+| Header or Source? | Header/Source |
 | Line | line X |
 | Causes Crash?       | Yes/No |
