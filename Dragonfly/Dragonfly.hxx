@@ -421,33 +421,34 @@ namespace Dfl{
                 const uint64_t                                MaxAllocations{ 0 };
 
                 const uint64_t                                MaxDrawIndirectCount{ 0 };
+            
+                const std::vector<VkExtensionProperties>      Extensions{ };
+            
             };
 
             struct Tracker {
-                uint64_t                    Allocations{ 0 };
-                uint64_t                    IndirectDraws{ 0 };
+                uint64_t                           Allocations{ 0 };
+                uint64_t                           IndirectDraws{ 0 };
 
-                std::vector<uint32_t>       LeastClaimedQueue{ };
-                std::vector<uint32_t>       AreFamiliesUsed{ };
+                std::vector<uint32_t>              LeastClaimedQueue{ };
+                std::vector<uint32_t>              AreFamiliesUsed{ };
 
-                std::vector<uint64_t>       UsedLocalMemoryHeaps{ }; // size is the amount of heaps
-                std::vector<uint64_t>       UsedSharedMemoryHeaps{ }; // size is the amount of heaps
+                std::vector<uint64_t>              UsedLocalMemoryHeaps{ }; // size is the amount of heaps
+                std::vector<uint64_t>              UsedSharedMemoryHeaps{ }; // size is the amount of heaps
 
-                std::vector<Fence>          Fences{ };
+                std::vector<Fence>                 Fences{ };
 
-                VkDeviceMemory              hStageMemory{ nullptr };
-                VkDeviceSize                StageMemorySize{ 0 };
-                VkBuffer                    hStageBuffer{ nullptr };
+                VkDeviceMemory                     hStageMemory{ nullptr };
+                VkDeviceSize                       StageMemorySize{ 0 };
+                VkBuffer                           hStageBuffer{ nullptr };
 
-                void*                       pStageMemoryMap{ nullptr };
+                void*                              pStageMemoryMap{ nullptr };
             };
 
             struct Handles {
                 const VkDevice                    hDevice{ nullptr };
                 const VkPhysicalDevice            hPhysicalDevice{ nullptr };
                 const std::vector<Queue::Family>  Families{ };
-                const bool                        WithTimelineSems{ false };
-                const bool                        WithRTX{ false };
 
                 operator VkDevice() const { return this->hDevice; }
                 operator VkPhysicalDevice() const { return this->hPhysicalDevice; }
