@@ -256,10 +256,11 @@ namespace Dfl{
                                ? (position < this->CurrentEmptyNode ? true : false) 
                                : false; }
 
-            void     MakeBranch(const T& value) { 
+            Tree&    MakeBranch(const T& value) { 
                         if (this->CurrentEmptyNode < NodeNumber) { 
                             this->Nodes[this->CurrentEmptyNode] = new Tree(value, this->CurrentDepth + 1); 
-                            this->CurrentEmptyNode++; } }
+                            this->CurrentEmptyNode++; } 
+                        return *this; }
         };
 
         template< typename T >
