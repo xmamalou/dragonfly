@@ -61,8 +61,8 @@ auto DflMem::Block::Alloc(const VkBuffer& buffer)
     {
         if ( !pNode->HasBranch(0) ) 
         {
-            pNode->MakeBranch(*pNode/2 + (*pNode / 2 % requirements.alignment)); 
-            pNode->MakeBranch(*pNode/2 - (*pNode / 2 % requirements.alignment));
+            pNode->MakeBranch(*pNode/2 + (*pNode / 2 % requirements.alignment))
+                  .MakeBranch(*pNode/2 - (*pNode / 2 % requirements.alignment)); 
         }
 
         *pNode = *pNode - size;
