@@ -150,7 +150,9 @@ static DflUI::Window::Handles INT_GetWindow(const DflUI::Window::Info& info)
                             nullptr) };
 
     if (window == nullptr) {
-        throw Dfl::Error::HandleCreation(L"Unable to create window");
+        throw Dfl::Error::HandleCreation(
+                L"Unable to create window",
+                L"INT_GetWindow");
     }
 
     DwmSetWindowAttribute(
@@ -164,7 +166,9 @@ static DflUI::Window::Handles INT_GetWindow(const DflUI::Window::Info& info)
         if ( DwmExtendFrameIntoClientArea(
                 window,
                 &margins) != S_OK ) {
-            throw Dfl::Error::HandleCreation(L"Unable to extend window frame");
+            throw Dfl::Error::HandleCreation(
+                    L"Unable to extend window frame",
+                    L"INT_GetWindow");
         }
     }
 
@@ -176,8 +180,7 @@ static DflUI::Window::Handles INT_GetWindow(const DflUI::Window::Info& info)
 }
 
 DflUI::Window::Window(const Info& info)
-: pInfo( new Info(info) ),
-  Win32( INT_GetWindow(info) ) {  }
+: Win32( INT_GetWindow(info) ) {  }
 
 DflUI::Window::~Window() {
     DestroyWindow(this->Win32.hWin32Window);
@@ -205,11 +208,9 @@ inline const bool DflUI::Window::GetCloseStatus() const noexcept
 
 inline const DflUI::Window& DflUI::Window::SetTitle(const wchar_t* newTitle) const noexcept 
 {
-    if ( SetWindowTextW(
+    SetWindowTextW(
             this->Win32.hWin32Window,
-            newTitle) == TRUE ) { 
-        this->pInfo->WindowTitle = newTitle; 
-    }
+            newTitle);
 
     return *this;
 }
