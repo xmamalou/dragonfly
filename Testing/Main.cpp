@@ -22,12 +22,12 @@ Rendering::Rendering(const Dfl::Hardware::Device& device) : Device(device) {}
 
 void Rendering::operator() () 
 {
+    using DflWinRect = Dfl::UI::Window::Rectangle;
+
     try {
         const Dfl::UI::Window::Info winInfo{
            .Resolution{ Dfl::UI::Window::DefaultResolution },
            .DoFullscreen{ false },
-           .DoVsync{ true }, 
-           .Rate{ Dfl::UI::Window::DefaultRate },
            .WindowTitle{ L"Χαίρε Κόσμε!" },
         };
         Dfl::UI::Window window(winInfo);
@@ -37,6 +37,16 @@ void Rendering::operator() ()
             .AssocWindow{ window },
         };
         Dfl::Graphics::Renderer renderer(renderInfo);
+
+        std::cout << "Resolution of the window is: (" << window.GetRectangle<DflWinRect::Resolution>()[0] << ", " << window.GetRectangle<DflWinRect::Resolution>()[1] << ").\n";
+
+        std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+        window.SetRectangle<DflWinRect::Resolution>({1000, 1000})
+              .SetRectangle<DflWinRect::Position>({500, 500})
+              .SetTitle(L"Νέος τίτλος");
+
+        std::cout << "Resolution of the window is: (" << window.GetRectangle<DflWinRect::Resolution>()[0] << ", " << window.GetRectangle<DflWinRect::Resolution>()[1] << ").\n";
+
 
         while ( ( this->Close  = window.GetCloseStatus() ) == false) {
             renderer.Cycle();
