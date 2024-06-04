@@ -56,7 +56,9 @@ static inline VkBuffer INT_GetBuffer(
             nullptr,
             &buff) != VK_SUCCESS ) 
     {
-        throw Dfl::Error::HandleCreation(L"Unable to create handle for buffer");
+        throw Dfl::Error::HandleCreation(
+                L"Unable to create handle for buffer",
+                L"INT_GetBuffer");
     }
 
     return buff;
@@ -78,7 +80,9 @@ static inline VkEvent INT_GetEvent(const VkDevice& hGPU)
                             &event) };
         error != VK_SUCCESS) 
     {
-        throw Dfl::Error::HandleCreation(L"Unable to get synchronization primitive for buffer");
+        throw Dfl::Error::HandleCreation(
+                L"Unable to get synchronization primitive for buffer",
+                L"INT_GetEvent");
     }
 
     return event;
@@ -101,7 +105,9 @@ static inline VkCommandBuffer INT_GetCmdBuffer(
             &cmdInfo,
             &cmdBuff)  != VK_SUCCESS ) 
     {
-        throw Dfl::Error::HandleCreation(L"Unable to create command buffers for buffer");
+        throw Dfl::Error::HandleCreation(
+                L"Unable to create command buffers for buffer",
+                L"INT_GetCmdBuffer");
     }
 
     return cmdBuff;

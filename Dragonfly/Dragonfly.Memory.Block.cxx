@@ -209,7 +209,9 @@ static inline VkCommandPool INT_GetCmdPool(
             hGPU,
             memory,
             nullptr);
-        throw Dfl::Error::HandleCreation(L"Unable to create command pool for memory block");
+        throw Dfl::Error::HandleCreation(
+                L"Unable to create command pool for memory block",
+                L"INT_GetCmdPool");
     }
 
     return cmdPool;
@@ -227,7 +229,9 @@ static DflMem::Block::Handles INT_GetMemory(
           std::vector<uint32_t>&                        areFamiliesUsed) {
     if (totAllocs + 2 > maxAllocs) 
     {
-        throw Dfl::Error::Limit(L"Maximum GPU memory allocations reached");
+        throw Dfl::Error::Limit(
+                L"Maximum GPU memory allocations reached",
+                L"INT_GetMemory");
     }
 
     std::optional<uint32_t> mainMemoryIndex{ std::nullopt };
@@ -280,7 +284,9 @@ static DflMem::Block::Handles INT_GetMemory(
                     nullptr,
                     &mainMemory) != VK_SUCCESS ) 
     {
-        throw Dfl::Error::HandleCreation(L"Unable to create memory handle");
+        throw Dfl::Error::HandleCreation(
+                L"Unable to create memory handle",
+                L"INT_GetMemory");
     }
 
     totAllocs++;
