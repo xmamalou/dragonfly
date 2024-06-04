@@ -129,7 +129,9 @@ static VkDebugUtilsMessengerEXT INT_InitDebugger(const VkInstance& instance)
         vkDestroyInstance(
             instance,
             nullptr);
-        throw Dfl::Error::HandleCreation(L"Unable to get required function handle for debugger");
+        throw Dfl::Error::HandleCreation(
+                L"Unable to get required function handle for debugger",
+                L"INT_InitDebugger");
     }
 
     VkDebugUtilsMessengerEXT debugger{ nullptr };
@@ -141,7 +143,9 @@ static VkDebugUtilsMessengerEXT INT_InitDebugger(const VkInstance& instance)
         vkDestroyInstance(
             instance,
             nullptr);
-        throw Dfl::Error::HandleCreation(L"Unable to create debugger");
+        throw Dfl::Error::HandleCreation(
+                L"Unable to create debugger",
+                L"INT_InitDebugger");
     }
 
     return debugger;
@@ -153,7 +157,9 @@ static std::vector<VkPhysicalDevice> INT_LoadDevices(const VkInstance& instance)
     vkEnumeratePhysicalDevices(instance, &deviceCount, nullptr);
     if (deviceCount == 0) 
     {
-        throw Dfl::Error::NoData(L"Unable to find Vulkan compatible devices");
+        throw Dfl::Error::NoData(
+                L"Unable to find Vulkan compatible devices",
+                L"INT_LoadDevice");
     }
     std::vector<VkPhysicalDevice> devices(deviceCount);
     vkEnumeratePhysicalDevices(instance, &deviceCount, devices.data());
@@ -191,7 +197,9 @@ static DflHW::Session::Handles INT_InitSession(const DflHW::Session::Info& info)
         vkEnumerateInstanceLayerProperties(&count, nullptr);
         if (count == 0)
         {
-            throw Dfl::Error::NoData(L"No layers found in machine");
+            throw Dfl::Error::NoData(
+                    L"No layers found in machine",
+                    L"INT_InitSession");
         }
         layerProperties.resize(count);
         vkEnumerateInstanceLayerProperties(&count, layerProperties.data());
@@ -209,7 +217,9 @@ static DflHW::Session::Handles INT_InitSession(const DflHW::Session::Info& info)
                 }
                 if ( pProperty == layerProperties.end() - 1 ) 
                 {
-                    throw Dfl::Error::NoData(L"The requested layers are not present");
+                    throw Dfl::Error::NoData(
+                            L"The requested layers are not present",
+                            L"INT_InitSession");
                 }
             }
         }
@@ -235,9 +245,13 @@ static DflHW::Session::Handles INT_InitSession(const DflHW::Session::Info& info)
     case VK_SUCCESS:
         break;
     case VK_ERROR_INCOMPATIBLE_DRIVER:
-        throw Dfl::Error::HandleCreation(L"The Vulkan driver is incompatible");
+        throw Dfl::Error::HandleCreation(
+                L"The Vulkan driver is incompatible",
+                L"INT_InitSession");
     default:
-        throw Dfl::Error::HandleCreation(L"Unable to create Vulkan instance");
+        throw Dfl::Error::HandleCreation(
+                L"Unable to create Vulkan instance",
+                L"INT_InitSession");
     }
 
     return { instance, 

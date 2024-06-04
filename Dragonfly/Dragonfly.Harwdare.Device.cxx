@@ -207,7 +207,9 @@ static inline auto INT_OrganizeQueues(const VkPhysicalDevice& device)
         &queueFamilyCount,
         nullptr);
     if (queueFamilyCount == 0) {
-        throw Dfl::Error::NoData(L"Unable to get device queues");
+        throw Dfl::Error::NoData(
+                L"Unable to get device queues",
+                L"INT_OrganizeQueues");
     }
     props.resize(queueFamilyCount);
     vkGetPhysicalDeviceQueueFamilyProperties(
@@ -295,7 +297,9 @@ static auto INT_GetQueues(
     }
 
     if (infos.size() == 0) {
-        throw Dfl::Error::NoData(L"Unable to find queues with appropriate specifications");
+        throw Dfl::Error::NoData(
+                L"Unable to find queues with appropriate specifications",
+                L"INT_GetQueues");
     }
 
     return infos;
@@ -367,11 +371,17 @@ static DflHW::Device::Handles INT_InitDevice(
     case VK_SUCCESS:
         break;
     case VK_ERROR_EXTENSION_NOT_PRESENT:
-        throw Dfl::Error::NoData(L"Unable to find the desired extensions on the device");
+        throw Dfl::Error::NoData(
+                L"Unable to find the desired extensions on the device",
+                L"INT_InitDevice");
     case VK_ERROR_DEVICE_LOST:
-        throw Dfl::Error::System(L"Unable to reach the device");
+        throw Dfl::Error::System(
+                L"Unable to reach the device",
+                L"INT_InitDevice");
     default:
-        throw Dfl::Error::HandleCreation(L"Unable to create logical device");
+        throw Dfl::Error::HandleCreation(
+                L"Unable to create logical device",
+                L"INT_InitDevice");
     }
 
     for (uint32_t i{ 0 }; i < queueInfo.size(); i++) {
@@ -442,7 +452,9 @@ const VkDeviceMemory INT_GetStageMemory(
             nullptr,
             &stageMemory) != VK_SUCCESS ) 
     {
-        throw Dfl::Error::HandleCreation(L"Unable to reserve stage memory");
+        throw Dfl::Error::HandleCreation(
+                L"Unable to reserve stage memory",
+                L"INT_GetStageMemory");
     }
 
     const VkBufferCreateInfo bufInfo{
@@ -465,7 +477,9 @@ const VkDeviceMemory INT_GetStageMemory(
             gpu,
             stageMemory,
             nullptr);
-        throw Dfl::Error::HandleCreation(L"Unable to create buffer for stage memory");
+        throw Dfl::Error::HandleCreation(
+                L"Unable to create buffer for stage memory",
+                L"INT_GetStageMemory");
     }
     if ( vkBindBufferMemory(
             gpu,
@@ -481,7 +495,9 @@ const VkDeviceMemory INT_GetStageMemory(
             gpu,
             stageMemory,
             nullptr);
-        throw Dfl::Error::HandleCreation(L"Unable to bind memory to buffer");
+        throw Dfl::Error::HandleCreation(
+                L"Unable to bind memory to buffer",
+                L"INT_GetStageMemory");
     }
     
     if ( isStageVisible ) [[ likely ]] 
@@ -502,7 +518,9 @@ const VkDeviceMemory INT_GetStageMemory(
                 gpu,
                 stageMemory,
                 nullptr);
-            throw Dfl::Error::HandleCreation(L"Unable to map buffer");
+            throw Dfl::Error::HandleCreation(
+                    L"Unable to map buffer",
+                    L"INT_GetStageMemory");
         }
     }
 
