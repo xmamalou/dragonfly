@@ -22,6 +22,7 @@
 
 #include <stdint.h>
 
+#include <iostream>
 #include <array>
 #include <memory>
 #include <optional>
@@ -38,14 +39,22 @@ namespace Dfl{
     DFL_API inline
                      void     DFL_CALL Terminate() noexcept;
 
-           consteval uint32_t          MakeVersion(uint32_t major, uint32_t minor, uint32_t patch){ return (major << 16) | (minor << 8) | patch; };
+           consteval uint32_t          MakeVersion(
+                                            uint32_t major, 
+                                            uint32_t minor, 
+                                            uint32_t patch){ 
+                                                return (major << 16) | (minor << 8) | patch; };
            constexpr uint32_t          EngineVersion{ MakeVersion(0, 1, 0) };
 
-           consteval uint64_t          MakeBinaryPower(uint64_t power) { uint64_t value{ 1 }; while(power > 0) { value *= 2; power--; } return value; }
+           consteval uint64_t          MakeBinaryPower(uint64_t power) { 
+                                            uint64_t value{ 1 }; 
+                                            while(power > 0) { value *= 2; power--; } 
+                                            return value; }
            constexpr uint64_t          Kilo { MakeBinaryPower(10) };
            constexpr uint64_t          Mega { MakeBinaryPower(20) };
            constexpr uint64_t          Giga { MakeBinaryPower(30) };
-           constexpr uint64_t          Peta { MakeBinaryPower(40) };
+           constexpr uint64_t          Tera { MakeBinaryPower(40) };
+           constexpr uint64_t          Peta { MakeBinaryPower(50) };
 
            constexpr uint32_t          NoOptions{ 0 };
     
@@ -60,40 +69,85 @@ namespace Dfl{
         class Generic {
         protected:
             const wchar_t* ErrorString{ L"There was an error" };
+            const wchar_t* ThrowingFunction{ L"Irrelevant" };
                   Dfl::API Source{ Dfl::API::None };
         public:
-                           Generic(const wchar_t* errString, const Dfl::API& source) noexcept : ErrorString(errString), Source(source) {};
+                           Generic(
+                                const wchar_t* errString, 
+                                const wchar_t* throwingFunc,
+                                const Dfl::API& source) noexcept 
+                                : ErrorString(errString), 
+                                  ThrowingFunction(throwingFunc),
+                                  Source(source) {};
 
-            const wchar_t* GetError() const noexcept { return this->ErrorString; };
-            const Dfl::API GetSource() const noexcept { return this->Source; };
+            const wchar_t* GetError() const noexcept { 
+                                return this->ErrorString; };
+            const wchar_t* GetThrowingFunction() const noexcept { 
+                                return this->ThrowingFunction; }
+            const Dfl::API GetSource() const noexcept { 
+                                return this->Source; };
         };
 
         // RUNTIME ERRORS
 
         class Runtime : public Generic {
         public:
-            Runtime(const wchar_t* errString, const Dfl::API& source = Dfl::API::Vulkan) noexcept : Generic(errString, source) {};
+            Runtime(
+                const wchar_t* errString, 
+                const wchar_t* throwingFunc,
+                const Dfl::API& source = Dfl::API::Vulkan) noexcept 
+                : Generic(errString, throwingFunc, source) {};
         };
         
-        // Couldn't get any data from an API
+        // Error useful when an API failed to fetch data for an object
         class NoData : public Runtime {
         public:
-            NoData(const wchar_t* errString, const Dfl::API& source = Dfl::API::Vulkan) noexcept : Runtime(errString, source) {};
+            NoData(
+                const wchar_t* errString, 
+                const wchar_t* throwingFunc,
+                const Dfl::API& source = Dfl::API::Vulkan) noexcept 
+                : Runtime(errString, throwingFunc, source) {};
         };
-
+        
+        // Error useful when an API failed to create a handle for an object
         class HandleCreation : public Runtime {
         public:
-            HandleCreation(const wchar_t* errString, const Dfl::API& source = Dfl::API::Vulkan) noexcept : Runtime(errString, source) {};
+            HandleCreation(
+                const wchar_t* errString, 
+                const wchar_t* throwingFunc,
+                const Dfl::API& source = Dfl::API::Vulkan) noexcept 
+                : Runtime(errString, throwingFunc, source) {};
         };
 
         class System : public Runtime {
         public:
-            System(const wchar_t* errString, const Dfl::API& source = Dfl::API::Vulkan) noexcept : Runtime(errString, source) {};
+            System(
+                const wchar_t* errString, 
+                const wchar_t* throwingFunc,
+                const Dfl::API& source = Dfl::API::Vulkan) noexcept 
+                : Runtime(errString, throwingFunc, source) {}; 
         };
 
+        // Error useful when an action cannot continue because a limit (for example in resources) was hit.
         class Limit : public Runtime {
         public:
-            Limit(const wchar_t* errString, const Dfl::API& source = Dfl::API::Vulkan) noexcept : Runtime(errString, source) {};
+            Limit(
+                const wchar_t* errString, 
+                const wchar_t* throwingFunc,
+                const Dfl::API& source = Dfl::API::Vulkan) noexcept 
+                : Runtime(errString, throwingFunc, source) {};
+
+
+        };
+
+        // Error useful when attempting to access illegal memory addresses or invalid pointers
+        class OutOfBounds : public Runtime {
+        public:
+            OutOfBounds(
+                const wchar_t* errString, 
+                const wchar_t* throwingFunc,
+                const Dfl::API& source = Dfl::API::Vulkan) noexcept 
+                : Runtime(errString, throwingFunc, source) {};
         };
 
         //
@@ -177,14 +231,35 @@ namespace Dfl{
 
             operator T () { return this->NodeValue; }
 
-            Tree&    operator [] (const uint32_t node) { if (node < NodeNumber) { return this->Nodes[node] != nullptr ? *this->Nodes[node] : *this; } else { return *this; } }
-            T&       operator = (const uint32_t value) { this->NodeValue = value; return this->NodeValue; }
+            Tree&    operator [] (const uint32_t node) const { 
+                        if (node < NodeNumber) {
+                          return this->Nodes[node] != nullptr 
+                                 ? *this->Nodes[node] 
+                                 : throw Dfl::Error::OutOfBounds(
+                                            L"This branch isn't created yet",
+                                            L"Tree::operator[]",
+                                            Dfl::API::None); }
+                        else { throw Dfl::Error::OutOfBounds(
+                                        L"Reached bounds of tree", 
+                                        L"Tree::operator[]",
+                                        Dfl::API::None); } }
+            T&       operator = (const T value) { 
+                        this->NodeValue = value; 
+                        return this->NodeValue; }
 
-            uint32_t GetDepth() const { return this->CurrentDepth; }
-            T        GetNodeValue() const { return this->NodeValue; }
-            bool     HasBranch(uint32_t position) const { return position < NodeNumber ? (position < this->CurrentEmptyNode ? true : false) : false; }
+            uint32_t GetDepth() const noexcept { 
+                        return this->CurrentDepth; }
+            T        GetNodeValue() const noexcept { 
+                        return this->NodeValue; }
+            bool     HasBranch(uint32_t position) const { 
+                        return position < NodeNumber 
+                               ? (position < this->CurrentEmptyNode ? true : false) 
+                               : false; }
 
-            void     MakeBranch(const T& value) { if (this->CurrentEmptyNode < NodeNumber) { this->Nodes[this->CurrentEmptyNode] = new Tree(value, this->CurrentDepth + 1); this->CurrentEmptyNode++; } }
+            void     MakeBranch(const T& value) { 
+                        if (this->CurrentEmptyNode < NodeNumber) { 
+                            this->Nodes[this->CurrentEmptyNode] = new Tree(value, this->CurrentDepth + 1); 
+                            this->CurrentEmptyNode++; } }
         };
 
         template< typename T >
@@ -618,40 +693,22 @@ namespace Dfl{
             struct Info {
                 const DflHW::Device&   AssocDevice;
                 const Dfl::UI::Window& AssocWindow;
-            };
 
-            enum class [[ nodiscard ]] Error {
-                Success = 0,
-                // error
-                NullHandleError = -0x1001,
-                VkWindowNotAssociatedError = -0x4601,
-                VkSurfaceCreationError = -0x4602,
-                VkNoSurfaceFormatsError = -0x4603,
-                VkNoSurfacePresentModesError = -0x4604,
-                VkComPoolInitError = -0x4702,
-                VkSwapchainInitError = -0x4801,
-                VkSwapchainSurfaceLostError = -0x4802,
-                VkSwapchainWindowUnavailableError = -0x4803,
-                VkBufferFenceCreationError = -0x4A02,
-                // warnings
-                ThreadNotReadyWarning = 0x1001,
-                VkAlreadyInitDeviceWarning = 0x4201,
-                VkNoRenderingRequestedWarning = 0x4202,
-                VkUnknownQueueTypeWarning = 0x4701,
+                bool                   DoVsync{ true };
+                uint32_t               Rate{ 60 };
             };
 
             struct Handles {
                 const VkSurfaceKHR                    hSurface{ nullptr };
                 const DflHW::Device::Queue            AssignedQueue{ };
 
-                      VkSwapchainKHR                  hSwapchain{ nullptr };
-                      std::vector<VkImage>            hSwapchainImages{ };
-                      VkCommandPool                   hCmdPool{ nullptr };
+                const VkSwapchainKHR                  hSwapchain{ nullptr };
+                const std::vector<VkImage>            hSwapchainImages{ };
+                const VkCommandPool                   hCmdPool{ nullptr };
                 // ^ why is this here, even though command pools are per family? The reason is that command pools need to be
                 // used only by the thread that created them. Hence, it is not safe to allocate one command pool per family, but rather
                 // per thread.
 
-                Handles( const Info& info );
                 operator VkSwapchainKHR() { return this->hSwapchain; }
             };
 
@@ -669,18 +726,24 @@ namespace Dfl{
                 Fail
             };
 
+            DFL_API static constexpr uint32_t   DefaultRate{ 60 };
+
         protected:
-            const std::unique_ptr<const Info>            pInfo;
+            const std::shared_ptr<const Info>            pInfo;
             const Handles                                Swapchain;
-            const std::unique_ptr<const Characteristics> pCharacteristics;
+            const std::shared_ptr<const Characteristics> pCharacteristics;
             const VkFence                                QueueFence{ nullptr };
 
                   State                                  CurrentState{ State::Initialize };
         public:
-            DFL_API             DFL_CALL Renderer(const Info& info);
-            DFL_API             DFL_CALL ~Renderer();
+            DFL_API DFL_CALL Renderer(const Info& info);
+            DFL_API DFL_CALL Renderer(Renderer&& oldRenderer);
 
-            DFL_API       void  DFL_CALL Cycle();
+            DFL_API DFL_CALL ~Renderer();
+
+            DFL_API       
+            void  
+            DFL_CALL Cycle();
         };
     }
     namespace DflGr = Dfl::Graphics;
@@ -692,35 +755,36 @@ namespace Dfl{
         {
         public:
             struct Info {
-                std::array<uint32_t, 2>         Resolution{ DefaultResolution };
-                std::array<uint32_t, 2>         View{ DefaultResolution }; // currently equivalent to resolution
-                bool                            DoFullscreen{ false };
+                const std::array<uint32_t, 2>         Resolution{ DefaultResolution }; 
+                const std::array<uint32_t, 2>         View{ DefaultResolution }; // Currently reserved and not used
+                const bool                            DoFullscreen{ false };
 
-                bool                            DoVsync{ true };
-                uint32_t                        Rate{ 60 };
+                const std::array<int, 2>              Position{ {0, 0} }; // Relative to the screen space
+                const std::basic_string_view<wchar_t> WindowTitle{ L"Dragonfly App" }; 
 
-                std::array<int, 2>              Position{ {0, 0} }; // Relative to the screen space
-                std::basic_string_view<wchar_t> WindowTitle{ L"Dragonfly App" };
+                const bool                            HasTitleBar{ true };
+                const bool                            Extends{ false }; // Whether the draw area covers the titlebar as well
 
-                bool                            HasTitleBar{ true };
-                bool                            Extends{ false }; // whether the draw area covers the titlebar as well
-
-                const HWND                      hWindow{ nullptr }; // instead of creating a new window, set this to render to children windows
+                const HWND                            hWindow{ nullptr }; // Instead of creating a new window, set this to render to children windows
             };
+
             struct Handles {
                 const HWND   hWin32Window{ nullptr };
+                const HWND   hParentWindow{ nullptr };
 
                 operator HWND() { return this->hWin32Window; }
+            };
+
+            enum class Rectangle {
+                Resolution,
+                Position
             };
 
             DFL_API static constexpr uint32_t   DefaultWidth{ 1920 };
             DFL_API static constexpr uint32_t   DefaultHeight{ 1080 };
             DFL_API static constexpr std::array DefaultResolution{ DefaultWidth, DefaultHeight };
 
-            DFL_API static constexpr uint32_t   DefaultRate{ 60 };
-
         protected:
-            const  std::unique_ptr<Info> pInfo{ nullptr };
             const  Handles               Win32{ };
 
         public:
@@ -734,9 +798,20 @@ namespace Dfl{
             const bool        
             DFL_CALL   GetCloseStatus() const noexcept;
 
-            DFL_API 
+            template< Rectangle R >
+            inline
+            std::array<uint32_t, 2>
+                       GetRectangle() const noexcept;
+
+            DFL_API
+            inline
             const Window&        
             DFL_CALL   SetTitle(const wchar_t* newTitle) const noexcept;
+
+            template< Rectangle R >
+            inline
+            const Window&
+                       SetRectangle(std::array<uint32_t, 2>&& newRect) const noexcept;
 
             friend class
                 Dfl::Graphics::Renderer;
@@ -786,4 +861,54 @@ namespace Dfl{
     using Device = Hardware::Device;
     using DevInfo = Device::Info;
     using DevOptions = Device::RenderOptions;
+}
+
+// TEMPLATE DEFINITIONS
+
+// Dragonfly.UI.Window
+
+template< Dfl::UI::Window::Rectangle R >
+inline std::array<uint32_t, 2> Dfl::UI::Window::GetRectangle() const noexcept
+{
+    RECT rect;
+
+    if (GetWindowRect(
+            this->Win32.hWin32Window,
+            &rect) == 0) 
+    {
+        return { 0, 0 };
+    }
+
+    if constexpr ( R == Rectangle::Resolution ) {
+        return { static_cast<uint32_t>(std::abs(rect.left - rect.right)), 
+                 static_cast<uint32_t>(std::abs(rect.top - rect.bottom)) };
+    }
+    else {
+        return { static_cast<uint32_t>(rect.left), 
+                 static_cast<uint32_t>(rect.top) };
+    }
+}
+
+template< Dfl::UI::Window::Rectangle R >
+inline const Dfl::UI::Window& Dfl::UI::Window::SetRectangle(std::array<uint32_t, 2>&& newRect) const noexcept
+{
+    
+    std::array<uint32_t, 2> constRect{ 0, 0 };
+    if constexpr ( R == Rectangle::Resolution ) {
+        constRect = this->GetRectangle<Rectangle::Position>();
+    }
+    else {
+        constRect = this->GetRectangle<Rectangle::Resolution>();
+    }
+
+    SetWindowPos(
+        this->Win32.hWin32Window,
+        nullptr,
+        newRect[0],
+        newRect[1],
+        newRect[0],
+        newRect[1],
+        R == Rectangle::Resolution ? SWP_NOMOVE : SWP_NOSIZE);
+
+    return *this;
 }
