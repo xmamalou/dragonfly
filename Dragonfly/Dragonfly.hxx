@@ -243,7 +243,7 @@ namespace Dfl{
                                         L"Reached bounds of tree", 
                                         L"Tree::operator[]",
                                         Dfl::API::None); } }
-            T&       operator = (const T value) { 
+            T&       operator = (const T& value) { 
                         this->NodeValue = value; 
                         return this->NodeValue; }
 
