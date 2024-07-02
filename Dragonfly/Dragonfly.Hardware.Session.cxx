@@ -14,16 +14,19 @@
    limitations under the License.
 */
 
-#include "Dragonfly.hxx"
+#include "Dragonfly.Hardware.Session.hxx"
 
 #include <iostream>
 #include <vector>
 #include <thread>
+#include <array>
 
 #define WIN32_LEAN_AND_MEAN
 #include <Windows.h>
 #include <winternl.h>
 #include <powerbase.h>
+
+#include "Dragonfly.hxx"
 
 namespace DflHW = Dfl::Hardware;
 
