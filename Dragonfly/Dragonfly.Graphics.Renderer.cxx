@@ -13,7 +13,7 @@
    See the License for the specific language governing permissions and
    limitations under the License.
 */
-#include "Dragonfly.hxx"
+#include "Dragonfly.Graphics.Renderer.hxx"
 
 #include <iostream>
 #include <vector>
@@ -24,6 +24,9 @@
 #include <Windows.h>
 #define VK_USE_PLATFORM_WIN32_KHR
 #include <vulkan/vulkan.h>
+
+#include "Dragonfly.Hardware.Session.hxx"
+#include "Dragonfly.UI.Window.hxx"
 
 namespace DflHW = Dfl::Hardware;
 namespace DflGr = Dfl::Graphics;
@@ -145,64 +148,6 @@ static inline VkSurfaceKHR INT_GetSurface(
     return surface;
 };
 
-static Dfl::Hardware::Device::Queue INT_GetQueue(
-    const VkDevice&                                          hDevice,
-    const std::vector<Dfl::Hardware::Device::Queue::Family>& families,
-          std::vector<uint32_t>&                             areFamiliesUsed,
-          std::vector<uint32_t>&                             leastClaimedQueue) 
-{
-    VkQueue  queue{ nullptr };
-    uint32_t familyIndex{ 0 };
-    uint32_t amountOfClaimedGoal{ 0 };
-    while (familyIndex <= families.size()) 
-    {
-        if (familyIndex == families.size()) 
-        {
-            amountOfClaimedGoal++;
-            familyIndex = 0;
-            continue;
-        }
-
-        if (!(families[familyIndex].QueueType & Dfl::Hardware::Device::Queue::Type::Graphics)) 
-        {
-            familyIndex++;
-            continue;
-        }
-
-        /*
-        * The way Dragonfly searches for queues is this:
-        * If it finds a queue family of the type it wants, it first
-        * checks what value pFamilyQueue[i], where i the family index,
-        * has. This value is, essentially, the index of the queue that has
-        * been claimed the least. If the value exceeds (or is equal to)
-        * the number of queues in the family, it resets it to 0.
-        * This is a quick way to ensure that work is distributed evenly
-        * between queues and that no queue is overworked.
-        * 
-        * Note that this does not check whether the queues of the appropriate
-        * type indeed exist, since this condition should be verified already
-        * from device creation.
-        */
-        if (leastClaimedQueue[familyIndex] >= families[familyIndex].QueueCount) 
-        {
-            leastClaimedQueue[familyIndex] = 0;
-        }
-
-        vkGetDeviceQueue(
-            hDevice,
-            familyIndex,
-            leastClaimedQueue[familyIndex],
-            &queue
-        );
-        leastClaimedQueue[familyIndex]++;
-        break;
-    }
-
-    areFamiliesUsed[familyIndex]++;
-
-    return { queue, familyIndex, leastClaimedQueue[familyIndex] - 1 };
-};
-
 static inline VkSwapchainKHR INT_GetSwapchain(
     const VkDevice&                        hDevice,
     const VkPhysicalDevice&                hPhysDevice,
@@ -279,12 +224,7 @@ static VkCommandPool INT_GetCommandPool()
 using DflQueueFams = Dfl::Hardware::Device::Queue::Family;
 
 static DflGr::Renderer::Handles INT_GetHandles(
-    const VkInstance&                hInstance,
-    const VkPhysicalDevice&          hPhysDevice,
-    const std::vector<DflQueueFams>& families,
-          std::vector<uint32_t>&     areFamiliesUsed,
-          std::vector<uint32_t>&     leastClaimedQueue,
-    const VkDevice&                  hDevice,
+          DflHW::Device&             gpu,
     const HWND&                      hWindow,
     const bool&                      doVsync,
     const std::array< uint32_t, 2 >& targetRes,
@@ -296,17 +236,13 @@ static DflGr::Renderer::Handles INT_GetHandles(
 {
     auto surface{ oldSurface == nullptr 
                     ? INT_GetSurface(
-                        hInstance,
-                        hPhysDevice,
+                        gpu.GetSession().GetInstance(),
+                        gpu.GetPhysicalDevice(),
                         hWindow)
                     : oldSurface };
 
     auto queue{ !oldQueue.has_value() 
-                   ? INT_GetQueue(
-                        hDevice,
-                        families,
-                        areFamiliesUsed,
-                        leastClaimedQueue)
+                   ? gpu.BorrowQueue(DflHW::Device::Queue::Type::Graphics)
                    : oldQueue.value() };
 
     VkSwapchainKHR       swapchain{ nullptr };
@@ -316,8 +252,8 @@ static DflGr::Renderer::Handles INT_GetHandles(
                                     : oldCommandPool };
     try {
         swapchain = INT_GetSwapchain(
-                        hDevice,
-                        hPhysDevice,
+                        gpu.GetDevice(),
+                        gpu.GetPhysicalDevice(),
                         doVsync,
                         surface,
                         targetRes,
@@ -325,7 +261,7 @@ static DflGr::Renderer::Handles INT_GetHandles(
 
         uint32_t swapImageCount{ 0 };
         vkGetSwapchainImagesKHR(
-            hDevice,
+            gpu.GetDevice(),
             swapchain,
             &swapImageCount,
             nullptr);
@@ -336,20 +272,20 @@ static DflGr::Renderer::Handles INT_GetHandles(
         }
         swapImages.resize(swapImageCount);
         vkGetSwapchainImagesKHR(
-            hDevice,
+            gpu.GetDevice(),
             swapchain,
             &swapImageCount,
             swapImages.data());
     }
     catch (Dfl::Error::Generic& err) {
         vkDestroySurfaceKHR(
-            hInstance,
+            gpu.GetSession().GetInstance(),
             surface,
             nullptr);
 
         if (swapchain != nullptr) {
             vkDestroySwapchainKHR(
-                hDevice,
+                gpu.GetDevice(),
                 swapchain,
                 nullptr);
         }
@@ -365,12 +301,7 @@ static DflGr::Renderer::Handles INT_GetHandles(
 DflGr::Renderer::Renderer(const Info& info)
 : pInfo(new Info(info)),
   Swapchain( INT_GetHandles(
-               info.AssocDevice.GetSession().GetInstance(),
-               info.AssocDevice.GetPhysicalDevice(),
-               info.AssocDevice.GetQueueFamilies(),
-               info.AssocDevice.GetTracker().AreFamiliesUsed,
-               info.AssocDevice.GetTracker().LeastClaimedQueue,
-               info.AssocDevice.GetDevice(),
+               info.AssocDevice,
                info.AssocWindow.GetHandle(),
                info.DoVsync,
                info.AssocWindow.GetRectangle<DflUI::Window::Rectangle::Resolution>(),
@@ -383,19 +314,14 @@ DflGr::Renderer::Renderer(const Info& info)
                                             this->Swapchain.hSurface,
                                             info.AssocWindow.GetRectangle<DflUI::Window::Rectangle::Resolution>()) ) ),
   QueueFence( this->pInfo->AssocDevice.GetFence(this->Swapchain.AssignedQueue.FamilyIndex,
-                                                this->Swapchain.AssignedQueue.Index) )
+                                                   this->Swapchain.AssignedQueue.Index) )
 {
 }
 
 DflGr::Renderer::Renderer(Renderer&& oldRenderer) 
 : pInfo( oldRenderer.pInfo.get() ),
   Swapchain( INT_GetHandles(
-               this->pInfo->AssocDevice.GetSession().GetInstance(),
-               this->pInfo->AssocDevice.GetPhysicalDevice(),
-               this->pInfo->AssocDevice.GetQueueFamilies(),
-               this->pInfo->AssocDevice.GetTracker().AreFamiliesUsed,
-               this->pInfo->AssocDevice.GetTracker().LeastClaimedQueue,
-               this->pInfo->AssocDevice.GetDevice(),
+               this->pInfo->AssocDevice,
                this->pInfo->AssocWindow.GetHandle(),
                this->pInfo->DoVsync,
                this->pInfo->AssocWindow.GetRectangle<DflUI::Window::Rectangle::Resolution>(),
@@ -412,25 +338,22 @@ DflGr::Renderer::~Renderer() {
     auto& device{ this->pInfo->AssocDevice };
     vkDeviceWaitIdle(device.GetDevice());
 
-    if (this->Swapchain.hSwapchain != VK_NULL_HANDLE) {
-        vkDestroySwapchainKHR(
-            device.GetDevice(),
-            this->Swapchain.hSwapchain,
-            nullptr);
-    }
-    if (this->Swapchain.hCmdPool != VK_NULL_HANDLE) {
-        vkDestroyCommandPool(
-            device.GetDevice(),
-            this->Swapchain.hCmdPool,
-            nullptr);
-    }
+    vkDestroySwapchainKHR(
+        device.GetDevice(),
+        this->Swapchain.hSwapchain,
+        nullptr);
 
-    if (this->Swapchain.hSurface != nullptr) {
-        vkDestroySurfaceKHR(
-            device.GetSession().GetInstance(),
-            this->Swapchain.hSurface,
-            nullptr);
-    }
+    vkDestroyCommandPool(
+        device.GetDevice(),
+        this->Swapchain.hCmdPool,
+        nullptr);
+
+    vkDestroySurfaceKHR(
+        device.GetSession().GetInstance(),
+        this->Swapchain.hSurface,
+        nullptr);
+
+    this->pInfo->AssocDevice.ReturnQueue(this->Swapchain.AssignedQueue);
 }
 
 void DflGr::Renderer::Cycle() 
@@ -443,6 +366,8 @@ void DflGr::Renderer::Cycle()
         break;
     case State::Loop:
         printf("");
+        break;
+    default:
         break;
     }
 
