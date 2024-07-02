@@ -16,7 +16,7 @@
 #ifndef VK_USE_PLATFORM_WIN32_KHR
 #define VK_USE_PLATFORM_WIN32_KHR
 
-#include "Dragonfly.hxx"
+#include "Dragonfly.Hardware.Device.hxx"
 
 #include <optional>
 #include <string>
@@ -27,6 +27,8 @@
 #endif 
 #include <vulkan/vulkan.h>
 
+#include "Dragonfly.Hardware.Session.hxx"
+
 namespace DflHW  = Dfl::Hardware;
 namespace DflGen = Dfl::Generics;
 
@@ -35,34 +37,25 @@ using DflMemType = DflHW::Device::MemoryType;
 template <DflMemType type>
 using DflDevMemory = DflHW::Device::Characteristics::Memory<type>;
 
-
-// GLOBAL MUTEX
-
-static std::mutex INT_GLB_DeviceMutex;
-
 // Internal for Device constructor
 
 template <DflMemType type>
-static inline void INT_OrganizeMemory(
+static inline auto INT_OrganizeMemory(
           std::vector<DflDevMemory<type>>& memory, 
-    const VkPhysicalDeviceMemoryProperties props);
-
-template <>
-static inline void INT_OrganizeMemory(
-          std::vector<DflDevMemory<DflMemType::Local>>& memory,
-    const VkPhysicalDeviceMemoryProperties              props) 
+    const VkPhysicalDeviceMemoryProperties props)
+-> std::vector< DflDevMemory<type> >
 {
-    constexpr auto type{ DflMemType::Local };
-
     uint32_t heapCount{ 0 };
     for (uint32_t i{ 0 }; i < props.memoryHeapCount; i++)
     {
-        if ( props.memoryHeaps[i].flags & VK_MEMORY_HEAP_DEVICE_LOCAL_BIT )
+        if ( type == DflMemType::Local 
+                ? props.memoryHeaps[i].flags & VK_MEMORY_HEAP_DEVICE_LOCAL_BIT
+                : !(props.memoryHeaps[i].flags & VK_MEMORY_HEAP_DEVICE_LOCAL_BIT))
         {
             memory[heapCount].Size = props.memoryHeaps[i].size;
             memory[heapCount].HeapIndex = i;
 
-            DflDevMemory<type>::Properties dflProps{ };
+            typename DflDevMemory<type>::Properties dflProps{ };
             for (uint32_t j{ 0 }; j < VK_MAX_MEMORY_TYPES; j++) 
             {
                 if (props.memoryTypes[j].heapIndex != i) 
@@ -73,53 +66,23 @@ static inline void INT_OrganizeMemory(
                 dflProps.TypeIndex = j;
                 dflProps.IsHostVisible =
                     props.memoryTypes[j].propertyFlags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT ? true : false;
-                dflProps.IsHostCoherent =
-                    props.memoryTypes[j].propertyFlags & VK_MEMORY_PROPERTY_HOST_COHERENT_BIT ? true : false;
-                dflProps.IsHostCached =
-                    props.memoryTypes[j].propertyFlags & VK_MEMORY_PROPERTY_HOST_CACHED_BIT ? true : false;
-
-                memory[heapCount].MemProperties.push_back(dflProps);
-            }
-
-            heapCount++;
-        }
-    }
-};
-
-template <>
-static inline void INT_OrganizeMemory(
-          std::vector<DflDevMemory<DflMemType::Shared>>& memory, 
-    const VkPhysicalDeviceMemoryProperties               props) 
-{
-    constexpr auto type{ DflMemType::Shared };
-    
-    uint32_t heapCount{ 0 };
-    for (uint32_t i{ 0 }; i < props.memoryHeapCount; i++) 
-    {
-        if ( !(props.memoryHeaps[i].flags & VK_MEMORY_HEAP_DEVICE_LOCAL_BIT) ) 
-        {
-            memory[heapCount].Size = props.memoryHeaps[i].size;
-            memory[heapCount].HeapIndex = props.memoryTypes[i].heapIndex;
-
-            DflDevMemory<type>::Properties dflProps{ };
-            for (uint32_t j{ 0 }; j < VK_MAX_MEMORY_TYPES; j++ ) 
-            { 
-                if (props.memoryTypes[j].heapIndex != i) 
-                {
-                    continue;
+                
+                if constexpr (type == DflMemType::Local) 
+                { 
+                    dflProps.IsHostCoherent =
+                        props.memoryTypes[j].propertyFlags & VK_MEMORY_PROPERTY_HOST_COHERENT_BIT ? true : false;
+                    dflProps.IsHostCached =
+                        props.memoryTypes[j].propertyFlags & VK_MEMORY_PROPERTY_HOST_CACHED_BIT ? true : false;
                 }
-
-                dflProps.TypeIndex = j;
-                dflProps.IsHostVisible =
-                    props.memoryTypes[j].propertyFlags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT ? true : false;
-
                 memory[heapCount].MemProperties.push_back(dflProps);
             }
 
             heapCount++;
         }
     }
-};
+
+    return memory;
+}
 
 static DflHW::Device::Characteristics INT_OrganizeData(const VkPhysicalDevice& device)
 {
@@ -399,7 +362,6 @@ const VkDeviceMemory INT_GetStageMemory(
                         const VkDevice&                           gpu,
                         const std::vector<
                                 DflDevMemory<DflMemType::Local>>& memories,
-                              VkDeviceSize&                       stageSize,
                               VkBuffer&                           stageBuffer,
                               void*&                              stageMap,
                               std::vector<uint64_t>               usedMemories) 
@@ -421,19 +383,18 @@ const VkDeviceMemory INT_GetStageMemory(
             {
                 stageMemoryIndex = property.TypeIndex;
                 isStageVisible = property.IsHostVisible;
-                usedMemories[i] += Dfl::Memory::Block::StageMemorySize;
+                usedMemories[i] += DflHW::Device::StageMemory;
+                break;
             }
-
-            if( stageMemoryIndex.has_value() ) { break; }
         }
     }
 
     if (stageMemoryIndex == std::nullopt) {
         for (uint32_t i{ 0 }; i < memories.size(); i++) {
-            if (memories[i] - usedMemories[i] > Dfl::Memory::Block::StageMemorySize) {
+            if (memories[i] - usedMemories[i] > DflHW::Device::StageMemory ) {
                 stageMemoryIndex = memories[i].MemProperties[0].TypeIndex;
                 isStageVisible = memories[i].MemProperties[0].IsHostVisible;
-                usedMemories[i] += Dfl::Memory::Block::StageMemorySize;
+                usedMemories[i] += DflHW::Device::StageMemory;
                 break;
             }
         }
@@ -443,7 +404,7 @@ const VkDeviceMemory INT_GetStageMemory(
     VkMemoryAllocateInfo memInfo{
         .sType{ VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO },
         .pNext{ nullptr },
-        .allocationSize{ Dfl::Memory::Block::StageMemorySize },
+        .allocationSize{ DflHW::Device::StageMemory },
         .memoryTypeIndex{ stageMemoryIndex.value() }
     };
     if ( vkAllocateMemory(
@@ -461,7 +422,7 @@ const VkDeviceMemory INT_GetStageMemory(
         .sType{ VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO },
         .pNext{ nullptr },
         .flags{ 0 },
-        .size{ Dfl::Memory::Block::StageMemorySize },
+        .size{ DflHW::Device::StageMemory },
         .usage{ VK_BUFFER_USAGE_TRANSFER_SRC_BIT |
                 VK_BUFFER_USAGE_TRANSFER_DST_BIT },
         .sharingMode{ VK_SHARING_MODE_EXCLUSIVE }
@@ -496,7 +457,7 @@ const VkDeviceMemory INT_GetStageMemory(
             stageMemory,
             nullptr);
         throw Dfl::Error::HandleCreation(
-                L"Unable to bind memory to buffer",
+                L"Unable to bind memory to stage buffer",
                 L"INT_GetStageMemory");
     }
     
@@ -506,7 +467,7 @@ const VkDeviceMemory INT_GetStageMemory(
                 gpu,
                 stageMemory,
                 0,
-                Dfl::Memory::Block::StageMemorySize,
+                DflHW::Device::StageMemory,
                 0,
                 &stageMap) != VK_SUCCESS) 
         {
@@ -519,7 +480,7 @@ const VkDeviceMemory INT_GetStageMemory(
                 stageMemory,
                 nullptr);
             throw Dfl::Error::HandleCreation(
-                    L"Unable to map buffer",
+                    L"Unable to map stage buffer to host memory",
                     L"INT_GetStageMemory");
         }
     }
@@ -527,7 +488,183 @@ const VkDeviceMemory INT_GetStageMemory(
     return stageMemory;
 }
 
+const VkDeviceMemory INT_GetIntermediateMem(
+                        const VkDevice&                           gpu,
+                        const std::vector<
+                                DflDevMemory<DflMemType::Local>>& memories,
+                              VkBuffer&                           intermBuffer,
+                              std::vector<uint64_t>               usedMemories)
+{
+    std::optional<uint32_t> intermMemoryIndex{ std::nullopt };
+
+    // the intermediate buffer is preferably like any other buffer; 
+    // host invisible and in local memory
+    for (uint32_t i{0}; i < memories.size(); i++) 
+    {
+        for(auto property : memories[i].MemProperties) 
+        {
+            if ( (!property.IsHostVisible 
+                 || !property.IsHostCached 
+                 || !property.IsHostCoherent) &&
+                    !intermMemoryIndex.has_value() ) 
+            {
+                intermMemoryIndex = property.TypeIndex;
+                usedMemories[i] += DflHW::Device::IntermediateMemory;
+                break;
+            }
+        }
+    }
+
+    if (intermMemoryIndex == std::nullopt) {
+        for (uint32_t i{ 0 }; i < memories.size(); i++) {
+            if (memories[i] - usedMemories[i] > DflHW::Device::IntermediateMemory ) {
+                intermMemoryIndex = memories[i].MemProperties[0].TypeIndex;
+                usedMemories[i] += DflHW::Device::IntermediateMemory;
+                break;
+            }
+        }
+    }
+
+    VkDeviceMemory intermMemory{ nullptr };
+    VkMemoryAllocateInfo memInfo{
+        .sType{ VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO },
+        .pNext{ nullptr },
+        .allocationSize{ DflHW::Device::IntermediateMemory },
+        .memoryTypeIndex{ intermMemoryIndex.value() }
+    };
+    if ( vkAllocateMemory(
+            gpu,
+            &memInfo,
+            nullptr,
+            &intermMemory) != VK_SUCCESS ) 
+    {
+        throw Dfl::Error::HandleCreation(
+                L"Unable to reserve intermediate memory",
+                L"INT_GetIntermediateMemory");
+    }
+
+    const VkBufferCreateInfo bufInfo{
+        .sType{ VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO },
+        .pNext{ nullptr },
+        .flags{ 0 },
+        .size{ DflHW::Device::IntermediateMemory },
+        .usage{ VK_BUFFER_USAGE_TRANSFER_SRC_BIT |
+                VK_BUFFER_USAGE_TRANSFER_DST_BIT },
+        .sharingMode{ VK_SHARING_MODE_EXCLUSIVE }
+    };
+
+    if ( vkCreateBuffer(
+            gpu,
+            &bufInfo,
+            nullptr,
+            &intermBuffer) != VK_SUCCESS ) 
+    {
+        vkFreeMemory(
+            gpu,
+            intermMemory,
+            nullptr);
+        throw Dfl::Error::HandleCreation(
+                L"Unable to create buffer for intermediate memory",
+                L"INT_GetIntermediateMem");
+    }
+    if ( vkBindBufferMemory(
+            gpu,
+            intermBuffer,
+            intermMemory,
+            0) != VK_SUCCESS ) 
+    {
+        vkDestroyBuffer(
+            gpu,
+            intermBuffer,
+            nullptr);
+        vkFreeMemory(
+            gpu,
+            intermMemory,
+            nullptr);
+        throw Dfl::Error::HandleCreation(
+                L"Unable to bind memory to intermediate buffer",
+                L"INT_GetStageMem");
+    }
+
+    return intermMemory;
+}
+
 //
+
+DflHW::Device::Device(const Info& info) 
+: pInfo( new Info(info) ), 
+  pCharacteristics( new Characteristics( 
+                        INT_OrganizeData( info.Session.GetDeviceHandle(info.DeviceIndex) ) ) ),
+  GPU( INT_InitDevice(
+                info.Session.GetInstance(),
+                info.Session.GetDeviceHandle(info.DeviceIndex),
+                info.RenderOptions,
+                info.RenderersNumber,
+                info.SimulationsNumber,
+                this->pCharacteristics->Extensions) ),
+  pTracker( new Tracker() ) 
+{
+     this->pTracker->QueueClaims.resize(this->GPU.Families.size());
+     for (auto& family : this->GPU.Families)
+     {
+        this->pTracker->QueueClaims[family.Index].resize(family.QueueCount);
+     }
+     this->pTracker->UsedLocalMemoryHeaps.resize(this->pCharacteristics->LocalHeaps.size());
+     this->pTracker->UsedSharedMemoryHeaps.resize(this->pCharacteristics->SharedHeaps.size());
+
+     try {
+         this->pTracker->hStageMemory = INT_GetStageMemory(
+                                            this->GPU,
+                                            this->pCharacteristics->LocalHeaps,
+                                            this->pTracker->hStageBuffer,
+                                            this->pTracker->pStageMemoryMap,
+                                            this->pTracker->UsedLocalMemoryHeaps);
+          this->pTracker->hIntermediateMem = INT_GetIntermediateMem(
+                                                this->GPU,
+                                                this->pCharacteristics->LocalHeaps,
+                                                this->pTracker->hIntermediateBuffer,
+                                                this->pTracker->UsedLocalMemoryHeaps);
+     } catch (Dfl::Error::HandleCreation& error) {
+         vkDestroyDevice(
+             this->GPU,
+             nullptr);
+         throw;
+     }
+}
+
+DflHW::Device::~Device()
+{
+    for (auto& fence : this->pTracker->Fences) 
+    {
+        vkDestroyFence(
+                this->GPU,
+                fence,
+                nullptr);
+    }
+
+    vkDestroyBuffer(
+        this->GPU,
+        this->pTracker->hIntermediateBuffer,
+        nullptr);
+
+    vkFreeMemory(
+        this->GPU,
+        this->pTracker->hIntermediateMem,
+        nullptr);
+
+    vkDestroyBuffer(
+        this->GPU,
+        this->pTracker->hStageBuffer,
+        nullptr);
+
+    vkFreeMemory(
+        this->GPU,
+        this->pTracker->hStageMemory,
+        nullptr);
+
+    vkDeviceWaitIdle(this->GPU);
+    vkDestroyDevice(this->GPU, nullptr);
+};
 
 const VkFence DflHW::Device::GetFence(
                     const uint32_t queueFamilyIndex,
@@ -546,87 +683,67 @@ const VkFence DflHW::Device::GetFence(
         .flags{ VK_FENCE_CREATE_SIGNALED_BIT }
     };
     VkFence fence{ nullptr };
-    VkResult error{ VK_SUCCESS };
-    if ((error = vkCreateFence(
+    if ( vkCreateFence(
             this->GPU,
             &fenceInfo,
             nullptr,
-            &fence)) != VK_SUCCESS) {
+            &fence) != VK_SUCCESS) {
         return nullptr;
     }
-    this->pTracker->Fences.push_back( { fence, queueFamilyIndex, queueIndex } );
+    this->pTracker->Fences.push_back( Fence{
+                                        .hFence{fence}, 
+                                        .QueueFamilyIndex{queueFamilyIndex}, 
+                                        .QueueIndex{queueIndex}});
 
     return fence;
 }
 
-DflHW::Device::Device(const Info& info) 
-: pInfo( new Info(info) ), 
-  pCharacteristics( new Characteristics( 
-                        INT_OrganizeData( info.Session.GetDeviceHandle(info.DeviceIndex) ) ) ),
-  GPU( INT_InitDevice(
-                info.Session.GetInstance(),
-                info.Session.GetDeviceHandle(info.DeviceIndex),
-                info.RenderOptions,
-                info.RenderersNumber,
-                info.SimulationsNumber,
-                this->pCharacteristics->Extensions) ),
-  pTracker( new Tracker() ) 
+const DflHW::Device::Queue DflHW::Device::BorrowQueue(DflHW::Device::Queue::Type type) noexcept 
 {
-     this->pTracker->LeastClaimedQueue.resize(this->GPU.Families.size());
-     this->pTracker->AreFamiliesUsed.resize(this->GPU.Families.size());
-     this->pTracker->UsedLocalMemoryHeaps.resize(this->pCharacteristics->LocalHeaps.size());
-     this->pTracker->UsedSharedMemoryHeaps.resize(this->pCharacteristics->SharedHeaps.size());
+    VkQueue                 queue{ nullptr };
+    uint32_t                familyIndex{ 0 };
+    uint32_t                leastClaims{ 0 };
+    std::optional<uint32_t> queueIndex{ std::nullopt };
 
-     try {
-         this->pTracker->hStageMemory = INT_GetStageMemory(
-                                            this->GPU,
-                                            this->pCharacteristics->LocalHeaps,
-                                            this->pTracker->StageMemorySize,
-                                            this->pTracker->hStageBuffer,
-                                            this->pTracker->pStageMemoryMap,
-                                            this->pTracker->UsedLocalMemoryHeaps);
-     } catch (Dfl::Error::HandleCreation& error) {
-         vkDestroyDevice(
-             this->GPU,
-             nullptr);
-         throw;
-     }
+    while (familyIndex <= this->GPU.Families.size()) 
+    {
+        if (familyIndex == this->GPU.Families.size()) 
+        {
+            familyIndex = 0;
+            continue;
+        }
+
+        if (!(this->GPU.Families[familyIndex].QueueType & type)) 
+        {
+            familyIndex++;
+            continue;
+        }
+
+        auto& totalClaims{ this->pTracker->QueueClaims[familyIndex] };
+        for( uint32_t i{ 0 }; i < totalClaims.size(); i++ )
+        {
+            if (totalClaims[i] == leastClaims)
+            {
+                queueIndex = i;
+                break;
+            }
+        }
+
+        if (!queueIndex.has_value())
+        {
+            leastClaims++;
+            continue;
+        }
+
+        vkGetDeviceQueue(
+            this->GPU,
+            familyIndex,
+            queueIndex.value(),
+            &queue);
+        this->pTracker->QueueClaims[familyIndex][queueIndex.value()]++;
+        break;
+    }
+
+    return { queue, familyIndex, queueIndex.value() };
 }
 
-DflHW::Device::~Device(){
-    INT_GLB_DeviceMutex.lock();
-    for (auto& fence : this->pTracker->Fences) 
-    {
-        if (fence.hFence != nullptr) 
-        {
-            vkDestroyFence(
-                this->GPU,
-                fence,
-                nullptr
-            );
-        }
-    }
-
-    if (this->pTracker->hStageBuffer != nullptr) 
-    {
-        vkDestroyBuffer(
-            this->GPU,
-            this->pTracker->hStageBuffer,
-            nullptr);
-    }
-
-    if (this->pTracker->hStageMemory != nullptr) 
-    {
-        vkFreeMemory(
-            this->GPU,
-            this->pTracker->hStageMemory,
-            nullptr);
-    }
-
-    if ( this->GPU.hDevice != nullptr )
-    {
-        vkDeviceWaitIdle(this->GPU);
-        vkDestroyDevice(this->GPU, nullptr);
-    }
-    INT_GLB_DeviceMutex.unlock();
-};
