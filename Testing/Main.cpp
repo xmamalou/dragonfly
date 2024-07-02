@@ -8,17 +8,17 @@
 #include "../Dragonfly/Dragonfly.hxx"
 
 class Rendering {
-    const Dfl::Hardware::Device& Device;
+    Dfl::Hardware::Device& Device;
 
     std::atomic<bool>            Close{ false };
 public:
-    Rendering(const Dfl::Hardware::Device& device);
+    Rendering(Dfl::Hardware::Device& device);
 
           void operator() ();
     const bool ShouldClose() const noexcept { return this->Close; };
 };
 
-Rendering::Rendering(const Dfl::Hardware::Device& device) : Device(device) {}
+Rendering::Rendering(Dfl::Hardware::Device& device) : Device(device) {}
 
 void Rendering::operator() () 
 {
@@ -89,19 +89,26 @@ int main() {
         };
         Dfl::Memory::Block memory(memoryInfo);
 
-        const Dfl::Memory::Buffer::Info bufferInfo{
+        const Dfl::Memory::GenericBuffer::Info bufferInfo{
             .MemoryBlock{ memory },
             .Size{ Dfl::MakeBinaryPower(10) },
             .Options{ Dfl::NoOptions }
         };
-        Dfl::Memory::Buffer buffer(bufferInfo);
+        Dfl::Memory::GenericBuffer buffer(bufferInfo);
 
         Rendering render(device);
 
         std::thread renderThread(std::ref(render));
 
-        auto test1{ "This is a test. Dragonfly should be able to write this and read it afterwards.." };
-        auto task{ buffer.Write((void*)test1, 80, 0, 0) };
+        struct TestStruct {
+            uint32_t Num1{ 10 };
+            uint32_t Num2{ 10 };
+            uint32_t Num3{ 10 };
+            uint32_t Num4{ 10 };
+            uint32_t Num5{ 10 };
+            uint32_t Num6{ 10 };
+        } test1{ 0, 1, 2, 3, 4, 5 };
+        auto task{ buffer.Write(test1, 0, 8) };
         task.Resume();
 
         while (render.ShouldClose() == false){
@@ -111,13 +118,11 @@ int main() {
 
         renderThread.join();
 
-        auto test2{ new char[80] };
-        auto task2{ buffer.Read((void*) test2, 80, 0) };
+        TestStruct test2{};
+        auto task2{ buffer.Read(test2, 0, 0) };
         task2.Resume();
 
-        std::cout << test2 << "\n";
-
-        delete[] test2;
+        std::cout << test2.Num2 << "\n";
 
         return 0;
     }
