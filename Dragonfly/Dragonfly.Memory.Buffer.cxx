@@ -14,26 +14,27 @@
    limitations under the License.
 */
 
-#include "Dragonfly.hxx"
+#include "Dragonfly.Memory.Buffer.hxx"
+#include <vector>
 
-#include <thread>
+#include "Dragonfly.Memory.Block.hxx"
 
 namespace DflMem = Dfl::Memory;
 namespace DflGen = Dfl::Generics;
 
 static inline VkBuffer INT_GetBuffer(
     const VkDevice&              hGPU,
+    const uint32_t               transferFamilyIndex,
+    const std::vector<uint32_t>& familyIndices,
     const uint64_t&              size,
-    const uint32_t&              flags,
-    const std::vector<uint32_t>& areFamiliesUsed) 
+    const uint32_t&              flags) 
 {
-    std::vector<uint32_t> usedFamilies{ };
-    for (uint32_t i{ 0 }; i < areFamiliesUsed.size(); i++) 
+    std::vector<uint32_t> indices{ familyIndices };
+    if (familyIndices.empty() 
+        || (std::find(familyIndices.begin(), familyIndices.end() + 1,
+            transferFamilyIndex) == familyIndices.end() + 1) )
     {
-        if (areFamiliesUsed[i]) 
-        {
-            usedFamilies.push_back(i);
-        }
+        indices.push_back(transferFamilyIndex);
     }
 
     const VkBufferCreateInfo bufInfo{
@@ -44,9 +45,11 @@ static inline VkBuffer INT_GetBuffer(
         .usage{ VK_BUFFER_USAGE_TRANSFER_SRC_BIT |
                 VK_BUFFER_USAGE_TRANSFER_DST_BIT |
                 flags },
-        .sharingMode{ (usedFamilies.size() <= 1) ? VK_SHARING_MODE_EXCLUSIVE : VK_SHARING_MODE_CONCURRENT },
-        .queueFamilyIndexCount{ static_cast<uint32_t>(usedFamilies.size()) },
-        .pQueueFamilyIndices{ usedFamilies.data() }
+        .sharingMode{ indices.size() == 1
+                       ? VK_SHARING_MODE_EXCLUSIVE 
+                       : VK_SHARING_MODE_CONCURRENT },
+        .queueFamilyIndexCount{ static_cast<uint32_t>(indices.size()) },
+        .pQueueFamilyIndices{ indices.data() }
     };
 
     VkBuffer buff{ nullptr };
@@ -62,6 +65,69 @@ static inline VkBuffer INT_GetBuffer(
     }
 
     return buff;
+}
+
+static inline VkImage INT_GetImage(
+    const VkDevice&              hGPU,
+    const uint32_t               transferFamilyIndex,
+    const std::vector<uint32_t>& familyIndices,
+    const std::array<
+            uint32_t, 3>&        size,
+    const uint32_t&              flags,
+    const uint32_t               mipLevels,
+    const uint32_t               layers,
+    const uint32_t               samples) 
+{
+    std::vector<uint32_t> indices{ familyIndices };
+    if (familyIndices.empty() 
+        || (std::find(familyIndices.begin(), familyIndices.end() + 1,
+            transferFamilyIndex) == familyIndices.end() + 1))
+    {
+        indices.push_back(transferFamilyIndex);
+    }
+
+    const VkImageCreateInfo imgInfo{
+        .sType{ VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO },
+        .pNext{ nullptr },
+        .flags{ 0 },
+        .imageType{ size[1] == 0 
+                    ? VK_IMAGE_TYPE_1D
+                    : ( size[2] == 0
+                        ? VK_IMAGE_TYPE_2D
+                        : VK_IMAGE_TYPE_3D )},
+        .format{ VK_FORMAT_R8G8B8A8_SNORM },
+        .extent{ VkExtent3D{ 
+                    .width{ size[0] },
+                    .height{ size[1] },
+                    .depth{ size[2] } } },
+        .mipLevels{ mipLevels },
+        .arrayLayers{ layers },
+        .samples{ static_cast<VkSampleCountFlagBits>(samples) },
+        .tiling{ VK_IMAGE_TILING_OPTIMAL },
+        .usage{ VK_IMAGE_USAGE_TRANSFER_SRC_BIT |
+                VK_IMAGE_USAGE_TRANSFER_DST_BIT |
+                flags },
+        .sharingMode{ familyIndices.empty()
+                      ? VK_SHARING_MODE_EXCLUSIVE 
+                      : VK_SHARING_MODE_CONCURRENT },
+        .queueFamilyIndexCount{ static_cast<uint32_t>(familyIndices.size()) },
+        .pQueueFamilyIndices{ familyIndices.data() },
+        .initialLayout{ VK_IMAGE_LAYOUT_UNDEFINED }
+    };
+
+    VkImage img{ nullptr };
+    if ( vkCreateImage(
+            hGPU,
+            &imgInfo,
+            nullptr,
+            &img) != VK_SUCCESS ) 
+    {
+        throw Dfl::Error::HandleCreation(
+                L"Unable to create handle for image",
+                L"INT_GetImage");
+    }
+
+    return img;
 }
 
 static inline VkEvent INT_GetEvent(const VkDevice& hGPU) 
@@ -113,43 +179,46 @@ static inline VkCommandBuffer INT_GetCmdBuffer(
     return cmdBuff;
 }
 
-static inline DflMem::Buffer::Handles INT_GetBufferHandles(
-    const VkDevice&              hGPU,
+static inline auto INT_GetBufferHandles(
+    const Dfl::Hardware::Device& gpu,
+    const uint32_t               transferFamilyIndex,
     const VkCommandPool&         hPool,
+    const std::vector<uint32_t>  familyIndices,
     const uint64_t&              size,
     const uint32_t&              flags,
-    const std::vector<uint32_t>& areFamiliesUsed,
     const VkBuffer&              stageBuffer,
     const bool&                  isStageVisible) 
+-> DflMem::Buffer< DflMem::StorageType::Buffer >::Handles
 {
     const VkBuffer buffer{ INT_GetBuffer(
-                                hGPU,
+                                gpu.GetDevice(),
+                                transferFamilyIndex,
+                                familyIndices,
                                 size,
-                                flags,
-                                areFamiliesUsed) };
+                                flags) };
     
     VkEvent event{ nullptr };
     VkCommandBuffer cmdBuffer{ nullptr};
     
     try {
-        event = isStageVisible ? INT_GetEvent(hGPU) : nullptr;
+        event = isStageVisible ? INT_GetEvent(gpu.GetDevice()) : nullptr;
 
         cmdBuffer = INT_GetCmdBuffer(
-                        hGPU,
+                        gpu.GetDevice(),
                         hPool,
                         isStageVisible);
     } catch (Dfl::Error::HandleCreation& e) {
-        vkDeviceWaitIdle(hGPU);
+        vkDeviceWaitIdle(gpu.GetDevice());
         
         vkDestroyBuffer(
-            hGPU,
+            gpu.GetDevice(),
             buffer,
             nullptr);
 
         if (event != nullptr) 
         {
             vkDestroyEvent(
-                hGPU,
+                gpu.GetDevice(),
                 event,
                 nullptr);
         }
@@ -157,10 +226,69 @@ static inline DflMem::Buffer::Handles INT_GetBufferHandles(
         throw;
     }
 
-    return { buffer, event, cmdBuffer };
+    return { buffer,  
+             event, cmdBuffer };
 }
 
-static inline bool INT_RecordWriteCommand(
+static inline auto INT_GetImageHandles(
+    const Dfl::Hardware::Device& gpu,
+    const uint32_t               transferFamilyIndex,
+    const std::vector<uint32_t>  familyIndices,
+    const VkCommandPool&         hPool,
+    const std::array<
+            uint32_t, 3>&        size,
+    const uint32_t&              mipLevels,
+    const uint32_t&              layers,
+    const uint32_t&              samples,
+    const uint32_t&              flags,
+    const VkBuffer&              stageBuffer,
+    const bool&                  isStageVisible)
+-> DflMem::Buffer< DflMem::StorageType::Image >::Handles
+{
+    const VkImage image{ INT_GetImage(
+                                gpu.GetDevice(),
+                                transferFamilyIndex,
+                                familyIndices,
+                                size,
+                                flags,
+                                mipLevels,
+                                layers,
+                                samples) };
+    
+    VkEvent event{ nullptr };
+    VkCommandBuffer cmdBuffer{ nullptr};
+    
+    try {
+        event = isStageVisible ? INT_GetEvent(gpu.GetDevice()) : nullptr;
+
+        cmdBuffer = INT_GetCmdBuffer(
+                        gpu.GetDevice(),
+                        hPool,
+                        isStageVisible);
+    } catch (Dfl::Error::HandleCreation& e) {
+        vkDeviceWaitIdle(gpu.GetDevice());
+        
+        vkDestroyImage(
+            gpu.GetDevice(),
+            image,
+            nullptr);
+
+        if (event != nullptr) 
+        {
+            vkDestroyEvent(
+                gpu.GetDevice(),
+                event,
+                nullptr);
+        }
+
+        throw;
+    }
+
+    return { image, VK_IMAGE_LAYOUT_UNDEFINED,  
+             event, cmdBuffer };
+}
+
+inline bool DflMem::Buffer< DflMem::StorageType::Buffer >::RecordWriteBufferCommand(
     const VkCommandBuffer& cmdBuff,
     const VkBuffer&        stageBuff,
     const VkBuffer&        dstBuff,
@@ -168,7 +296,8 @@ static inline bool INT_RecordWriteCommand(
     const uint64_t         dstSize,
     const void*            pData,
     const uint64_t         sourceSize,
-    const uint64_t         sourceOffset) {
+    const uint64_t         sourceOffset)
+{
     {
         const VkCommandBufferBeginInfo cmdInfo{
             .sType{ VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO },
@@ -187,16 +316,21 @@ static inline bool INT_RecordWriteCommand(
         uint64_t remainingSize{ sourceSize };
         uint64_t currentSourceOffset{ sourceOffset };
         uint64_t currentDstOffset{ dstOffset };
-        while ( remainingSize > 0 && 
-                dstOffset + sizeof(char)*currentDstOffset < dstSize ) {
+        while ( remainingSize > 0
+                && currentDstOffset < dstSize ) 
+        {
             vkCmdUpdateBuffer(
                 cmdBuff,
                 stageBuff,
                 0,
-                remainingSize > DflMem::Block::StageMemorySize ? DflMem::Block::StageMemorySize : remainingSize,
+                remainingSize > DflHW::Device::StageMemory 
+                    ? DflHW::Device::StageMemory 
+                    : remainingSize,
                 &((char*)pData)[currentSourceOffset]);
 
-            currentSourceOffset += (remainingSize > DflMem::Block::StageMemorySize ? DflMem::Block::StageMemorySize : remainingSize)/sizeof(char);
+            currentSourceOffset += (remainingSize > DflHW::Device::StageMemory 
+                                        ? DflHW::Device::StageMemory 
+                                        : remainingSize)/sizeof(char);
 
             const VkBufferMemoryBarrier stageBuffBarrier{
                 .sType{ VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER },
@@ -207,26 +341,25 @@ static inline bool INT_RecordWriteCommand(
                 .dstQueueFamilyIndex{ VK_QUEUE_FAMILY_IGNORED },
                 .buffer{ stageBuff },
                 .offset{ 0 },
-                .size{ remainingSize > DflMem::Block::StageMemorySize ? DflMem::Block::StageMemorySize : remainingSize }
+                .size{ remainingSize > DflHW::Device::StageMemory 
+                            ? DflHW::Device::StageMemory
+                            : remainingSize }
             };
             vkCmdPipelineBarrier(
                 cmdBuff,
                 VK_PIPELINE_STAGE_TRANSFER_BIT,
                 VK_PIPELINE_STAGE_TRANSFER_BIT,
                 0,
-                0,
-                nullptr,
-                1,
-                &stageBuffBarrier,
-                0,
-                nullptr);
+                0, nullptr,
+                1, &stageBuffBarrier,
+                0, nullptr);
 
             const VkBufferCopy copyRegion{
                 .srcOffset{ 0 },
-                .dstOffset{ dstOffset + sizeof(char)*currentDstOffset },
-                .size{ DflMem::Block::StageMemorySize > dstSize - sizeof(char) * currentDstOffset ?
-                                                           dstSize - sizeof(char) * currentDstOffset
-                                                         : DflMem::Block::StageMemorySize }
+                .dstOffset{ sizeof(char)*currentDstOffset },
+                .size{ DflHW::Device::StageMemory > dstSize - sizeof(char) * currentDstOffset
+                        ? dstSize - sizeof(char) * currentDstOffset
+                        : DflHW::Device::StageMemory }
             };
             vkCmdCopyBuffer(
                 cmdBuff,
@@ -235,12 +368,10 @@ static inline bool INT_RecordWriteCommand(
                 1,
                 &copyRegion);
 
-            remainingSize = remainingSize > dstSize - sizeof(char) * currentDstOffset ?
-                                0
-                                : (remainingSize > DflMem::Block::StageMemorySize ?
-                                    remainingSize - DflMem::Block::StageMemorySize
-                                    : 0);
             currentDstOffset += copyRegion.size/sizeof(char);
+            remainingSize -= remainingSize > DflHW::Device::StageMemory
+                                ? DflHW::Device::StageMemory
+                                : remainingSize;
         }
     }
 
@@ -252,13 +383,14 @@ static inline bool INT_RecordWriteCommand(
     return VK_SUCCESS;
 }
 
-static inline bool INT_RecordReadCommand(
+inline bool DflMem::Buffer< DflMem::StorageType::Buffer >::RecordReadBufferCommand(
     const VkCommandBuffer& cmdBuff,
     const VkEvent&         transferEvent,
     const VkBuffer&        stageBuff,
     const VkBuffer&        sourceBuff,
     const uint64_t         sourceSize,
-    const uint64_t         sourceOffset) {
+    const uint64_t         sourceOffset)
+{
     {
         const VkCommandBufferBeginInfo cmdInfo{
             .sType{ VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO },
@@ -275,7 +407,7 @@ static inline bool INT_RecordReadCommand(
 
     {
         uint64_t currentSourceOffset{ sourceOffset };
-        while (sourceOffset + sizeof(char) * currentSourceOffset < sourceSize) {
+        while ( sizeof(char) * currentSourceOffset < sourceSize ) {
             const VkBufferMemoryBarrier cpuCopyFromStageBarrier{
                 .sType{ VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER },
                 .pNext{ nullptr },
@@ -285,7 +417,7 @@ static inline bool INT_RecordReadCommand(
                 .dstQueueFamilyIndex{ VK_QUEUE_FAMILY_IGNORED },
                 .buffer{ stageBuff },
                 .offset{ 0 },
-                .size{ DflMem::Block::StageMemorySize }
+                .size{  DflHW::Device::StageMemory }
             };
             vkCmdWaitEvents(
                 cmdBuff,
@@ -293,19 +425,16 @@ static inline bool INT_RecordReadCommand(
                 &transferEvent,
                 VK_PIPELINE_STAGE_HOST_BIT,
                 VK_PIPELINE_STAGE_TRANSFER_BIT,
-                0,
-                nullptr,
-                1,
-                &cpuCopyFromStageBarrier,
-                0,
-                nullptr);
+                0, nullptr,
+                1, &cpuCopyFromStageBarrier,
+                0, nullptr);
 
             const VkBufferCopy copyRegion{
                 .srcOffset{ currentSourceOffset },
                 .dstOffset{ 0 },
-                .size{ DflMem::Block::StageMemorySize > sourceSize - sizeof(char) * currentSourceOffset ?
-                                                           sourceSize - sizeof(char) * currentSourceOffset
-                                                         : DflMem::Block::StageMemorySize }
+                .size{  DflHW::Device::StageMemory > sourceSize - sizeof(char) * currentSourceOffset
+                        ? sourceSize - sizeof(char) * currentSourceOffset
+                        : DflHW::Device::StageMemory }
             };
             vkCmdCopyBuffer(
                 cmdBuff,
@@ -331,16 +460,17 @@ static inline bool INT_RecordReadCommand(
     return VK_SUCCESS;
 }
 
-DflMem::Buffer::Buffer(const Info& info)
+DflMem::Buffer< DflMem::StorageType::Buffer >::Buffer(const Info& info)
 : pInfo( new Info(info) ),
   Buffers( INT_GetBufferHandles(
-                info.MemoryBlock.GetDevice().GetDevice(),
+                info.MemoryBlock.GetDevice(),
+                info.MemoryBlock.GetQueue().FamilyIndex,
                 info.MemoryBlock.GetCmdPool(),
+                info.AccessingQueueFamilies,
                 info.Size,
                 info.Options.GetValue(),
-                info.MemoryBlock.GetDevice().GetTracker().AreFamiliesUsed,
-                info.MemoryBlock.GetDevice().GetTracker().hStageBuffer,
-                info.MemoryBlock.GetDevice().GetTracker().pStageMemoryMap == nullptr ?
+                info.MemoryBlock.GetDevice().GetStageBuffer(),
+                info.MemoryBlock.GetDevice().GetStageMap() == nullptr ?
                     false :
                     true) ),
   MemoryLayoutID( this->pInfo->MemoryBlock.Alloc(this->Buffers.hBuffer).value() ),
@@ -348,187 +478,405 @@ DflMem::Buffer::Buffer(const Info& info)
                             this->pInfo->MemoryBlock.GetQueue().FamilyIndex,
                             this->pInfo->MemoryBlock.GetQueue().Index)) {}
 
-DflMem::Buffer::~Buffer() {
+DflMem::Buffer< DflMem::StorageType::Buffer >::~Buffer() {
     vkDeviceWaitIdle(this->pInfo->MemoryBlock.GetDevice().GetDevice());
 
-    if (this->Buffers.hTransferCmdBuff != nullptr) {
-        vkFreeCommandBuffers(
-            this->pInfo->MemoryBlock.GetDevice().GetDevice(),
-            this->pInfo->MemoryBlock.GetCmdPool(),
-            1,
-            &this->Buffers.hTransferCmdBuff);
-    }
+    vkFreeCommandBuffers(
+        this->pInfo->MemoryBlock.GetDevice().GetDevice(),
+        this->pInfo->MemoryBlock.GetCmdPool(),
+        1,
+        &this->Buffers.hTransferCmdBuff);
 
-    if (this->Buffers.hCPUTransferDone != nullptr) {
-        vkDestroyEvent(
-            this->pInfo->MemoryBlock.GetDevice().GetDevice(),
-            this->Buffers.hCPUTransferDone,
-            nullptr);
-    }
+    vkDestroyEvent(
+        this->pInfo->MemoryBlock.GetDevice().GetDevice(),
+        this->Buffers.hCPUTransferDone,
+        nullptr);
 
-    this->pInfo->MemoryBlock.Free(this->MemoryLayoutID, this->pInfo->Size);
+    this->pInfo->MemoryBlock.Free(this->MemoryLayoutID, this->Buffers.hBuffer);
 
-    if (this->Buffers.hBuffer != nullptr) {
-        vkDestroyBuffer(
-            this->pInfo->MemoryBlock.GetDevice().GetDevice(),
-            this->Buffers.hBuffer,
-            nullptr);
-    }
+    vkDestroyBuffer(
+        this->pInfo->MemoryBlock.GetDevice().GetDevice(),
+        this->Buffers.hBuffer,
+        nullptr);
 }
 
-auto DflMem::Buffer::Write(
-                    const void*    pData,
-                    const uint64_t sourceSize,
-                    const uint64_t sourceOffset,
-                    const uint64_t dstOffset) const noexcept 
--> const DflGen::Job<Error>
+inline bool DflMem::Buffer< DflMem::StorageType::Image >::RecordWriteImageCommand(
+    const VkCommandBuffer&         cmdBuff,
+    const VkBuffer&                stageBuff,
+    const VkBuffer&                intermBuff,
+    const VkImage&                 dstImage,
+    const uint32_t                 dstMipLevels,
+    const Dfl::Generics::BitFlag&  dstAspectFlag,
+    const uint32_t                 dstArrayLayer,
+    const std::array<int32_t, 3>&  dstOffset,
+    const std::array<uint32_t, 3>& dstSize,
+    const VkFilter                 dstFilter,
+    const void*                    pData,
+    const uint64_t                 sourceSize,
+    const uint64_t                 sourceOffset)
 {
-    const VkDevice& device = this->pInfo->MemoryBlock.GetDevice().GetDevice();
+    {
+        const VkCommandBufferBeginInfo cmdInfo{
+            .sType{ VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO },
+            .pNext{ nullptr },
+            .flags{ 0 },
+            .pInheritanceInfo{ nullptr }
+        };
+        if (vkBeginCommandBuffer(
+                cmdBuff,
+                &cmdInfo) != VK_SUCCESS) {
+            return !VK_SUCCESS;
+        }
+    }
     
-    if( INT_RecordWriteCommand(
-            this->Buffers.hTransferCmdBuff,
-            this->pInfo->MemoryBlock.GetDevice().GetTracker().hStageBuffer,
-            this->Buffers.hBuffer,
-            dstOffset,
-            this->pInfo->Size,
-            pData,
-            sourceSize,
-            sourceOffset) != VK_SUCCESS ) {
-        co_return Error::RecordError;      
-    };
+    // first, we copy to the intermediate buffer
+    // and then we copy to the image
+    {
+        uint64_t remainingSize{ dstSize[0] *
+                                (dstSize[1] == 0 ? 1 : dstSize[1]) *
+                                (dstSize[2] == 0 ? 1 : dstSize[2]) };
+        uint64_t currentSourceOffset{ sourceOffset };
+        uint64_t currentOffset{ 0 };
+        while ( remainingSize > 0 
+                && sizeof(char) * currentOffset < Dfl::Hardware::Device::IntermediateMemory)
+        {
+            vkCmdUpdateBuffer(
+                cmdBuff,
+                stageBuff,
+                0,
+                remainingSize > DflHW::Device::StageMemory 
+                    ? DflHW::Device::StageMemory 
+                    : remainingSize,
+                &((char*)pData)[currentSourceOffset]);
 
-    VkSubmitInfo subInfo{
-        .sType{ VK_STRUCTURE_TYPE_SUBMIT_INFO },
-        .pNext{ nullptr },
-        .waitSemaphoreCount{ 0 },
-        .pWaitSemaphores{ nullptr },
-        .pWaitDstStageMask{ nullptr },
-        .commandBufferCount{ 1 },
-        .pCommandBuffers{ &this->Buffers.hTransferCmdBuff },
-        .signalSemaphoreCount{ 0 },
-        .pSignalSemaphores{ nullptr }
-    };
+            currentSourceOffset += (remainingSize > DflHW::Device::StageMemory 
+                                        ? DflHW::Device::StageMemory 
+                                        : remainingSize)/sizeof(char);
 
-    co_await DflGen::Job<Error>::Awaitable(
-                device,
-                this->QueueAvailableFence);
+            const VkBufferMemoryBarrier stageBuffBarrier{
+                .sType{ VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER },
+                .pNext{ nullptr },
+                .srcAccessMask{ VK_ACCESS_TRANSFER_WRITE_BIT },
+                .dstAccessMask{ VK_ACCESS_TRANSFER_READ_BIT },
+                .srcQueueFamilyIndex{ VK_QUEUE_FAMILY_IGNORED },
+                .dstQueueFamilyIndex{ VK_QUEUE_FAMILY_IGNORED },
+                .buffer{ stageBuff },
+                .offset{ 0 },
+                .size{ remainingSize > DflHW::Device::StageMemory 
+                            ? DflHW::Device::StageMemory
+                            : remainingSize }
+            };
+            vkCmdPipelineBarrier(
+                cmdBuff,
+                VK_PIPELINE_STAGE_TRANSFER_BIT,
+                VK_PIPELINE_STAGE_TRANSFER_BIT,
+                0,
+                0,
+                nullptr,
+                1,
+                &stageBuffBarrier,
+                0,
+                nullptr);
 
-    vkResetFences(
-        device,
-        1,
-        &this->QueueAvailableFence);
+            const VkBufferCopy copyRegion{
+                .srcOffset{ 0 },
+                .dstOffset{ sizeof(char)*currentOffset },
+                .size{ DflHW::Device::StageMemory > DflHW::Device::IntermediateMemory - sizeof(char) * currentOffset
+                        ? DflHW::Device::IntermediateMemory - sizeof(char) * currentOffset
+                        : DflHW::Device::StageMemory }
+            };
+            vkCmdCopyBuffer(
+                cmdBuff,
+                stageBuff,
+                intermBuff,
+                1,
+                &copyRegion);
 
-    if (vkQueueSubmit(
-            this->pInfo->MemoryBlock.GetQueue(),
+            remainingSize -= remainingSize > DflHW::Device::StageMemory 
+                                    ? DflHW::Device::StageMemory
+                                    : remainingSize;
+            currentOffset += copyRegion.size/sizeof(char);
+        }
+
+        const VkBufferMemoryBarrier intermBuffBarrier{
+                .sType{ VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER },
+                .pNext{ nullptr },
+                .srcAccessMask{ VK_ACCESS_TRANSFER_WRITE_BIT },
+                .dstAccessMask{ VK_ACCESS_TRANSFER_READ_BIT },
+                .srcQueueFamilyIndex{ VK_QUEUE_FAMILY_IGNORED },
+                .dstQueueFamilyIndex{ VK_QUEUE_FAMILY_IGNORED },
+                .buffer{ intermBuff },
+                .offset{ 0 },
+                .size{ dstSize[0] *
+                       (dstSize[1] == 0 ? 1 : dstSize[1]) *
+                       (dstSize[2] == 0 ? 1 : dstSize[2]) }
+        };
+        vkCmdPipelineBarrier(
+            cmdBuff,
+            VK_PIPELINE_STAGE_TRANSFER_BIT,
+            VK_PIPELINE_STAGE_TRANSFER_BIT,
+            0,
+            0,
+            nullptr,
             1,
-            &subInfo,
-            this->QueueAvailableFence) != VK_SUCCESS) {
-        co_return Error::WriteError;
+            &intermBuffBarrier,
+            0,
+            nullptr);
+
+        const VkBufferImageCopy copyRegion{
+            .bufferRowLength{ 0 },
+            .bufferImageHeight{ 0 },
+            .bufferOffset{ 0 },
+            .imageSubresource{
+                .aspectMask{ dstAspectFlag.GetValue() },
+                .mipLevel{ 0 },
+                .baseArrayLayer{ dstArrayLayer },
+                .layerCount{ 1 } },
+            .imageOffset{ VkOffset3D{ dstOffset[0], dstOffset[1], dstOffset[2] } },
+            .imageExtent{ VkExtent3D{ dstSize[0], dstSize[1], dstSize[2] } }
+        };
+        vkCmdCopyBufferToImage(
+            cmdBuff,
+            intermBuff,
+            dstImage,
+            VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+            1,
+            &copyRegion);
     }
 
-    co_await DflGen::Job<Error>::Awaitable(
-        device,
-        this->QueueAvailableFence);
-
-    while (vkGetFenceStatus(device, this->QueueAvailableFence) != VK_SUCCESS) { 
-        std::this_thread::sleep_for(std::chrono::nanoseconds(10)); 
+    // we then create mips of the copied data
+    for( uint32_t i{ 1 }; i < dstMipLevels; i++)
+    { 
+        const VkImageMemoryBarrier imageBarrier{
+            .sType{ VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER },
+            .pNext{ nullptr },
+            .srcAccessMask{ VK_ACCESS_TRANSFER_WRITE_BIT },
+            .dstAccessMask{ VK_ACCESS_TRANSFER_READ_BIT },
+            .oldLayout{ VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL },
+            .newLayout{ VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL },
+            .srcQueueFamilyIndex{ VK_QUEUE_FAMILY_IGNORED },
+            .dstQueueFamilyIndex{ VK_QUEUE_FAMILY_IGNORED },
+            .image{ dstImage },
+            .subresourceRange{
+                .aspectMask{ dstAspectFlag.GetValue() },
+                .baseMipLevel{ i - 1 },
+                .levelCount{ 1 },
+                .baseArrayLayer{ dstArrayLayer },
+                .layerCount{ 1 } },
+        };
+        vkCmdPipelineBarrier(
+            cmdBuff,
+            VK_PIPELINE_STAGE_TRANSFER_BIT,
+            VK_PIPELINE_STAGE_TRANSFER_BIT,
+            0,
+            0, nullptr,
+            0, nullptr,
+            1, &imageBarrier );
+            
+        const VkImageBlit imgBlit{
+            .srcSubresource{
+                .aspectMask{ dstAspectFlag.GetValue() },
+                .mipLevel{ i - 1 },
+                .baseArrayLayer{ dstArrayLayer },
+                .layerCount{ 1 }},
+            .srcOffsets{
+                VkOffset3D{ 0, 0, 0 },
+                VkOffset3D{ static_cast<int>(dstSize[0] >> (i - 1)),
+                            dstSize[1] == 0 ? 0 : static_cast<int>(dstSize[1] >> (i - 1)),
+                            dstSize[2] == 0 ? 0 : static_cast<int>(dstSize[2] >> (i - 1)) }},
+            .dstSubresource{
+                .aspectMask{ dstAspectFlag.GetValue() },
+                .mipLevel{ i },
+                .baseArrayLayer{ dstArrayLayer },
+                .layerCount{ 1 }},
+            .dstOffsets{
+                VkOffset3D{ 0, 0, 0 },
+                VkOffset3D{ static_cast<int>(dstSize[0] >> i),
+                            dstSize[1] == 0 ? 0 : static_cast<int>(dstSize[1] >> i),
+                            dstSize[2] == 0 ? 0 : static_cast<int>(dstSize[2] >> i) } }};
+        vkCmdBlitImage(
+            cmdBuff,
+            dstImage, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+            dstImage, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+            1, &imgBlit,
+            dstFilter);
     }
-    vkResetCommandBuffer(
-        this->Buffers.hTransferCmdBuff,
-        0);
 
-    co_return Error::Success;
+    if (vkEndCommandBuffer(
+            cmdBuff) != VK_SUCCESS) 
+    {
+        return !VK_SUCCESS;
+    }
+
+    return VK_SUCCESS;
 }
 
-auto DflMem::Buffer::Read(
-                      void*     pDestination,
-                const uint64_t& dstSize,
-                const uint64_t& sourceOffset) const noexcept 
--> const DflGen::Job<Error>
+inline bool DflMem::Buffer< DflMem::StorageType::Image >::RecordReadImageCommand(
+    const VkCommandBuffer&         cmdBuff,
+    const VkEvent&                 transferEvent,
+    const VkBuffer&                stageBuff,
+    const VkBuffer&                intermBuff,
+    const VkImage&                 sourceImage,
+    const std::array<
+            uint32_t, 3>&          sourceSize,
+    const std::array<
+            int32_t, 3>&           sourceOffset,
+    const Dfl::Generics::BitFlag&  sourceAspectFlag,
+    const uint32_t                 sourceArrayLayer)
 {
-    const DflHW::Device& gpu{ this->pInfo->MemoryBlock.GetDevice() };
-
-    if (!gpu.pTracker->pStageMemoryMap) [[ unlikely ]] 
     {
-        co_return Error::UnreadableError;
-    }
-
-    if( INT_RecordReadCommand(
-            this->Buffers.hTransferCmdBuff,
-            this->Buffers.hCPUTransferDone,
-            gpu.pTracker->hStageBuffer,
-            this->Buffers.hBuffer,
-            this->pInfo->Size,
-            sourceOffset) != VK_SUCCESS ) {
-        co_return Error::RecordError;
-    }
-
-    VkSubmitInfo subInfo{
-        .sType{ VK_STRUCTURE_TYPE_SUBMIT_INFO },
-        .pNext{ nullptr },
-        .waitSemaphoreCount{ 0 },
-        .pWaitSemaphores{ nullptr },
-        .pWaitDstStageMask{ nullptr },
-        .commandBufferCount{ 1 },
-        .pCommandBuffers{ &this->Buffers.hTransferCmdBuff },
-        .signalSemaphoreCount{ 0 },
-        .pSignalSemaphores{ nullptr }
-    };
-
-    co_await DflGen::Job<Error>::Awaitable(
-        gpu.GPU,
-        this->QueueAvailableFence);
-
-    vkResetFences(
-        gpu.GPU,
-        1,
-        &this->QueueAvailableFence);
-
-    if (vkQueueSubmit(
-            this->pInfo->MemoryBlock.GetQueue(),
-            1,
-            &subInfo,
-            this->QueueAvailableFence) != VK_SUCCESS) 
-    {
-        co_return Error::ReadError;
-    }
-
-    if (vkSetEvent(
-            gpu.GPU,
-            this->Buffers.hCPUTransferDone) != VK_SUCCESS) 
-    {
-        co_return Error::EventSetError;
-    }
-
-    {
-        auto& stageMap{ gpu.pTracker->pStageMemoryMap };
-        auto& stageSize{ Dfl::Memory::Block::StageMemorySize };
-
-        uint64_t remainingSize{ dstSize };
-        uint64_t currentOffset{ 0 };
-        while (remainingSize > 0) 
-        {
-            while (vkGetEventStatus(
-                        gpu.GPU,
-                        this->Buffers.hCPUTransferDone) != VK_EVENT_SET) 
-            {
-                std::this_thread::sleep_for(std::chrono::milliseconds(10));
-            }
-            memcpy_s(
-                pDestination,
-                remainingSize > stageSize ? stageSize : remainingSize,
-                stageMap,
-                remainingSize > stageSize ? stageSize : remainingSize);
-            if (vkSetEvent(
-                    gpu.GPU,
-                    this->Buffers.hCPUTransferDone) != VK_SUCCESS) 
-            {
-                co_return Error::EventSetError;
-            }
-            remainingSize -= remainingSize > stageSize ? stageSize : remainingSize;
-            currentOffset += (remainingSize > stageSize ? stageSize : remainingSize)/sizeof(char);
+        const VkCommandBufferBeginInfo cmdInfo{
+            .sType{ VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO },
+            .pNext{ nullptr },
+            .flags{ 0 },
+            .pInheritanceInfo{ nullptr }
+        };
+        if (vkBeginCommandBuffer(
+                cmdBuff,
+                &cmdInfo) != VK_SUCCESS) {
+            return !VK_SUCCESS;
         }
     }
 
-    co_return Error::Success;
+    {
+        const VkBufferImageCopy copyRegion{
+            .bufferRowLength{ 0 },
+            .bufferImageHeight{ 0 },
+            .bufferOffset{ 0 },
+            .imageSubresource{
+                .aspectMask{ sourceAspectFlag.GetValue() },
+                .mipLevel{ 0 },
+                .baseArrayLayer{ sourceArrayLayer },
+                .layerCount{ 1 } },
+            .imageOffset{ VkOffset3D{ sourceOffset[0], sourceOffset[1], sourceOffset[2] } },
+            .imageExtent{ VkExtent3D{ sourceSize[0], sourceSize[1], sourceSize[2] } }
+        };
+        vkCmdCopyImageToBuffer(
+            cmdBuff,
+            sourceImage, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+            intermBuff,
+            1, &copyRegion);
+
+        const VkBufferMemoryBarrier intermBuffBarrier{
+                .sType{ VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER },
+                .pNext{ nullptr },
+                .srcAccessMask{ VK_ACCESS_TRANSFER_WRITE_BIT },
+                .dstAccessMask{ VK_ACCESS_TRANSFER_READ_BIT },
+                .srcQueueFamilyIndex{ VK_QUEUE_FAMILY_IGNORED },
+                .dstQueueFamilyIndex{ VK_QUEUE_FAMILY_IGNORED },
+                .buffer{ intermBuff },
+                .offset{ 0 },
+                .size{ sourceSize[0] *
+                       (sourceSize[1] == 0 ? 1 : sourceSize[1]) *
+                       (sourceSize[2] == 0 ? 1 : sourceSize[2]) }
+        };
+        vkCmdPipelineBarrier(
+            cmdBuff,
+            VK_PIPELINE_STAGE_TRANSFER_BIT,
+            VK_PIPELINE_STAGE_TRANSFER_BIT,
+            0,
+            0, nullptr,
+            1, &intermBuffBarrier,
+            0, nullptr);
+
+        uint32_t currentOffset{ 0 };
+        while (sizeof(char) * currentOffset < sourceSize[0] *
+                                               (sourceSize[1] == 0 ? 1 : sourceSize[1]) *
+                                               (sourceSize[2] == 0 ? 1 : sourceSize[2])) {
+            const VkBufferMemoryBarrier cpuCopyFromStageBarrier{
+                .sType{ VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER },
+                .pNext{ nullptr },
+                .srcAccessMask{ VK_ACCESS_HOST_READ_BIT },
+                .dstAccessMask{ VK_ACCESS_TRANSFER_WRITE_BIT },
+                .srcQueueFamilyIndex{ VK_QUEUE_FAMILY_IGNORED },
+                .dstQueueFamilyIndex{ VK_QUEUE_FAMILY_IGNORED },
+                .buffer{ stageBuff },
+                .offset{ 0 },
+                .size{  DflHW::Device::StageMemory }
+            };
+            vkCmdWaitEvents(
+                cmdBuff,
+                1,
+                &transferEvent,
+                VK_PIPELINE_STAGE_HOST_BIT,
+                VK_PIPELINE_STAGE_TRANSFER_BIT,
+                0,
+                nullptr,
+                1,
+                &cpuCopyFromStageBarrier,
+                0,
+                nullptr);
+
+            const VkBufferCopy copyRegion{
+                .srcOffset{ currentOffset },
+                .dstOffset{ 0 },
+                .size{  DflHW::Device::StageMemory > DflHW::Device::IntermediateMemory - sizeof(char) * currentOffset
+                        ? DflHW::Device::IntermediateMemory - sizeof(char) * currentOffset
+                        : DflHW::Device::StageMemory }
+            };
+            vkCmdCopyBuffer(
+                cmdBuff,
+                intermBuff,
+                stageBuff,
+                1,
+                &copyRegion);
+
+            currentOffset += copyRegion.size/sizeof(char);
+
+            vkCmdSetEvent(
+                cmdBuff,
+                transferEvent,
+                VK_PIPELINE_STAGE_TRANSFER_BIT);
+        }
+    }
+
+    if (vkEndCommandBuffer(
+            cmdBuff) != VK_SUCCESS) {
+        return !VK_SUCCESS;
+    }
+
+    return VK_SUCCESS;
+}
+
+DflMem::Buffer< DflMem::StorageType::Image >::Buffer(const Info& info)
+: pInfo( new Info(info) ),
+  Buffers( INT_GetImageHandles(
+                info.MemoryBlock.GetDevice(),
+                info.MemoryBlock.GetQueue().FamilyIndex,
+                info.AccessingQueues,
+                info.MemoryBlock.GetCmdPool(),
+                info.Size,
+                info.MipLevels,
+                info.Layers,
+                info.Samples,
+                info.Options.GetValue(),
+                info.MemoryBlock.GetDevice().GetStageBuffer(),
+                info.MemoryBlock.GetDevice().GetStageMap() == nullptr ?
+                    false :
+                    true) ),
+  MemoryLayoutID( this->pInfo->MemoryBlock.Alloc(this->Buffers.hImage).value() ),
+  QueueAvailableFence( this->pInfo->MemoryBlock.GetDevice().GetFence(
+                            this->pInfo->MemoryBlock.GetQueue().FamilyIndex,
+                            this->pInfo->MemoryBlock.GetQueue().Index)) {}
+
+DflMem::Buffer< DflMem::StorageType::Image >::~Buffer() {
+    vkDeviceWaitIdle(this->pInfo->MemoryBlock.GetDevice().GetDevice());
+
+    vkFreeCommandBuffers(
+        this->pInfo->MemoryBlock.GetDevice().GetDevice(),
+        this->pInfo->MemoryBlock.GetCmdPool(),
+        1,
+        &this->Buffers.hTransferCmdBuff);
+
+    vkDestroyEvent(
+        this->pInfo->MemoryBlock.GetDevice().GetDevice(),
+        this->Buffers.hCPUTransferDone,
+        nullptr);
+
+    this->pInfo->MemoryBlock.Free(this->MemoryLayoutID, this->Buffers.hImage);
+
+    vkDestroyImage(
+        this->pInfo->MemoryBlock.GetDevice().GetDevice(),
+        this->Buffers.hImage,
+        nullptr);
 }
