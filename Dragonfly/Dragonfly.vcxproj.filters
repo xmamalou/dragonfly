@@ -34,6 +34,18 @@
     <Filter Include="Source Files\Dragonfly\UI">
       <UniqueIdentifier>{9fe1527d-f52b-4065-90be-2074b0e1269a}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Header Files\Hardware">
+      <UniqueIdentifier>{cc88f051-527c-49d1-b283-894be03cb872}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\Memory">
+      <UniqueIdentifier>{4ccca678-77d3-426b-941d-a993121a6d36}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\Graphics">
+      <UniqueIdentifier>{3a604282-ad62-40b6-9d45-d2222e530def}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\UI">
+      <UniqueIdentifier>{1ecdb126-5713-4b51-b79d-3ab38ac8583c}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Dragonfly.Hardware.Session.cxx">
@@ -59,10 +71,40 @@
     <ClInclude Include="Dragonfly.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="DflWinRT.h">
+    <ClInclude Include="Dragonfly.hxx">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="Dragonfly.hxx">
+    <ClInclude Include="Dragonfly.Generics.hxx">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Dragonfly.Error.hxx">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Dragonfly.Hardware.Device.hxx">
+      <Filter>Header Files\Hardware</Filter>
+    </ClInclude>
+    <ClInclude Include="Dragonfly.Hardware.Session.hxx">
+      <Filter>Header Files\Hardware</Filter>
+    </ClInclude>
+    <ClInclude Include="Dragonfly.Memory.Block.hxx">
+      <Filter>Header Files\Memory</Filter>
+    </ClInclude>
+    <ClInclude Include="Dragonfly.Memory.Buffer.hxx">
+      <Filter>Header Files\Memory</Filter>
+    </ClInclude>
+    <ClInclude Include="Dragonfly.Graphics.Renderer.hxx">
+      <Filter>Header Files\Graphics</Filter>
+    </ClInclude>
+    <ClInclude Include="Dragonfly.UI.Window.hxx">
+      <Filter>Header Files\UI</Filter>
+    </ClInclude>
+    <ClInclude Include="Dragonfly.Graphics.Object.hxx">
+      <Filter>Header Files\Graphics</Filter>
+    </ClInclude>
+    <ClInclude Include="Dragonfly.Graphics.VertexPool.hxx">
+      <Filter>Header Files\Graphics</Filter>
+    </ClInclude>
+    <ClInclude Include="Dragonfly.Math.hxx">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

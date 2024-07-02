@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="Debug|Win32">
@@ -116,7 +116,7 @@
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <AdditionalLibraryDirectories>$(VULKAN_SDK)\Lib;$(SolutionDir)x64\Debug;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>vulkan-1.lib;dwmapi.lib;powrprof.lib;Debugging.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>vulkan-1.lib;dwmapi.lib;powrprof.lib;WinRT.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -142,7 +142,7 @@
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <AdditionalLibraryDirectories>$(VULKAN_SDK)\Lib;$(SolutionDir)x64\Release;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>vulkan-1.lib;dwmapi.lib;powrprof.lib;Debugging.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>vulkan-1.lib;dwmapi.lib;powrprof.lib;WinRT.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
@@ -156,9 +156,19 @@
     <ClCompile Include="Dragonfly.UI.Window.cxx" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="DflWinRT.h" />
+    <ClInclude Include="Dragonfly.Graphics.Object.hxx" />
+    <ClInclude Include="Dragonfly.Graphics.VertexPool.hxx" />
+    <ClInclude Include="Dragonfly.Math.hxx" />
+    <ClInclude Include="Dragonfly.Memory.Block.hxx" />
+    <ClInclude Include="Dragonfly.Memory.Buffer.hxx" />
+    <ClInclude Include="Dragonfly.Hardware.Device.hxx" />
+    <ClInclude Include="Dragonfly.Error.hxx" />
+    <ClInclude Include="Dragonfly.Generics.hxx" />
     <ClInclude Include="Dragonfly.h" />
     <ClInclude Include="Dragonfly.hxx" />
+    <ClInclude Include="Dragonfly.Graphics.Renderer.hxx" />
+    <ClInclude Include="Dragonfly.Hardware.Session.hxx" />
+    <ClInclude Include="Dragonfly.UI.Window.hxx" />
   </ItemGroup>
   <ItemGroup>
     <FxCompile Include="Shaders\TestFragShader.glsl">
