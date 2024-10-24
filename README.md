@@ -1,7 +1,7 @@
 # Dragonfly
 
 >[!WARNING]
-> Dragonfly is frozen in development! It may resume development in the future under a new goal, but currently it's not being worked on.
+> Dragonfly is frozen in development! It may resume development in the future under a new goal, but currently it's not being worked on. See reason why [here](https://cyber-mantid.xyz/#/blog_post/future_of_dragonfly)
 
 ## About the project (see warning above)
 
